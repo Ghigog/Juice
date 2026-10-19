@@ -25,6 +25,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
+        // Guide to the overlay settings once on first run; afterwards the on-screen button does it.
+        if (savedInstanceState == null && !OverlayPermission.isGranted(this)) {
+            startActivity(OverlayPermission.settingsIntent(this))
+        }
         setContent {
             MaterialTheme {
                 Column(Modifier.padding(24.dp)) {
@@ -45,6 +49,5 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         overlayGranted = OverlayPermission.isGranted(this)
         if (overlayGranted) OverlayService.start(this)
-        else startActivity(OverlayPermission.settingsIntent(this))
     }
 }
