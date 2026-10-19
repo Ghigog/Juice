@@ -1,20 +1,13 @@
 plugins {
-    kotlin("jvm") version "2.1.20"
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
-    testImplementation(kotlin("test"))
+    alias(libs.plugins.kotlin.jvm)
 }
 
 kotlin {
     jvmToolchain(17)
 }
 
-tasks.test {
-    useJUnitPlatform()
+dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    testImplementation(libs.junit)
+    testImplementation(kotlin("test"))
 }
