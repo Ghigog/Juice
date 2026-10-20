@@ -43,7 +43,7 @@ class OverlayShellState(
     fun undoLast() {
         val pending = undo ?: return
         undo = null
-        items = (items + pending.item).sortedBy { order[it.id] }
+        items = (items + pending.item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
         scope.launch { repository.save(pending.item) }
     }
 
