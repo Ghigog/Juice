@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import com.juice.R
+import com.juice.ui.reservoir.ThirstReservoirView
 
 /** Foreground service owning the trigger strip window and the full-screen overlay window. */
 class OverlayService : Service() {
@@ -100,6 +101,13 @@ class OverlayService : Service() {
         val root = FrameLayout(this).apply {
             setBackgroundColor(SCRIM_COLOR)
             addView(
+                ThirstReservoirView(context).apply { fill = PLACEHOLDER_FILL },
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            addView(
                 Button(context).apply {
                     setText(R.string.overlay_close)
                     setOnClickListener { closeOverlay() }
@@ -137,6 +145,7 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val STRIP_WIDTH_FRACTION = 0.3f
         private const val STRIP_HEIGHT_DP = 24
+        private const val PLACEHOLDER_FILL = 0.5f // until the Thirst Meter is persisted
         private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
         private val SCRIM_COLOR = Color.argb(200, 0, 0, 0)
 
