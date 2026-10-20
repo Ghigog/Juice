@@ -21,6 +21,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("GROQ_API_KEY", "")}\"")
     }
 
@@ -54,6 +55,11 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    debugImplementation(platform(libs.androidx.compose.bom))
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.14.1")
