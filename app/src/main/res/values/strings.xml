@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="overlay_channel_name">Juice overlay</string>
+    <string name="overlay_notification_title">Juice is ready</string>
+    <string name="overlay_notification_text">Swipe left on the top strip to open Juice</string>
+    <string name="overlay_permission_title">Allow Juice to appear on top</string>
+    <string name="overlay_permission_body">Juice needs the \"Display over other apps\" permission to show its trigger strip on every screen.</string>
+    <string name="overlay_permission_open_settings">Open settings</string>
+    <string name="overlay_close">Close</string>
+</resources>
