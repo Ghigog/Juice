@@ -31,6 +31,7 @@ import com.juice.feedback.VibratorOutput
 import com.juice.ui.GameSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -144,7 +145,7 @@ class OverlayService : Service() {
                 onSatiated = reservoir::emitParticles,
             )
             session.open()
-            fun loadItems() = scope.launch {
+            fun loadItems(): Job = scope.launch {
                 items.removeAllViews()
                 repository.active().forEach { item ->
                     items.addView(
