@@ -11,13 +11,15 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.BuildConfig
+import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 
 /** Parses a note with Groq in the background; retries with backoff while the request cannot reach Groq. */
 class IntakeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
-        val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { false })
+        val onDeviceOnly = SettingsRepository(applicationContext).current().onDeviceOnly
+        val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { onDeviceOnly })
         return if (parser.parse(text).retryLater) Result.retry() else Result.success()
     }
 
