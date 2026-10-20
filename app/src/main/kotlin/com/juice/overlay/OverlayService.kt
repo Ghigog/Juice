@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.IBinder
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -97,8 +98,13 @@ class OverlayService : Service() {
     }
 
     private fun showOverlay() {
+        val backdrop = Backdrop.choose(
+            blurEnabled = BLUR_ENABLED,
+            blurSupported = windowManager.isCrossWindowBlurEnabled,
+            batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
+        )
         val root = FrameLayout(this).apply {
-            setBackgroundColor(SCRIM_COLOR)
+            setBackgroundColor(if (backdrop == Backdrop.BLUR) BLUR_TINT_COLOR else SCRIM_COLOR)
             addView(
                 Button(context).apply {
                     setText(R.string.overlay_close)
@@ -118,6 +124,10 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         )
+        if (backdrop == Backdrop.BLUR) {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            params.blurBehindRadius = BLUR_RADIUS_PX
+        }
         windowManager.addView(root, params)
         overlay = root
     }
@@ -138,6 +148,9 @@ class OverlayService : Service() {
         private const val STRIP_WIDTH_FRACTION = 0.3f
         private const val STRIP_HEIGHT_DP = 24
         private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
+        private const val BLUR_ENABLED = true // TODO: read from the blur setting once settings exist
+        private const val BLUR_RADIUS_PX = 40
+        private val BLUR_TINT_COLOR = Color.argb(60, 0, 0, 0)
         private val SCRIM_COLOR = Color.argb(200, 0, 0, 0)
 
         fun start(context: Context) {
