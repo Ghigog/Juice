@@ -1,0 +1,84 @@
+package com.juice.intake
+
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+
+/** Calls Groq chat completions in JSON mode. Throws [IOException] on any transport or HTTP failure. */
+class GroqClient(
+    private val apiKey: String,
+    private val baseUrl: String = "https://api.groq.com/openai/v1",
+    private val model: String = "llama-3.3-70b-versatile",
+) {
+    /** Returns the model's JSON text for [rawText], with [now] injected into the system prompt. */
+    fun parse(rawText: String, now: ZonedDateTime): String {
+        val body = buildJsonObject {
+            put("model", model)
+            put("temperature", 0)
+            put("response_format", buildJsonObject { put("type", "json_object") })
+            put("messages", buildJsonArray {
+                add(message("system", systemPrompt(now)))
+                add(message("user", rawText))
+            })
+        }
+        val conn = URL("$baseUrl/chat/completions").openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = TIMEOUT_MS
+            conn.readTimeout = TIMEOUT_MS
+            conn.doOutput = true
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(body.toString().toByteArray()) }
+            if (conn.responseCode !in 200..299) throw IOException("Groq HTTP ${conn.responseCode}")
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            return try {
+                Json.parseToJsonElement(response).jsonObject["choices"]!!.jsonArray[0]
+                    .jsonObject["message"]!!.jsonObject["content"]!!.jsonPrimitive.content
+            } catch (e: RuntimeException) {
+                throw IOException("Unexpected Groq response", e)
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun message(role: String, content: String): JsonObject =
+        buildJsonObject { put("role", role); put("content", JsonPrimitive(content)) }
+
+    companion object {
+        private const val TIMEOUT_MS = 10_000
+
+        /** The design doc §7.4 prompt, with date, time and timezone injected. */
+        fun systemPrompt(now: ZonedDateTime): String = """
+            Today is ${now.format(DateTimeFormatter.ISO_LOCAL_DATE)}, current time ${now.format(DateTimeFormatter.ofPattern("HH:mm"))}, timezone ${now.zone.id} (UTC offset ${now.offset.id}).
+            You are the Juice Intake Parser. Output only JSON matching the schema.
+
+            Types:
+            - "Note": plain thoughts or facts.
+            - "Task": an actionable item.
+            - "Goal": a task with a specific date, time, or target metric.
+            - "Project": an item with multiple sub-steps.
+
+            Schema:
+            {
+              "type": "Note" | "Task" | "Goal" | "Project",
+              "title": "string",
+              "completion_condition": "string | null",
+              "deadline": "ISO-8601 string with offset | null",
+              "sub_items": ["string"] | null
+            }
+        """.trimIndent()
+    }
+}
