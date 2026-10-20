@@ -11,6 +11,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.view.Choreographer
 import android.view.View
+import kotlin.random.Random
 import com.juice.core.physics.SloshSpring
 
 private const val AGSL = """
@@ -76,8 +77,26 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         time = (time + dt) % TIME_WRAP
         spring.step(dt, tiltImpulse + pendingImpulse)
         pendingImpulse = 0f
+        particles.removeAll { it.life <= 0f }
+        particles.forEach { it.x += it.vx * dt; it.y += it.vy * dt; it.life -= dt }
         invalidate()
         Choreographer.getInstance().postFrameCallback(frameCallback)
+    }
+
+    private class Particle(var x: Float, var y: Float, val vx: Float, val vy: Float, var life: Float)
+
+    private val particles = mutableListOf<Particle>()
+    private val particlePaint = Paint().apply { color = Color.rgb(255, 220, 120) }
+
+    /** Bursts particles up from the liquid surface, for reaching Satiated. */
+    fun emitParticles(count: Int = 40) {
+        repeat(count) {
+            particles += Particle(
+                Random.nextFloat() * width, height * (1f - fill),
+                (Random.nextFloat() - 0.5f) * 400f, -Random.nextFloat() * 700f - 100f, 1f,
+            )
+        }
+        invalidate()
     }
 
     /** Adds a one-frame slosh impulse, e.g. from scroll velocity. */
@@ -91,6 +110,10 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         shader.setFloatUniform("u_fill", fill)
         shader.setFloatUniform("u_slosh", spring.position)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+        particles.forEach {
+            particlePaint.alpha = (it.life.coerceIn(0f, 1f) * 255).toInt()
+            canvas.drawCircle(it.x, it.y, 6f, particlePaint)
+        }
     }
 
     override fun onVisibilityAggregated(isVisible: Boolean) {

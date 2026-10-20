@@ -17,6 +17,23 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.juice.core.economy.ItemType as EconomyItemType
+import com.juice.core.intake.ItemType
+import com.juice.data.EconomyStore
+import com.juice.data.ItemRepository
+import com.juice.data.JuiceDatabase
+import com.juice.feedback.FeedbackPlayer
+import com.juice.feedback.FeedbackSettings
+import com.juice.feedback.SoundPoolOutput
+import com.juice.feedback.VibratorOutput
+import com.juice.ui.GameSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import com.juice.R
 import com.juice.ui.reservoir.ThirstReservoirView
 
@@ -25,6 +42,9 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var strip: View? = null
     private var overlay: View? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val sounds by lazy { SoundPoolOutput(this) }
+    private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -50,6 +70,8 @@ class OverlayService : Service() {
     override fun onDestroy() {
         removeStrip()
         removeOverlay()
+        scope.cancel()
+        sounds.release()
         super.onDestroy()
     }
 
@@ -106,23 +128,64 @@ class OverlayService : Service() {
         )
         val root = FrameLayout(this).apply {
             setBackgroundColor(if (backdrop == Backdrop.BLUR) BLUR_TINT_COLOR else SCRIM_COLOR)
-            addView(
-                ThirstReservoirView(context).apply { fill = PLACEHOLDER_FILL },
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
+            val reservoir = ThirstReservoirView(context)
+            val juiceText = TextView(context).apply { setTextColor(Color.WHITE); textSize = 24f }
+            val badgeText = TextView(context).apply { setTextColor(Color.WHITE); textSize = 18f }
+            val items = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            lateinit var session: GameSession
+            fun render() {
+                reservoir.fill = session.fill
+                juiceText.text = getString(R.string.overlay_juice, session.state.juice)
+                badgeText.text = getString(R.string.overlay_multiplier, session.multiplier)
+            }
+            session = GameSession(
+                EconomyStore(this@OverlayService),
+                FeedbackPlayer(sounds, VibratorOutput(this@OverlayService)) { FeedbackSettings() },
+                onSatiated = reservoir::emitParticles,
             )
+            session.open()
+            fun loadItems() = scope.launch {
+                items.removeAllViews()
+                repository.active().forEach { item ->
+                    items.addView(
+                        Button(context).apply {
+                            text = item.title
+                            setOnClickListener {
+                                scope.launch {
+                                    repository.complete(item.id)
+                                    session.complete(item.type.toEconomy())
+                                    render()
+                                    loadItems()
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+            render()
+            loadItems()
+            addView(reservoir, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(
-                Button(context).apply {
-                    setText(R.string.overlay_close)
-                    setOnClickListener { closeOverlay() }
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    addView(juiceText)
+                    addView(badgeText)
+                    addView(items)
+                    addView(
+                        Button(context).apply {
+                            setText(R.string.overlay_undo)
+                            setOnClickListener { session.undo(); render() }
+                        },
+                    )
+                    addView(
+                        Button(context).apply {
+                            setText(R.string.overlay_close)
+                            setOnClickListener { closeOverlay() }
+                        },
+                    )
                 },
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.CENTER,
-                ),
+                FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER),
             )
         }
         val params = WindowManager.LayoutParams(
@@ -155,7 +218,7 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val STRIP_WIDTH_FRACTION = 0.3f
         private const val STRIP_HEIGHT_DP = 24
-        private const val PLACEHOLDER_FILL = 0.5f // until the Thirst Meter is persisted
+        private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
         private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
         private const val BLUR_ENABLED = true // TODO: read from the blur setting once settings exist
         private const val BLUR_RADIUS_PX = 40
@@ -166,6 +229,13 @@ class OverlayService : Service() {
             context.startForegroundService(Intent(context, OverlayService::class.java))
         }
     }
+}
+
+private fun ItemType.toEconomy() = when (this) {
+    ItemType.Note -> EconomyItemType.NOTE
+    ItemType.Task -> EconomyItemType.TASK
+    ItemType.Goal -> EconomyItemType.GOAL
+    ItemType.Project -> EconomyItemType.PROJECT
 }
 
 /** Fires [onSwipeLeft] once a touch on the strip travels left past the touch slop. */

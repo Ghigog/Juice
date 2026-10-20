@@ -7,4 +7,7 @@
     <string name="overlay_permission_body">Juice needs the \"Display over other apps\" permission to show its trigger strip on every screen.</string>
     <string name="overlay_permission_open_settings">Open settings</string>
     <string name="overlay_close">Close</string>
+    <string name="overlay_undo">Undo</string>
+    <string name="overlay_juice">Juice: %1$d</string>
+    <string name="overlay_multiplier">×%1$.1f</string>
 </resources>
