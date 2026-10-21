@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.R
-import kotlin.math.roundToInt
+import com.juice.ui.overlay.label
 
 @Composable
 fun SettingsScreen(settings: JuiceSettings, onChange: ((JuiceSettings) -> JuiceSettings) -> Unit) {
@@ -27,26 +26,13 @@ fun SettingsScreen(settings: JuiceSettings, onChange: ((JuiceSettings) -> JuiceS
         SwitchRow(R.string.settings_reduce_motion, settings.reduceMotion) { v -> onChange { it.copy(reduceMotion = v) } }
         SwitchRow(R.string.settings_blur, settings.blur) { v -> onChange { it.copy(blur = v) } }
         SwitchRow(R.string.settings_on_device_only, settings.onDeviceOnly) { v -> onChange { it.copy(onDeviceOnly = v) } }
-        Text(stringResource(R.string.settings_strip_width, settings.stripWidthPercent))
-        Slider(
-            value = settings.stripWidthPercent.toFloat(),
-            onValueChange = { v -> onChange { it.copy(stripWidthPercent = v.roundToInt()) } },
-            valueRange = JuiceSettings.MIN_STRIP_WIDTH_PERCENT.toFloat()..JuiceSettings.MAX_STRIP_WIDTH_PERCENT.toFloat(),
-        )
-        Text(stringResource(R.string.settings_strip_position))
+        Text(stringResource(R.string.settings_swipe_distance))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StripPosition.entries.forEach { position ->
+            SwipeDistance.entries.forEach { distance ->
                 Button(
-                    enabled = settings.stripPosition != position,
-                    onClick = { onChange { it.copy(stripPosition = position) } },
-                ) {
-                    Text(
-                        stringResource(
-                            if (position == StripPosition.Top) R.string.settings_strip_top
-                            else R.string.settings_strip_bottom,
-                        ),
-                    )
-                }
+                    enabled = settings.swipeDistance != distance,
+                    onClick = { onChange { it.copy(swipeDistance = distance) } },
+                ) { Text(stringResource(distance.label())) }
             }
         }
     }

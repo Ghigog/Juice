@@ -69,6 +69,10 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -87,7 +91,9 @@ import com.juice.R
 import com.juice.core.model.Item
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.JuiceSettings
-import com.juice.settings.StripPosition
+import com.juice.ui.logo.SliceLogoPainter
+import com.juice.ui.logo.SliceStyle
+import kotlin.math.roundToInt
 import com.juice.ui.Tier
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -105,6 +111,7 @@ const val TAG_CLOSE = "close_handle"
 const val TAG_SETTINGS = "settings_button"
 const val TAG_SETTINGS_DONE = "settings_done"
 const val TAG_FLAVOUR_PREFIX = "flavour_"
+const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
 const val TAG_BANNER = "banner"
 const val MAX_CARD_SCALE = 1.15f
 
@@ -112,6 +119,8 @@ private const val CAROUSEL_ITEM_DP = 56
 private const val CAROUSEL_GAP_DP = 8
 private const val BANNER_MILLIS = 2200L
 private const val FLOAT_MILLIS = 1300
+private const val RING_PREVIEW_MILLIS = 1400L
+private const val SLICE_DP = 56
 
 /** Scale of a card whose centre is [distance] px from the focal dot, falling off over [reach] px. */
 internal fun focalScale(distance: Float, reach: Float): Float =
@@ -140,6 +149,14 @@ fun OverlayShell(
     // The keyboard is the one inset still followed live; the content sits above whichever is taller.
     val contentBottom = maxOf(barBottom, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
     var settingsOpen by remember { mutableStateOf(false) }
+    var centre by remember { mutableStateOf(0) }
+    var ringPreview by remember { mutableStateOf(0) }
+    LaunchedEffect(ringPreview) {
+        if (ringPreview > 0) {
+            delay(RING_PREVIEW_MILLIS)
+            ringPreview = 0
+        }
+    }
     val undo = state.undo
     LaunchedEffect(undo) {
         if (undo != null) {
@@ -169,7 +186,6 @@ fun OverlayShell(
                 Spacer(Modifier.height(12.dp))
                 val list = state.items
                 Row(Modifier.weight(1f).fillMaxWidth()) {
-                    var centre by remember { mutableStateOf(0) }
                     Carousel(list, hud, actions, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -201,14 +217,6 @@ fun OverlayShell(
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
             }
-            // Sits where the strip was, which the system keeps clear of the status or navigation bar.
-            val bottom = settings.stripPosition == StripPosition.Bottom
-            CloseHandle(
-                actions.onClose,
-                Modifier
-                    .align(if (bottom) Alignment.BottomCenter else Alignment.TopCenter)
-                    .padding(top = if (bottom) 0.dp else barTop, bottom = if (bottom) barBottom else 0.dp),
-            )
             Banner(effects, hud, Modifier.align(Alignment.TopCenter).padding(top = barTop + 92.dp))
             AnimatedVisibility(settingsOpen, enter = fadeIn(), exit = fadeOut()) {
                 Box(
@@ -227,12 +235,21 @@ fun OverlayShell(
                 SettingsSheet(
                     settings, hud, actions,
                     onDone = { settingsOpen = false },
+                    onSwipeDistance = { ringPreview++ },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = barTop + 120.dp)
                         .padding(bottom = barBottom),
                 )
             }
+            // The same slice that opened Juice, where it was left; a tap closes.
+            SliceButton(
+                settings, hud,
+                slices = SliceLogoPainter.sliceCount(state.items.size),
+                active = centre.coerceAtMost(state.items.lastIndex),
+                showRing = ringPreview > 0,
+                onClose = actions.onClose,
+            )
         }
     }
 }
@@ -249,36 +266,35 @@ private fun overlayTint(blurred: Boolean): Brush {
     )
 }
 
-/** Where the strip was: tap it, or swipe left on it (back the way it opened), to close. */
+/** The slice handle inside the overlay, at the handle's screen position; [showRing] previews the swipe distance. */
 @Composable
-private fun CloseHandle(onClose: () -> Unit, modifier: Modifier) {
+private fun SliceButton(settings: JuiceSettings, hud: Hud, slices: Int, active: Int, showRing: Boolean, onClose: () -> Unit) {
     val label = stringResource(R.string.overlay_close)
-    Box(
-        modifier
-            .size(width = 117.dp, height = 24.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(JuiceColors.white(0.22f))
-            .semantics { contentDescription = label }
-            .testTag(TAG_CLOSE)
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    var dx = 0f
-                    var moved = false
-                    while (true) {
-                        val change = awaitPointerEvent().changes.first()
-                        change.consume()
-                        dx = change.position.x - down.position.x
-                        if (abs(dx) > viewConfiguration.touchSlop) moved = true
-                        if (!change.pressed) break
-                        if (dx < -22.dp.toPx()) break
-                    }
-                    if (!moved || dx < -22.dp.toPx()) onClose()
-                }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(width = 49.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(JuiceColors.white(0.85f)))
+    val painter = remember { SliceLogoPainter() }
+    val style = SliceStyle.of(hud.flavour)
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val cx = constraints.maxWidth * settings.handleX.coerceIn(0f, 1f)
+        val cy = constraints.maxHeight * settings.handleY.coerceIn(0f, 1f)
+        if (showRing) {
+            val radius = with(density) { settings.swipeDistance.dp.dp.toPx() }
+            Canvas(Modifier.fillMaxSize()) {
+                drawIntoCanvas { painter.drawRing(it.nativeCanvas, cx, cy, radius, 0f, false, hud.accent.toArgb(), density.density) }
+            }
+        }
+        val half = with(density) { (SLICE_DP / 2).dp.toPx() }
+        Box(
+            Modifier
+                .offset { IntOffset((cx - half).roundToInt(), (cy - half).roundToInt()) }
+                .size(SLICE_DP.dp)
+                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+                .semantics { contentDescription = label }
+                .testTag(TAG_CLOSE),
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active) }
+            }
+        }
     }
 }
 

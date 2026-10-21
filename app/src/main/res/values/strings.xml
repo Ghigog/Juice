@@ -2,9 +2,9 @@
 <resources>
     <string name="overlay_channel_name">Juice overlay</string>
     <string name="overlay_notification_title">Juice is ready</string>
-    <string name="overlay_notification_text">Swipe right on the strip, or tap it, to open Juice</string>
+    <string name="overlay_notification_text">Press the slice and swipe any way to open Juice. Hold it to move it.</string>
     <string name="overlay_permission_title">Allow Juice to appear on top</string>
-    <string name="overlay_permission_body">Juice needs the \"Display over other apps\" permission to show its trigger strip on every screen.</string>
+    <string name="overlay_permission_body">Juice needs the \"Display over other apps\" permission to show its slice handle on every screen.</string>
     <string name="overlay_permission_open_settings">Open settings</string>
     <string name="overlay_close">Close Juice</string>
     <string name="strip_open">Open Juice</string>
@@ -19,10 +19,10 @@
     <string name="settings_reduce_motion">Reduce motion</string>
     <string name="settings_blur">Blur</string>
     <string name="settings_on_device_only">On-device only</string>
-    <string name="settings_strip_position">Strip position</string>
-    <string name="settings_strip_top">Top</string>
-    <string name="settings_strip_bottom">Bottom</string>
-    <string name="settings_strip_width">Strip width: %1$d%%</string>
+    <string name="settings_swipe_distance">Swipe distance</string>
+    <string name="settings_swipe_short">Short</string>
+    <string name="settings_swipe_medium">Medium</string>
+    <string name="settings_swipe_long">Long</string>
     <string name="overlay_complete">Complete</string>
     <string name="overlay_dismiss">Dismiss</string>
     <string name="settings_open">Settings</string>

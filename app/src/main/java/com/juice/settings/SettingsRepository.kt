@@ -5,7 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -28,9 +28,10 @@ class SettingsRepository(context: Context) {
             reduceMotion = p[REDUCE_MOTION] ?: d.reduceMotion,
             blur = p[BLUR] ?: d.blur,
             onDeviceOnly = p[ON_DEVICE_ONLY] ?: d.onDeviceOnly,
-            stripPosition = p[STRIP_POSITION]?.let { runCatching { StripPosition.valueOf(it) }.getOrNull() }
-                ?: d.stripPosition,
-            stripWidthPercent = (p[STRIP_WIDTH_PERCENT] ?: d.stripWidthPercent).coerceStripWidth(),
+            handleX = (p[HANDLE_X] ?: d.handleX).coerceIn(0f, 1f),
+            handleY = (p[HANDLE_Y] ?: d.handleY).coerceIn(0f, 1f),
+            swipeDistance = p[SWIPE_DISTANCE]?.let { runCatching { SwipeDistance.valueOf(it) }.getOrNull() }
+                ?: d.swipeDistance,
             flavour = p[FLAVOUR]?.let { runCatching { Flavour.valueOf(it) }.getOrNull() },
         )
     }
@@ -48,8 +49,9 @@ class SettingsRepository(context: Context) {
             p[REDUCE_MOTION] = next.reduceMotion
             p[BLUR] = next.blur
             p[ON_DEVICE_ONLY] = next.onDeviceOnly
-            p[STRIP_POSITION] = next.stripPosition.name
-            p[STRIP_WIDTH_PERCENT] = next.stripWidthPercent.coerceStripWidth()
+            p[HANDLE_X] = next.handleX.coerceIn(0f, 1f)
+            p[HANDLE_Y] = next.handleY.coerceIn(0f, 1f)
+            p[SWIPE_DISTANCE] = next.swipeDistance.name
             if (next.flavour == null) p.remove(FLAVOUR) else p[FLAVOUR] = next.flavour.name
         }
     }
@@ -66,11 +68,9 @@ class SettingsRepository(context: Context) {
         val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
         val BLUR = booleanPreferencesKey("blur")
         val ON_DEVICE_ONLY = booleanPreferencesKey("on_device_only")
-        val STRIP_POSITION = stringPreferencesKey("strip_position")
-        val STRIP_WIDTH_PERCENT = intPreferencesKey("strip_width_percent")
+        val HANDLE_X = floatPreferencesKey("handle_x")
+        val HANDLE_Y = floatPreferencesKey("handle_y")
+        val SWIPE_DISTANCE = stringPreferencesKey("swipe_distance")
         val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     }
 }
-
-private fun Int.coerceStripWidth() =
-    coerceIn(JuiceSettings.MIN_STRIP_WIDTH_PERCENT, JuiceSettings.MAX_STRIP_WIDTH_PERCENT)

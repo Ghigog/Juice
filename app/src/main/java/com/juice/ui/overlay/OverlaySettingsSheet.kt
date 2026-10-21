@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +39,7 @@ import com.juice.R
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.JuiceSettings
+import com.juice.settings.SwipeDistance
 import com.juice.ui.theme.FlavourTheme
 
 /** Comfort switches and the flavour picker, inside the overlay. */
@@ -47,6 +49,7 @@ internal fun SettingsSheet(
     hud: Hud,
     actions: OverlayActions,
     onDone: () -> Unit,
+    onSwipeDistance: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val change = actions.onSettingsChange
@@ -77,13 +80,34 @@ internal fun SettingsSheet(
         Toggle(R.string.settings_blur, R.string.settings_blur_note, settings.blur, hud) { v -> change { it.copy(blur = v) } }
         Toggle(R.string.settings_tap_buttons, R.string.settings_tap_buttons_note, settings.tapButtons, hud) { v -> change { it.copy(tapButtons = v) } }
         Toggle(R.string.settings_on_device_only, R.string.settings_on_device_only_note, settings.onDeviceOnly, hud) { v -> change { it.copy(onDeviceOnly = v) } }
-        Text(
-            stringResource(R.string.settings_flavour).uppercase(),
-            fontSize = 12.sp,
-            letterSpacing = 1.5.sp,
-            color = JuiceColors.white(0.7f),
-            modifier = Modifier.padding(top = 20.dp, bottom = 10.dp),
-        )
+        SectionLabel(R.string.settings_swipe_distance)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SwipeDistance.entries.forEach { distance ->
+                val on = settings.swipeDistance == distance
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (on) hud.accent else JuiceColors.white(0.14f))
+                        .selectable(selected = on, role = Role.RadioButton) {
+                            change { it.copy(swipeDistance = distance) }
+                            onSwipeDistance()
+                            actions.feedback(FeedbackEvent.CAPTURE)
+                        }
+                        .testTag(TAG_SWIPE_DISTANCE_PREFIX + distance.name),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(distance.label()),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (on) JuiceColors.Ink else Color.White,
+                    )
+                }
+            }
+        }
+        SectionLabel(R.string.settings_flavour)
         Flavour.entries.chunked(2).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { flavour ->
@@ -102,6 +126,23 @@ internal fun SettingsSheet(
             modifier = Modifier.padding(top = 6.dp),
         )
     }
+}
+
+@Composable
+private fun SectionLabel(text: Int) {
+    Text(
+        stringResource(text).uppercase(),
+        fontSize = 12.sp,
+        letterSpacing = 1.5.sp,
+        color = JuiceColors.white(0.7f),
+        modifier = Modifier.padding(top = 20.dp, bottom = 10.dp),
+    )
+}
+
+internal fun SwipeDistance.label(): Int = when (this) {
+    SwipeDistance.Short -> R.string.settings_swipe_short
+    SwipeDistance.Medium -> R.string.settings_swipe_medium
+    SwipeDistance.Long -> R.string.settings_swipe_long
 }
 
 @Composable

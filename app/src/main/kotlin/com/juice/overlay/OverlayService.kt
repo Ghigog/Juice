@@ -57,11 +57,15 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import com.juice.R
 import com.juice.ui.reservoir.ThirstReservoirView
+import com.juice.core.progression.Progression
+import com.juice.ui.logo.SliceLogoPainter
+import com.juice.ui.logo.SliceStyle
+import com.juice.ui.theme.FlavourTheme
 
-/** Foreground service owning the trigger strip window and the full-screen overlay window. */
+/** Foreground service owning the slice handle window and the full-screen overlay window. */
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
-    private var strip: View? = null
+    private var handle: SliceHandleView? = null
     private var overlay: View? = null
     private var starting = false
     private var overlayLifecycle: OverlayLifecycleOwner? = null
@@ -71,6 +75,8 @@ class OverlayService : Service() {
     private val settingsRepository by lazy { SettingsRepository(this) }
     @Volatile private var settings = JuiceSettings()
     private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
+    private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
+    private var openItems = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -89,19 +95,25 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (strip == null && overlay == null && !starting) {
+        if (handle == null && overlay == null && !starting) {
             starting = true
             scope.launch {
                 settings = settingsRepository.current()
-                if (strip == null && overlay == null) showStrip()
+                if (handle == null && overlay == null) showHandle()
                 settingsRepository.settings.collect { applySettings(it) }
+            }
+            scope.launch {
+                repository.observeActive().collect {
+                    openItems = it.size
+                    handle?.slices = SliceLogoPainter.sliceCount(openItems)
+                }
             }
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
-        removeStrip()
+        removeHandle()
         removeOverlay()
         scope.cancel()
         sounds.release()
@@ -125,41 +137,56 @@ class OverlayService : Service() {
             .build()
     }
 
-    /** Keeps [settings] current and re-lays out the strip when its position or width changed. */
+    /** Keeps [settings] current and moves or recolours the handle when its place or flavour changed. */
     private fun applySettings(next: JuiceSettings) {
-        val layoutChanged = next.stripPosition != settings.stripPosition ||
-            next.stripWidthPercent != settings.stripWidthPercent
+        val moved = next.handleX != settings.handleX || next.handleY != settings.handleY
         val blurChanged = next.blur != settings.blur
         settings = next
         if (blurChanged) applyBackdrop()
-        val view = strip ?: return
-        if (layoutChanged) windowManager.updateViewLayout(view, stripParams())
+        val view = handle ?: return
+        styleHandle(view)
+        if (moved) handleCentre().let { (x, y) -> view.moveTo(x, y) }
     }
 
-    private fun stripParams(): WindowManager.LayoutParams {
-        val metrics = resources.displayMetrics
-        return WindowManager.LayoutParams(
-            settings.stripWidthPx(metrics.widthPixels),
-            (STRIP_HEIGHT_DP * metrics.density).toInt(),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT,
-        ).apply { gravity = settings.stripPosition.gravity() }
+    private fun handleCentre(): Pair<Float, Float> {
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        return settings.handleCentre(bounds.width(), bounds.height())
     }
 
-    private fun showStrip() {
-        val view = StripView(this).apply {
-            setOnTouchListener(SwipeRightListener(::swapToOverlay))
-        }
-        val params = stripParams()
-        windowManager.addView(view, params)
-        strip = view
+    /** The flavour the handle wears: the player's pick once unlocked, else the highest unlocked. */
+    private fun styleHandle(view: SliceHandleView) {
+        val juice = EconomyStore(this).load()?.state?.juice ?: 0L
+        val level = Progression.levelFor(juice)
+        val flavour = settings.flavour?.takeIf { it.unlockLevel <= level } ?: Progression.flavourFor(level)
+        view.style = SliceStyle.of(flavour)
+        view.accent = FlavourTheme.of(flavour).accent
+    }
+
+    private fun showHandle() {
+        val density = resources.displayMetrics.density
+        val view = SliceHandleView(
+            this,
+            windowManager,
+            radius = { settings.swipeDistance.dp * density },
+            feedback = { handleFeedback.play(it) },
+            onMoved = { x, y ->
+                val bounds = windowManager.maximumWindowMetrics.bounds
+                val (fx, fy) = handleFractions(x, y, bounds.width(), bounds.height(), HANDLE_EDGE_DP * density)
+                settings = settings.copy(handleX = fx, handleY = fy)
+                scope.launch { settingsRepository.update { it.copy(handleX = fx, handleY = fy) } }
+            },
+            onOpen = ::swapToOverlay,
+        )
+        styleHandle(view)
+        view.slices = SliceLogoPainter.sliceCount(openItems)
+        val (x, y) = handleCentre()
+        view.show(x, y)
+        handle = view
     }
 
     private fun swapToOverlay() {
-        removeStrip()
-        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showStrip, ::reportOverlayFailure)
+        removeHandle()
+        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showHandle, ::reportOverlayFailure)
     }
 
     /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
@@ -173,7 +200,7 @@ class OverlayService : Service() {
 
     private fun closeOverlay() {
         removeOverlay()
-        showStrip()
+        showHandle()
     }
 
     private fun showOverlay() {
@@ -314,9 +341,9 @@ class OverlayService : Service() {
         batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
     )
 
-    private fun removeStrip() {
-        strip?.let(windowManager::removeView)
-        strip = null
+    private fun removeHandle() {
+        handle?.let(windowManager::removeView)
+        handle = null
     }
 
     private fun removeOverlay() {
@@ -330,7 +357,7 @@ class OverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "juice_overlay"
         private const val NOTIFICATION_ID = 1
-        private const val STRIP_HEIGHT_DP = 24
+        private const val HANDLE_EDGE_DP = 30f
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
 
         fun start(context: Context) {
@@ -362,7 +389,7 @@ internal fun overlayLayoutParams() = WindowManager.LayoutParams(
     layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
 }
 
-/** Builds the overlay; if that fails, cleans up, brings the strip back and reports why instead of crashing. */
+/** Builds the overlay; if that fails, cleans up, brings the handle back and reports why instead of crashing. */
 internal fun guardedShowOverlay(
     show: () -> Unit,
     cleanup: () -> Unit,
@@ -372,7 +399,7 @@ internal fun guardedShowOverlay(
     try {
         show()
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to open the overlay; restoring the strip", e)
+        Log.e(TAG, "Failed to open the overlay; restoring the handle", e)
         cleanup()
         restoreStrip()
         onFailure(e)
