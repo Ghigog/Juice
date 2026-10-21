@@ -19,6 +19,8 @@ class OverlayShellState(
     private val repository: ItemRepository,
     private val scope: CoroutineScope,
     initial: List<Item> = emptyList(),
+    private val onCompleted: (Item) -> Unit = {},
+    private val onCompletionUndone: () -> Unit = {},
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
     var items by mutableStateOf(initial)
@@ -35,7 +37,10 @@ class OverlayShellState(
         scope.launch { repository.save(note) }
     }
 
-    fun complete(item: Item) = finish(item, ItemStatus.Completed, dismissed = false)
+    fun complete(item: Item) {
+        finish(item, ItemStatus.Completed, dismissed = false)
+        onCompleted(item)
+    }
 
     fun dismiss(item: Item) = finish(item, ItemStatus.Archived, dismissed = true)
 
@@ -43,6 +48,7 @@ class OverlayShellState(
     fun undoLast() {
         val pending = undo ?: return
         undo = null
+        if (!pending.dismissed) onCompletionUndone()
         items = (items + pending.item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
         scope.launch { repository.save(pending.item) }
     }
