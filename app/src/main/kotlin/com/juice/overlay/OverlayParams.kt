@@ -1,15 +1,11 @@
 package com.juice.overlay
 
-import android.view.Gravity
 import com.juice.settings.JuiceSettings
-import com.juice.settings.StripPosition
 
-/** How [JuiceSettings] shape the strip window. */
-internal fun StripPosition.gravity(): Int =
-    (if (this == StripPosition.Top) Gravity.TOP else Gravity.BOTTOM) or Gravity.CENTER_HORIZONTAL
+/** The slice handle's centre in px on a [width] x [height] px screen. */
+internal fun JuiceSettings.handleCentre(width: Int, height: Int): Pair<Float, Float> =
+    handleX.coerceIn(0f, 1f) * width to handleY.coerceIn(0f, 1f) * height
 
-internal fun JuiceSettings.stripWidthPx(screenWidthPx: Int): Int =
-    screenWidthPx * stripWidthPercent.coerceIn(
-        JuiceSettings.MIN_STRIP_WIDTH_PERCENT,
-        JuiceSettings.MAX_STRIP_WIDTH_PERCENT,
-    ) / 100
+/** Where a handle dropped at ([x], [y]) px is saved: fractions of the screen, kept [margin] px inside it. */
+internal fun handleFractions(x: Float, y: Float, width: Int, height: Int, margin: Float): Pair<Float, Float> =
+    x.coerceIn(margin, width - margin) / width to y.coerceIn(margin, height - margin) / height
