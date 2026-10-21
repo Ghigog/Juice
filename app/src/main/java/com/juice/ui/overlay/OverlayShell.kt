@@ -25,23 +25,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -135,7 +132,13 @@ fun OverlayShell(
     actions: OverlayActions = OverlayActions(),
     effects: OverlayEffects = remember { OverlayEffects() },
     reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
+    /** Room kept clear for the status and navigation bars, measured once by the host so nothing jumps. */
+    systemBars: PaddingValues = PaddingValues(0.dp),
 ) {
+    val barTop = systemBars.calculateTopPadding()
+    val barBottom = systemBars.calculateBottomPadding()
+    // The keyboard is the one inset still followed live; the content sits above whichever is taller.
+    val contentBottom = maxOf(barBottom, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
     var settingsOpen by remember { mutableStateOf(false) }
     val undo = state.undo
     LaunchedEffect(undo) {
@@ -160,8 +163,7 @@ fun OverlayShell(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars).union(WindowInsets.ime))
-                    .padding(start = 14.dp, end = 14.dp, top = 38.dp, bottom = 16.dp),
+                    .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 Header(hud, onSettings = { settingsOpen = true })
                 Spacer(Modifier.height(12.dp))
@@ -205,10 +207,9 @@ fun OverlayShell(
                 actions.onClose,
                 Modifier
                     .align(if (bottom) Alignment.BottomCenter else Alignment.TopCenter)
-                    .windowInsetsPadding(if (bottom) WindowInsets.navigationBars else WindowInsets.statusBars)
-                    .padding(vertical = 6.dp),
+                    .padding(top = if (bottom) 0.dp else barTop, bottom = if (bottom) barBottom else 0.dp),
             )
-            Banner(effects, hud, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars).padding(top = 92.dp))
+            Banner(effects, hud, Modifier.align(Alignment.TopCenter).padding(top = barTop + 92.dp))
             AnimatedVisibility(settingsOpen, enter = fadeIn(), exit = fadeOut()) {
                 Box(
                     Modifier
@@ -228,9 +229,8 @@ fun OverlayShell(
                     onDone = { settingsOpen = false },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(top = 120.dp)
-                        .windowInsetsPadding(WindowInsets.navigationBars),
+                        .padding(top = barTop + 120.dp)
+                        .padding(bottom = barBottom),
                 )
             }
         }
