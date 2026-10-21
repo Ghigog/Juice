@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -102,6 +104,8 @@ import kotlinx.coroutines.launch
 const val TAG_CAPTURE_FIELD = "capture_field"
 const val TAG_ADD = "add_button"
 const val TAG_CENTRE_CARD = "centre_card"
+const val TAG_RESERVOIR = "reservoir"
+const val TAG_WRITING_DONE = "writing_done"
 const val TAG_UNDO = "undo"
 const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
@@ -150,6 +154,8 @@ fun OverlayShell(
     val contentBottom = maxOf(barBottom, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
     var settingsOpen by remember { mutableStateOf(false) }
     var centre by remember { mutableStateOf(0) }
+    // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
+    var writing by remember { mutableStateOf(false) }
     var ringPreview by remember { mutableStateOf(0) }
     LaunchedEffect(ringPreview) {
         if (ringPreview > 0) {
@@ -182,38 +188,45 @@ fun OverlayShell(
                     .fillMaxSize()
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
-                Header(hud, onSettings = { settingsOpen = true })
-                Spacer(Modifier.height(12.dp))
-                val list = state.items
-                Row(Modifier.weight(1f).fillMaxWidth()) {
-                    Carousel(list, hud, actions, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
-                    Spacer(Modifier.width(8.dp))
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        CentreCard(
-                            state = state,
-                            item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
-                            hud = hud,
-                            tapButtons = settings.tapButtons,
-                            reduceMotion = settings.reduceMotion,
-                            onDeviceOnly = settings.onDeviceOnly,
-                            actions = actions,
-                            effects = effects,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        Floats(effects, hud, Modifier.fillMaxSize())
+                if (!writing) {
+                    Header(hud, onSettings = { settingsOpen = true })
+                    Spacer(Modifier.height(12.dp))
+                    val list = state.items
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        Carousel(list, hud, actions, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            CentreCard(
+                                state = state,
+                                item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
+                                hud = hud,
+                                tapButtons = settings.tapButtons,
+                                reduceMotion = settings.reduceMotion,
+                                onDeviceOnly = settings.onDeviceOnly,
+                                actions = actions,
+                                effects = effects,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            Floats(effects, hud, Modifier.fillMaxSize())
+                        }
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth().height(44.dp)) {
-                    if (undo != null) UndoToast(undo, hud) {
-                        state.undoLast()
-                        actions.feedback(FeedbackEvent.UNDO)
+                    Spacer(Modifier.height(8.dp))
+                    Box(Modifier.fillMaxWidth().height(44.dp)) {
+                        if (undo != null) UndoToast(undo, hud) {
+                            state.undoLast()
+                            actions.feedback(FeedbackEvent.UNDO)
+                        }
                     }
+                    Spacer(Modifier.height(12.dp))
+                    Reservoir(hud, reservoir)
+                    Spacer(Modifier.height(12.dp))
                 }
-                Spacer(Modifier.height(12.dp))
-                Reservoir(hud, reservoir)
-                Spacer(Modifier.height(12.dp))
-                Capture(hud) { text ->
+                Capture(
+                    hud,
+                    writing = writing,
+                    onWritingChange = { writing = it },
+                    modifier = if (writing) Modifier.weight(1f) else Modifier,
+                ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
             }
@@ -466,6 +479,7 @@ private fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
 private fun Reservoir(hud: Hud, reservoir: @Composable (Modifier) -> Unit) {
     Box(
         Modifier
+            .testTag(TAG_RESERVOIR)
             .fillMaxWidth()
             .height(118.dp)
             .clip(RoundedCornerShape(30.dp))
@@ -514,38 +528,75 @@ fun PlainReservoir(hud: Hud, modifier: Modifier) {
 }
 
 @Composable
-private fun Capture(hud: Hud, onSubmit: (String) -> Unit) {
+private fun Capture(
+    hud: Hud,
+    writing: Boolean,
+    onWritingChange: (Boolean) -> Unit,
+    modifier: Modifier,
+    onSubmit: (String) -> Unit,
+) {
     var draft by remember { mutableStateOf("") }
+    val focus = LocalFocusManager.current
+    // The keyboard going away does not drop focus, so leaving writing mode is explicit.
+    fun leaveWriting() {
+        focus.clearFocus()
+        onWritingChange(false)
+    }
     fun submit() {
         if (draft.isBlank()) return
         onSubmit(draft)
         draft = ""
+        leaveWriting()
     }
-    Row(Modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
+    Row(
+        modifier.fillMaxWidth().then(if (writing) Modifier else Modifier.height(56.dp)),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         BasicTextField(
             value = draft,
             onValueChange = { draft = it },
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
+            singleLine = !writing,
+            textStyle = LocalTextStyle.current.copy(fontSize = if (writing) 20.sp else 15.sp),
             cursorBrush = SolidColor(Color.White),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(imeAction = if (writing) ImeAction.Default else ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
-            modifier = Modifier.weight(1f).fillMaxHeight().testTag(TAG_CAPTURE_FIELD),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .onFocusChanged { onWritingChange(it.isFocused) }
+                .testTag(TAG_CAPTURE_FIELD),
             decorationBox = { field ->
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(28.dp))
+                        .clip(shape)
                         .background(JuiceColors.white(0.14f))
-                        .border(1.dp, JuiceColors.white(0.25f), RoundedCornerShape(28.dp))
-                        .padding(horizontal = 20.dp),
-                    contentAlignment = Alignment.CenterStart,
+                        .border(1.dp, JuiceColors.white(0.25f), shape)
+                        .padding(horizontal = 20.dp, vertical = if (writing) 18.dp else 0.dp),
+                    contentAlignment = if (writing) Alignment.TopStart else Alignment.CenterStart,
                 ) {
-                    if (draft.isEmpty()) Text(stringResource(R.string.overlay_capture_hint), fontSize = 15.sp, color = JuiceColors.white(0.6f))
+                    if (draft.isEmpty()) Text(stringResource(R.string.overlay_capture_hint), fontSize = if (writing) 20.sp else 15.sp, color = JuiceColors.white(0.6f))
                     field()
                 }
             },
         )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (writing) {
+                Box(
+                    Modifier
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(JuiceColors.white(0.14f))
+                        .clickable { leaveWriting() }
+                        .padding(horizontal = 14.dp)
+                        .testTag(TAG_WRITING_DONE),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(stringResource(R.string.overlay_writing_done), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.weight(1f))
+            }
         val label = stringResource(R.string.overlay_add)
         Box(
             Modifier
@@ -566,6 +617,7 @@ private fun Capture(hud: Hud, onSubmit: (String) -> Unit) {
                     style = Stroke(w, cap = StrokeCap.Round),
                 )
             }
+        }
         }
     }
 }

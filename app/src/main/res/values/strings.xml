@@ -41,6 +41,7 @@
     <string name="overlay_juice_label">JUICE</string>
     <string name="overlay_done">Done</string>
     <string name="overlay_add">Add</string>
+    <string name="overlay_writing_done">Done</string>
     <string name="overlay_capture_hint">Enter new note or task…</string>
     <string name="overlay_card_hint">Draw a check to complete. Two strokes for an X to dismiss.</string>
     <string name="overlay_done_when">Done when: %1$s</string>
