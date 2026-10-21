@@ -1,9 +1,10 @@
 package com.juice.data
 
-import com.juice.core.card.toCards
+import com.juice.core.card.toCard
 import com.juice.core.intake.IntakeCard
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.IntakeValidator
+import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.mergeParse
 import com.juice.core.model.Item
@@ -39,15 +40,15 @@ class ItemRepository(private val dao: ItemDao) {
     }
 
     /**
-     * Applies a landed parse to [id]'s card, plus one linked Task card per sub-item when it is a
-     * Project. A card that already has sub-item cards (from an earlier parse) keeps just those.
+     * Applies a landed parse to [id]'s card; a Project also gets its sub-items as steps. A card that
+     * already has steps (from an earlier parse) keeps just those.
      */
-    suspend fun land(id: String, parsed: ParsedItem, newId: () -> String = { UUID.randomUUID().toString() }): List<Item> {
+    suspend fun land(id: String, parsed: ParsedItem, newId: () -> String = { UUID.randomUUID().toString() }): Item? {
         applyParse(id, parsed)
-        if (dao.childCount(id) > 0) return listOfNotNull(get(id))
-        val children = parsed.toItems(id, newId).filter { it.parentId == id }
-        children.forEach { save(it) }
-        return listOfNotNull(get(id)) + children
+        val item = get(id) ?: return null
+        if (item.steps.isNotEmpty()) return item
+        val steps = if (item.type == ItemType.Project) parsed.toItems(id, newId).first().steps else emptyList()
+        return item.copy(steps = steps).also { if (steps.isNotEmpty()) save(it) }
     }
 
     suspend fun complete(id: String) = setStatus(id, ItemStatus.Completed)
@@ -59,15 +60,10 @@ class ItemRepository(private val dao: ItemDao) {
     }
 }
 
-/** The items a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items. */
-fun ParsedItem.toItems(id: String, newId: () -> String): List<Item> =
-    copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCards(id, newId).map { card ->
-        Item(
-            card.id,
-            card.type,
-            card.title,
-            deadline = deadline.takeIf { card.id == id },
-            completionCondition = completionCondition.takeIf { card.id == id },
-            parentId = card.parentId,
-        )
-    }
+/** The item a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items as steps. */
+fun ParsedItem.toItems(id: String, newId: () -> String): List<Item> {
+    val card = copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCard(id, newId)
+    return listOf(
+        Item(card.id, card.type, card.title, deadline = deadline, completionCondition = completionCondition, steps = card.steps),
+    )
+}

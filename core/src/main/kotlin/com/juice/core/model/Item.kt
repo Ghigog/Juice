@@ -6,16 +6,18 @@ import java.time.Instant
 
 enum class ItemStatus { Active, Completed, Archived }
 
-/** A saved note, task, goal or project. [parentId] links a sub-item to its parent;
- * [editedFields] are the ones the user changed, which a late parse must not overwrite. */
+/** One step of a Project, kept inside the Project's card. */
+data class Step(val id: String, val title: String, val done: Boolean = false)
+
+/** A saved note, task, goal or project. A Project keeps its [steps] in order; [editedFields] are the ones the user changed, which a late parse must not overwrite. */
 data class Item(
     val id: String,
     val type: ItemType,
     val title: String,
     val deadline: Instant? = null,
     val status: ItemStatus = ItemStatus.Active,
-    val parentId: String? = null,
     val editedFields: Set<IntakeField> = emptySet(),
     /** What "done" means, when the parser found one (e.g. "Dryer ordered"). */
     val completionCondition: String? = null,
+    val steps: List<Step> = emptyList(),
 )
