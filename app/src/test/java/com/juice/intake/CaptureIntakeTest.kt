@@ -45,13 +45,22 @@ class CaptureIntakeTest {
         repository.save(note)
         assertEquals(true, intake(onDeviceOnly = false).submit(note))
         assertEquals(listOf("a" to "do laundry by 6pm"), enqueued)
-        assertEquals(ItemType.Note, repository.get("a")?.type)
+        assertEquals(ItemType.Goal, repository.get("a")?.type)
 
-        repository.applyParse("a", ParsedItem(ItemType.Goal, "Laundry", deadline = deadline))
+        repository.applyParse("a", ParsedItem(ItemType.Task, "Laundry", deadline = deadline))
         val seen = repository.observeActive().first().single()
-        assertEquals(ItemType.Goal, seen.type)
+        assertEquals(ItemType.Task, seen.type)
         assertEquals(deadline, seen.deadline)
         assertEquals("do laundry by 6pm", seen.title)
+    }
+
+    @Test
+    fun rulesResultLandsImmediatelyWhenACloudParseIsEnqueued() = runBlocking {
+        val note = Item("a", ItemType.Note, "call mum tomorrow")
+        repository.save(note)
+        assertEquals(true, intake(onDeviceOnly = false).submit(note))
+        assertEquals(1, enqueued.size)
+        assertEquals(ItemType.Goal, repository.get("a")?.type)
     }
 
     @Test
