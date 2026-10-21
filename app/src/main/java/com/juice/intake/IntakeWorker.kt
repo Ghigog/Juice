@@ -25,7 +25,7 @@ class IntakeWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { onDeviceOnly })
         val result = parser.parse(text)
         if (result.retryLater) return Result.retry()
-        ItemRepository(JuiceDatabase.open(applicationContext).itemDao()).applyParse(itemId, result.item)
+        ItemRepository(JuiceDatabase.open(applicationContext).itemDao()).land(itemId, result.item)
         return Result.success()
     }
 
