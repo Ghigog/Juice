@@ -7,7 +7,10 @@ import com.juice.core.economy.EconomyState
 import com.juice.core.economy.ItemType
 import com.juice.data.EconomyStore
 import com.juice.feedback.Feedback
+import com.juice.core.progression.Flavour
+import com.juice.core.progression.Progression
 import com.juice.feedback.FeedbackEvent
+import com.juice.ui.theme.FlavourTheme
 
 /**
  * The game loop behind the overlay: owns Juice and the Thirst Meter, persists them, and plays
@@ -19,6 +22,7 @@ class GameSession(
     private val clock: () -> Long = System::currentTimeMillis,
     private val config: EconomyConfig = EconomyConfig(),
     private val onSatiated: () -> Unit = {},
+    private val onFlavourChanged: (FlavourTheme) -> Unit = {},
 ) {
     private val economy = Economy(config)
     private val undoStack = ArrayDeque<Completion>()
@@ -27,6 +31,12 @@ class GameSession(
         private set
 
     val multiplier: Double get() = economy.multiplier(state.meter)
+
+    val level: Int get() = Progression.levelFor(state.juice)
+
+    val flavour: Flavour get() = Progression.flavourForJuice(state.juice)
+
+    val theme: FlavourTheme get() = FlavourTheme.of(flavour)
 
     /** Meter as the 0..1 reservoir fill. */
     val fill: Float get() = (state.meter / 100.0).toFloat()
@@ -41,6 +51,7 @@ class GameSession(
         } ?: EconomyState()
         undoStack.clear()
         persist()
+        applyFlavour()
     }
 
     fun complete(type: ItemType) {
@@ -49,6 +60,7 @@ class GameSession(
         state = next
         undoStack.addLast(completion)
         persist()
+        applyFlavour()
         feedback.play(FeedbackEvent.CHECKMARK)
         if (!wasSatiated && state.meter > config.satiatedAbove) {
             feedback.play(FeedbackEvent.SATIATED_PEAK)
@@ -61,6 +73,17 @@ class GameSession(
         val completion = undoStack.removeLastOrNull() ?: return
         state = economy.undo(state, completion)
         persist()
+        applyFlavour()
+    }
+
+    private var appliedFlavour: Flavour? = null
+
+    /** Switches the sounds and tells the UI when the player's flavour differs from the one applied. */
+    private fun applyFlavour() {
+        if (flavour == appliedFlavour) return
+        appliedFlavour = flavour
+        feedback.useSoundSet(theme.soundSet)
+        onFlavourChanged(theme)
     }
 
     private fun persist() = store.save(state, clock())
