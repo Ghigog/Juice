@@ -26,9 +26,9 @@ import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
+import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.feedback.FeedbackPlayer
-import com.juice.feedback.FeedbackSettings
 import com.juice.feedback.SoundPoolOutput
 import com.juice.feedback.VibratorOutput
 import androidx.compose.ui.platform.ComposeView
@@ -50,9 +50,12 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var strip: View? = null
     private var overlay: View? = null
+    private var starting = false
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
+    private val settingsRepository by lazy { SettingsRepository(this) }
+    @Volatile private var settings = JuiceSettings()
     private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -72,7 +75,14 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (strip == null && overlay == null) showStrip()
+        if (strip == null && overlay == null && !starting) {
+            starting = true
+            scope.launch {
+                settings = settingsRepository.current()
+                if (strip == null && overlay == null) showStrip()
+                settingsRepository.settings.collect { applySettings(it) }
+            }
+        }
         return START_STICKY
     }
 
@@ -101,20 +111,33 @@ class OverlayService : Service() {
             .build()
     }
 
-    private fun showStrip() {
-        val view = View(this).apply {
-            setBackgroundColor(STRIP_COLOR)
-            setOnTouchListener(SwipeLeftListener(::swapToOverlay))
-        }
+    /** Keeps [settings] current and re-lays out the strip when its position or width changed. */
+    private fun applySettings(next: JuiceSettings) {
+        val layoutChanged = next.stripPosition != settings.stripPosition ||
+            next.stripWidthPercent != settings.stripWidthPercent
+        settings = next
+        val view = strip ?: return
+        if (layoutChanged) windowManager.updateViewLayout(view, stripParams())
+    }
+
+    private fun stripParams(): WindowManager.LayoutParams {
         val metrics = resources.displayMetrics
-        val params = WindowManager.LayoutParams(
-            (metrics.widthPixels * STRIP_WIDTH_FRACTION).toInt(),
+        return WindowManager.LayoutParams(
+            settings.stripWidthPx(metrics.widthPixels),
             (STRIP_HEIGHT_DP * metrics.density).toInt(),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL }
+        ).apply { gravity = settings.stripPosition.gravity() }
+    }
+
+    private fun showStrip() {
+        val view = View(this).apply {
+            setBackgroundColor(STRIP_COLOR)
+            setOnTouchListener(SwipeLeftListener(::swapToOverlay))
+        }
+        val params = stripParams()
         windowManager.addView(view, params)
         strip = view
     }
@@ -133,14 +156,17 @@ class OverlayService : Service() {
 
     private fun showOverlay() {
         val backdrop = Backdrop.choose(
-            blurEnabled = BLUR_ENABLED,
+            blurEnabled = settings.blur,
             blurSupported = windowManager.isCrossWindowBlurEnabled,
             batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
         )
-        val reservoir = ThirstReservoirView(this)
+        val reservoir = ThirstReservoirView(this).apply {
+            sloshEnabled = settings.sloshEnabled
+            particlesEnabled = settings.particlesEnabled
+        }
         val session = GameSession(
             EconomyStore(this),
-            FeedbackPlayer(sounds, VibratorOutput(this)) { FeedbackSettings() },
+            FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback },
             onSatiated = reservoir::emitParticles,
         )
         session.open()
@@ -176,10 +202,9 @@ class OverlayService : Service() {
             )
         }
         overlayLifecycle = lifecycleOwner
-        val settings = SettingsRepository(this)
         val intake = CaptureIntake(
             repository,
-            onDeviceOnly = { settings.current().onDeviceOnly },
+            onDeviceOnly = { settingsRepository.current().onDeviceOnly },
             enqueue = { id, text, onDevice -> IntakeWorker.enqueue(this, id, text, onDevice) },
         )
         scope.launch {
@@ -192,7 +217,7 @@ class OverlayService : Service() {
                 onCaptured = intake::submit,
             )
             state.observe()
-            composeView.setContent { OverlayShell(state) }
+            composeView.setContent { OverlayShell(state, tapButtons = settings.tapButtons) }
         }
         val params = overlayLayoutParams()
         if (backdrop == Backdrop.BLUR) {
@@ -218,12 +243,10 @@ class OverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "juice_overlay"
         private const val NOTIFICATION_ID = 1
-        private const val STRIP_WIDTH_FRACTION = 0.3f
         private const val STRIP_HEIGHT_DP = 24
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
         private const val WRAP = FrameLayout.LayoutParams.WRAP_CONTENT
         private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
-        private const val BLUR_ENABLED = true // TODO: read from the blur setting once settings exist
         private const val BLUR_RADIUS_PX = 40
         private val BLUR_TINT_COLOR = Color.argb(60, 0, 0, 0)
         private val SCRIM_COLOR = Color.argb(200, 0, 0, 0)

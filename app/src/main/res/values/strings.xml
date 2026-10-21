@@ -22,5 +22,8 @@
     <string name="settings_strip_position">Strip position</string>
     <string name="settings_strip_top">Top</string>
     <string name="settings_strip_bottom">Bottom</string>
+    <string name="settings_strip_width">Strip width: %1$d%%</string>
+    <string name="overlay_complete">Complete</string>
+    <string name="overlay_dismiss">Dismiss</string>
     <string name="settings_open">Settings</string>
 </resources>
