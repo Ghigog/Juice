@@ -68,13 +68,28 @@ class IntakeTest {
     }
 
     @Test fun simplePhrasesResolveToAFutureDeadline() {
-        val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]")
+        val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
         assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6pm", now).deadline)
         assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6", now).deadline)
-        assertEquals(Instant.parse("2026-03-03T09:00:00Z"), RulesFallback.classify("call mum tomorrow", now).deadline)
         assertEquals(Instant.parse("2026-03-03T08:00:00Z"), RulesFallback.classify("gym at 8am", now).deadline)
-        assertEquals(Instant.parse("2026-03-06T09:00:00Z"), RulesFallback.classify("pay rent friday", now).deadline)
+        // A day with no time means by the end of that day.
+        assertEquals(Instant.parse("2026-03-03T23:59:00Z"), RulesFallback.classify("call mum tomorrow", now).deadline)
+        assertEquals(Instant.parse("2026-03-06T23:59:00Z"), RulesFallback.classify("pay rent friday", now).deadline)
+        assertEquals(Instant.parse("2026-03-02T23:59:00Z"), RulesFallback.classify("call mum tonight", now).deadline)
         assertNull(RulesFallback.classify("send invoice by 6pm").deadline)
+    }
+
+    @Test fun timeframesMakeAGoalDueAtTheirEnd() {
+        val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
+        fun due(text: String) = RulesFallback.classify(text, now).also { assertEquals(ItemType.Goal, it.type, text) }.deadline
+        assertEquals(Instant.parse("2026-03-08T23:59:00Z"), due("i need to buy a dryer before the end of the week"))
+        assertEquals(Instant.parse("2026-03-08T23:59:00Z"), due("tidy the garage this weekend"))
+        assertEquals(Instant.parse("2026-03-15T23:59:00Z"), due("book flights next week"))
+        assertEquals(Instant.parse("2026-03-31T23:59:00Z"), due("renew passport by end of month"))
+        assertEquals(Instant.parse("2026-03-02T23:59:00Z"), due("reply to Sam by end of day"))
+        assertEquals(Instant.parse("2026-03-05T10:00:00Z"), due("send the draft in 3 days"))
+        assertEquals(Instant.parse("2026-03-09T10:00:00Z"), due("finish the report within a week"))
+        assertEquals(ItemType.Task, RulesFallback.classify("write the weekly report", now).type)
     }
 
     @Test fun lateParseKeepsEditedTitleAndFillsUntouchedFields() {

@@ -213,6 +213,13 @@ class OverlayService : Service() {
                 }
                 return super.dispatchKeyEvent(event)
             }
+
+            // The system can drop the blur behind an overlay without telling the blur listener
+            // (seen after the overlay loses and regains focus); set it again on the way back.
+            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+                super.onWindowFocusChanged(hasWindowFocus)
+                if (hasWindowFocus) applyBackdrop()
+            }
         }.apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)

@@ -242,7 +242,8 @@ fun OverlayShell(
  * wallpaper it has to stay mostly opaque, or the screen behind washes it out to grey.
  */
 private fun overlayTint(blurred: Boolean): Brush {
-    val alpha = if (blurred) 0.84f else 0.97f
+    // Thick enough that, if the system drops the blur for a moment, the screen behind barely shows.
+    val alpha = if (blurred) 0.9f else 0.97f
     return Brush.linearGradient(
         listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
     )
