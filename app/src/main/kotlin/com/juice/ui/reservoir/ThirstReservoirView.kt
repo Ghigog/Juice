@@ -19,7 +19,7 @@ uniform float2 u_resolution;
 uniform float  u_time;
 uniform float  u_fill;
 uniform float  u_slosh;
-layout(color) uniform half3 u_color;
+layout(color) uniform half4 u_color;
 
 half4 main(float2 fragCoord) {
     float2 st = fragCoord / u_resolution;
@@ -37,7 +37,7 @@ half4 main(float2 fragCoord) {
     if (st.y > surface) return half4(0.0);
 
     float depth = clamp((surface - st.y) / max(surface, 0.05), 0.0, 1.0);
-    half3 c = mix(u_color, u_color * 0.6, half(depth));
+    half3 c = mix(u_color.rgb, u_color.rgb * 0.6, half(depth));
 
     float crest = smoothstep(0.015, 0.0, surface - st.y);
     c += half3(0.3) * half(crest);
@@ -58,7 +58,10 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
             invalidate()
         }
 
-    /** Liquid colour (ARGB), set from the player's flavour. */
+    /**
+     * Liquid colour (ARGB), set from the player's flavour. setColorUniform always writes four
+     * values, so the shader's u_color must be a half4: a half3 throws when the view is built.
+     */
     var color = Color.rgb(255, 170, 40)
         set(value) {
             field = value
