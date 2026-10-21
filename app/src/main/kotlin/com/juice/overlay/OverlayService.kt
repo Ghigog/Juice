@@ -330,6 +330,10 @@ internal fun overlayLayoutParams() = WindowManager.LayoutParams(
 ).apply {
     // The capture field sits at the bottom; the window shrinks above the keyboard instead of hiding it.
     softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+    // Cover the status and navigation bars too, so the blur and tint run edge to edge;
+    // the content keeps clear of them with inset padding.
+    fitInsetsTypes = 0
+    layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
 }
 
 /** Builds the overlay; if that fails, cleans up, brings the strip back and reports why instead of crashing. */

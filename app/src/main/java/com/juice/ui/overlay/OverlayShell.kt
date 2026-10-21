@@ -64,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -156,7 +155,7 @@ fun OverlayShell(
         Box(
             modifier
                 .fillMaxSize()
-                .background(if (blurred) Color(0x80080A10) else Color(0xE6080A10)),
+                .background(overlayTint(blurred)),
         ) {
             Column(
                 Modifier
@@ -200,10 +199,13 @@ fun OverlayShell(
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
             }
+            // Sits where the strip was, which the system keeps clear of the status or navigation bar.
+            val bottom = settings.stripPosition == StripPosition.Bottom
             CloseHandle(
                 actions.onClose,
                 Modifier
-                    .align(if (settings.stripPosition == StripPosition.Bottom) Alignment.BottomCenter else Alignment.TopCenter)
+                    .align(if (bottom) Alignment.BottomCenter else Alignment.TopCenter)
+                    .windowInsetsPadding(if (bottom) WindowInsets.navigationBars else WindowInsets.statusBars)
                     .padding(vertical = 6.dp),
             )
             Banner(effects, hud, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars).padding(top = 92.dp))
@@ -233,6 +235,17 @@ fun OverlayShell(
             }
         }
     }
+}
+
+/**
+ * The overlay's ground: the mockup's dark teal-to-indigo glass. Over a blurred, often bright
+ * wallpaper it has to stay mostly opaque, or the screen behind washes it out to grey.
+ */
+private fun overlayTint(blurred: Boolean): Brush {
+    val alpha = if (blurred) 0.84f else 0.97f
+    return Brush.linearGradient(
+        listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
+    )
 }
 
 /** Where the strip was: tap it, or swipe right on it, to close. */
@@ -461,12 +474,11 @@ private fun Reservoir(hud: Hud, reservoir: @Composable (Modifier) -> Unit) {
                 .align(Alignment.TopEnd)
                 .padding(top = 10.dp, end = 14.dp)
                 .graphicsLayer { scaleX = pulse; scaleY = pulse }
-                .then(if (satiated) Modifier.shadow(18.dp, RoundedCornerShape(17.dp), ambientColor = hud.accent, spotColor = hud.accent) else Modifier)
                 .widthIn(min = 56.dp)
                 .height(34.dp)
                 .clip(RoundedCornerShape(17.dp))
-                .background(Color.Black.copy(alpha = 0.45f))
-                .border(1.dp, hud.accent, RoundedCornerShape(17.dp))
+                .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
+                .border(if (satiated) 2.dp else 1.dp, hud.accent, RoundedCornerShape(17.dp))
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
