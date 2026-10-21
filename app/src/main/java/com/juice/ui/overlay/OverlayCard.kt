@@ -310,6 +310,17 @@ internal fun CentreCard(
                     )
                 }
                 Spacer(Modifier.weight(1f))
+                item.completionCondition?.let { done ->
+                    Text(
+                        stringResource(R.string.overlay_done_when, done),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = JuiceColors.white(0.82f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
                 Text(metaOf(state, item), fontSize = 14.sp, lineHeight = 20.sp, color = JuiceColors.white(0.82f))
                 Spacer(Modifier.height(12.dp))
                 Box(

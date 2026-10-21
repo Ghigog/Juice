@@ -249,7 +249,7 @@ private fun overlayTint(blurred: Boolean): Brush {
     )
 }
 
-/** Where the strip was: tap it, or swipe right on it, to close. */
+/** Where the strip was: tap it, or swipe left on it (back the way it opened), to close. */
 @Composable
 private fun CloseHandle(onClose: () -> Unit, modifier: Modifier) {
     val label = stringResource(R.string.overlay_close)
@@ -271,9 +271,9 @@ private fun CloseHandle(onClose: () -> Unit, modifier: Modifier) {
                         dx = change.position.x - down.position.x
                         if (abs(dx) > viewConfiguration.touchSlop) moved = true
                         if (!change.pressed) break
-                        if (dx > 22.dp.toPx()) break
+                        if (dx < -22.dp.toPx()) break
                     }
-                    if (!moved || dx > 22.dp.toPx()) onClose()
+                    if (!moved || dx < -22.dp.toPx()) onClose()
                 }
             },
         contentAlignment = Alignment.Center,

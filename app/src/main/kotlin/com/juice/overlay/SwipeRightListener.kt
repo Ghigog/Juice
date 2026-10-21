@@ -5,10 +5,10 @@ import android.view.View
 import android.view.ViewConfiguration
 
 /**
- * Decides when a touch has travelled left past [slop], or was a tap (lifted without moving past
+ * Decides when a touch has travelled right past [slop], or was a tap (lifted without moving past
  * [tapSlop]); fires at most once per touch.
  */
-internal class SwipeLeftDetector(private val onSwipeLeft: () -> Unit) {
+internal class SwipeRightDetector(private val onSwipeRight: () -> Unit) {
     private var downX = 0f
     private var fired = false
     private var moved = false
@@ -21,23 +21,23 @@ internal class SwipeLeftDetector(private val onSwipeLeft: () -> Unit) {
 
     fun move(x: Float, slop: Float, tapSlop: Float = slop) {
         if (kotlin.math.abs(x - downX) > tapSlop) moved = true
-        if (!fired && downX - x > slop) {
+        if (!fired && x - downX > slop) {
             fired = true
-            onSwipeLeft()
+            onSwipeRight()
         }
     }
 
     fun up() {
         if (!fired && !moved) {
             fired = true
-            onSwipeLeft()
+            onSwipeRight()
         }
     }
 }
 
-/** Fires [onSwipeLeft] once a touch on the strip travels left past the touch slop, or taps it. */
-internal class SwipeLeftListener(onSwipeLeft: () -> Unit) : View.OnTouchListener {
-    private val detector = SwipeLeftDetector(onSwipeLeft)
+/** Fires [onSwipeRight] once a touch on the strip travels right past the touch slop, or taps it. */
+internal class SwipeRightListener(onSwipeRight: () -> Unit) : View.OnTouchListener {
+    private val detector = SwipeRightDetector(onSwipeRight)
 
     override fun onTouch(view: View, event: MotionEvent): Boolean {
         when (event.actionMasked) {

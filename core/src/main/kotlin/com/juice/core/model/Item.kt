@@ -16,4 +16,6 @@ data class Item(
     val status: ItemStatus = ItemStatus.Active,
     val parentId: String? = null,
     val editedFields: Set<IntakeField> = emptySet(),
+    /** What "done" means, when the parser found one (e.g. "Dryer ordered"). */
+    val completionCondition: String? = null,
 )

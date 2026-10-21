@@ -43,6 +43,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
+        env:
+          # Turns on cloud intake. Without the secret the APK sorts notes with on-device rules only.
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: ./gradlew :app:assembleDebug
 
       - name: Upload APK

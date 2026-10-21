@@ -87,4 +87,15 @@ class CaptureIntakeTest {
         assertEquals(ItemType.Task, saved.type)
         assertEquals("do laundry by 6pm", saved.title)
     }
+
+    @Test
+    fun aParsedCompletionConditionIsStoredUnlessTheUserSetOne() = runBlocking {
+        repository.save(Item("a", ItemType.Note, "buy a dryer before the end of the week"))
+        repository.land("a", ParsedItem(ItemType.Goal, "Buy a dryer", completionCondition = "Dryer ordered", deadline = deadline))
+        assertEquals("Dryer ordered", repository.get("a")?.completionCondition)
+        repository.save(repository.get("a")!!.copy(completionCondition = "Dryer delivered"))
+        repository.markEdited("a", IntakeField.CompletionCondition)
+        repository.applyParse("a", ParsedItem(ItemType.Goal, "Buy a dryer", completionCondition = "Dryer ordered"))
+        assertEquals("Dryer delivered", repository.get("a")?.completionCondition)
+    }
 }
