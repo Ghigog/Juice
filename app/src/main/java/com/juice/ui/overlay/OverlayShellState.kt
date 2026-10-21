@@ -14,6 +14,7 @@ import com.juice.data.ItemRepository
 import com.juice.data.toItems
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -29,7 +30,8 @@ class OverlayShellState(
     initial: List<Item> = emptyList(),
     private val onCompleted: (Item) -> Unit = {},
     private val onCompletionUndone: () -> Unit = {},
-    private val onCaptured: suspend (Item) -> Unit = {},
+    /** Hands a saved capture to intake; true means a cloud parse is on its way. */
+    private val onCaptured: suspend (Item) -> Boolean = { false },
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
     var items by mutableStateOf(initial)
@@ -37,16 +39,25 @@ class OverlayShellState(
     var undo by mutableStateOf<Undo?>(null)
         private set
 
-    /** Shows a new Note card at once and saves it in the background. */
-    fun capture(text: String) {
+    /** Ids of captured cards whose cloud parse has not landed yet. */
+    var parsing by mutableStateOf(emptySet<String>())
+        private set
+
+    /** Shows a new Note card at once (first in the carousel) and saves it in the background. */
+    fun capture(text: String): Item? {
         val title = text.trim()
-        if (title.isEmpty()) return
+        if (title.isEmpty()) return null
         val note = Item(newId(), ItemType.Note, title)
-        items = items + note
+        items = listOf(note) + items
         scope.launch {
             repository.save(note)
-            onCaptured(note)
+            if (onCaptured(note)) {
+                parsing = parsing + note.id
+                delay(PARSE_PATIENCE_MILLIS)
+                parsing = parsing - note.id
+            }
         }
+        return note
     }
 
     /** Keeps the cards in step with the repository, so a parse landing later updates an open card. */
@@ -54,30 +65,48 @@ class OverlayShellState(
         scope.launch {
             repository.observeActive().collect { saved ->
                 val byId = saved.associateBy { it.id }
+                val landed = parsing.filter { id ->
+                    val before = items.firstOrNull { it.id == id }
+                    val after = byId[id]
+                    after != null && (after.type != before?.type || after.deadline != before.deadline)
+                }
+                if (landed.isNotEmpty()) parsing = parsing - landed.toSet()
                 val known = items.mapNotNull { byId[it.id] }
-                items = known + saved.filter { s -> items.none { it.id == s.id } }
+                val added = saved.filter { s -> items.none { it.id == s.id } }
+                // New sub-item cards go right after their Project; anything else new goes last.
+                items = known.flatMap { k -> listOf(k) + added.filter { it.parentId == k.id } } +
+                    added.filter { a -> known.none { it.id == a.parentId } }
             }
         }
     }
 
     /** The user picks a type; a late parse will not change it. */
-    fun setType(item: Item, type: ItemType) {
-        items = items.map { if (it.id == item.id) it.copy(type = type, editedFields = it.editedFields + IntakeField.Type) else it }
-        scope.launch {
-            repository.markEdited(item.id, IntakeField.Type)
-            repository.get(item.id)?.let { repository.save(it.copy(type = type)) }
-        }
+    fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) { it.copy(type = type) }
+
+    /** Tapping the type pill steps Note, Task, Goal, Project and round again. */
+    fun cycleType(item: Item) {
+        val types = ItemType.entries
+        setType(item, types[(types.indexOf(item.type) + 1) % types.size])
     }
+
+    /** Active sub-item cards of [project]. */
+    fun stepsOf(project: Item): List<Item> = items.filter { it.parentId == project.id }
+
+    /** A Project completes through its steps, so ticking it while steps are open does nothing. */
+    fun canComplete(item: Item): Boolean = item.type != ItemType.Project || stepsOf(item).isEmpty()
 
     /** The user rewrites a title; it is saved as typed and a late parse never changes it. */
     fun setTitle(item: Item, title: String) {
         val edited = title.trim()
         if (edited.isEmpty() || edited == item.title) return
-        items = items.map { if (it.id == item.id) it.copy(title = edited, editedFields = it.editedFields + IntakeField.Title) else it }
-        scope.launch {
-            repository.markEdited(item.id, IntakeField.Title)
-            repository.get(item.id)?.let { repository.save(it.copy(title = edited)) }
-        }
+        edit(item.id, IntakeField.Title) { it.copy(title = edited) }
+    }
+
+    /** Applies a user edit on screen and saves the whole card in one write, so quick edits land in order. */
+    private fun edit(id: String, field: IntakeField, change: (Item) -> Item) {
+        val edited = items.firstOrNull { it.id == id }?.let { change(it).copy(editedFields = it.editedFields + field) } ?: return
+        items = items.map { if (it.id == id) edited else it }
+        scope.launch { repository.save(edited) }
     }
 
     /** Swaps the captured card [id] for what its parse produced: the card, and a Project's sub-item cards. */
@@ -89,12 +118,14 @@ class OverlayShellState(
         scope.launch { landed.forEach { repository.save(it) } }
     }
 
-    /** Completing a Project's last active sub-item completes the Project too. */
-    fun complete(item: Item) {
+    /** Completing a Project's last active sub-item completes the Project too. False when [canComplete] is not met. */
+    fun complete(item: Item): Boolean {
+        if (!canComplete(item)) return false
         val project = completedProject(item)
         finish(item, ItemStatus.Completed, dismissed = false, project)
         onCompleted(item)
         if (project != null) onCompleted(project)
+        return true
     }
 
     private fun completedProject(item: Item): Item? {
@@ -135,5 +166,8 @@ class OverlayShellState(
 
     companion object {
         const val UNDO_WINDOW_MILLIS = 10_000L
+
+        /** How long a card shows that a cloud parse is running before giving up on showing it. */
+        const val PARSE_PATIENCE_MILLIS = 15_000L
     }
 }

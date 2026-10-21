@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 class CaptureIntakeTest {
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
-    private val enqueued = mutableListOf<Triple<String, String, Boolean>>()
+    private val enqueued = mutableListOf<Pair<String, String>>()
     private val deadline = Instant.ofEpochMilli(1_800_000_000_000)
 
     @Before
@@ -36,15 +36,15 @@ class CaptureIntakeTest {
     @After
     fun tearDown() = db.close()
 
-    private fun intake(onDeviceOnly: Boolean) =
-        CaptureIntake(repository, { onDeviceOnly }, { id, text, local -> enqueued += Triple(id, text, local) })
+    private fun intake(onDeviceOnly: Boolean, cloud: Boolean = true) =
+        CaptureIntake(repository, { onDeviceOnly }, { id, text -> enqueued += id to text }, cloudAvailable = { cloud })
 
     @Test
     fun onlineCaptureIsQueuedAndTheLateParseUpdatesTheCard() = runBlocking {
         val note = Item("a", ItemType.Note, "do laundry by 6pm")
         repository.save(note)
-        intake(onDeviceOnly = false).submit(note)
-        assertEquals(listOf(Triple("a", "do laundry by 6pm", false)), enqueued)
+        assertEquals(true, intake(onDeviceOnly = false).submit(note))
+        assertEquals(listOf("a" to "do laundry by 6pm"), enqueued)
         assertEquals(ItemType.Note, repository.get("a")?.type)
 
         repository.applyParse("a", ParsedItem(ItemType.Goal, "Laundry", deadline = deadline))
@@ -58,9 +58,23 @@ class CaptureIntakeTest {
     fun onDeviceOnlyAppliesTheRulesFallbackLocally() = runBlocking {
         val note = Item("a", ItemType.Note, "call mum tomorrow")
         repository.save(note)
-        intake(onDeviceOnly = true).submit(note)
-        assertEquals(listOf(Triple("a", "call mum tomorrow", true)), enqueued)
+        assertEquals(false, intake(onDeviceOnly = true).submit(note))
+        assertEquals(emptyList<Pair<String, String>>(), enqueued)
         assertEquals(ItemType.Goal, repository.get("a")?.type)
+    }
+
+    @Test
+    fun withoutACloudParserARulesProjectLandsWithItsSteps() = runBlocking {
+        val note = Item("a", ItemType.Note, "Launch: write copy, record demo and ship")
+        repository.save(note)
+        intake(onDeviceOnly = false, cloud = false).submit(note)
+        assertEquals(emptyList<Pair<String, String>>(), enqueued)
+        val active = repository.active()
+        assertEquals(ItemType.Project, active.first { it.id == "a" }.type)
+        assertEquals(listOf("Write copy", "Record demo", "Ship"), active.filter { it.parentId == "a" }.map { it.title })
+        // A second parse of the same card does not add the steps twice.
+        repository.land("a", com.juice.core.intake.RulesFallback.classify(note.title))
+        assertEquals(3, repository.active().count { it.parentId == "a" })
     }
 
     @Test

@@ -51,11 +51,30 @@ class IntakeTest {
         assertEquals(IntakeValidator.MAX_TITLE_LENGTH, item.title.length)
     }
 
-    @Test fun datePhraseGivesGoalOtherwiseNote() {
+    @Test fun datePhraseGivesGoalPlainThoughtGivesNote() {
         assertEquals(ItemType.Goal, RulesFallback.classify("do laundry by 6pm").type)
         assertEquals(ItemType.Goal, RulesFallback.classify("call mum tomorrow").type)
         assertEquals(ItemType.Note, RulesFallback.classify("ideas for the garden").type)
         assertEquals("call mum tomorrow", RulesFallback.classify("call mum tomorrow").title)
+    }
+
+    @Test fun actionVerbGivesTaskAndColonListGivesProject() {
+        assertEquals(ItemType.Task, RulesFallback.classify("call the dentist").type)
+        val project = RulesFallback.classify("Launch: write copy, record demo and ship")
+        assertEquals(ItemType.Project, project.type)
+        assertEquals("Launch", project.title)
+        assertEquals(listOf("Write copy", "Record demo", "Ship"), project.subItems)
+        assertEquals(ItemType.Note, RulesFallback.classify("note: just one thing").type)
+    }
+
+    @Test fun simplePhrasesResolveToAFutureDeadline() {
+        val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]")
+        assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6pm", now).deadline)
+        assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6", now).deadline)
+        assertEquals(Instant.parse("2026-03-03T09:00:00Z"), RulesFallback.classify("call mum tomorrow", now).deadline)
+        assertEquals(Instant.parse("2026-03-03T08:00:00Z"), RulesFallback.classify("gym at 8am", now).deadline)
+        assertEquals(Instant.parse("2026-03-06T09:00:00Z"), RulesFallback.classify("pay rent friday", now).deadline)
+        assertNull(RulesFallback.classify("send invoice by 6pm").deadline)
     }
 
     @Test fun lateParseKeepsEditedTitleAndFillsUntouchedFields() {

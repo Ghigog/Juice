@@ -24,18 +24,20 @@ class IntakeWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
         val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { onDeviceOnly })
         val result = parser.parse(text)
-        if (result.retryLater) return Result.retry()
+        // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
         ItemRepository(JuiceDatabase.open(applicationContext).itemDao()).land(itemId, result.item)
-        return Result.success()
+        return if (result.retryLater) Result.retry() else Result.success()
     }
 
     companion object {
         private const val KEY_TEXT = "text"
         private const val KEY_ITEM_ID = "itemId"
 
-        /** Queues a parse for [itemId]. Does nothing when [onDeviceOnly] is set. */
-        fun enqueue(context: Context, itemId: String, text: String, onDeviceOnly: Boolean) {
-            if (onDeviceOnly) return
+        /** True when a Groq key was built in; without one, intake stays on device. */
+        val cloudAvailable: Boolean get() = BuildConfig.GROQ_API_KEY.isNotBlank()
+
+        /** Queues a Groq parse for [itemId]. */
+        fun enqueue(context: Context, itemId: String, text: String) {
             val request = OneTimeWorkRequestBuilder<IntakeWorker>()
                 .setInputData(workDataOf(KEY_TEXT to text, KEY_ITEM_ID to itemId))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

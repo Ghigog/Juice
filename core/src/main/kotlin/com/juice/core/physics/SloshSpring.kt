@@ -1,7 +1,10 @@
 package com.juice.core.physics
 
-/** Damped spring `a = -k*x - c*v + impulse` driving the reservoir slosh; [position] is clamped to -1..1. */
-class SloshSpring(private val stiffness: Float = 60f, private val damping: Float = 6f) {
+/**
+ * Damped spring `a = -k*x - c*v + impulse` driving the reservoir slosh; [position] is clamped to -1..1.
+ * Stiffness and damping can change while it runs (a viscous flavour sloshes slower).
+ */
+class SloshSpring(var stiffness: Float = 60f, var damping: Float = 6f) {
     var position = 0f
         private set
     private var velocity = 0f

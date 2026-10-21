@@ -65,7 +65,7 @@ Later platforms: reconsider Kotlin Multiplatform or Flutter once the Android cor
 ## 4. Android Overlay
 
 ### 4.1 Trigger strip
-- A thin touchable strip at the **top center** of the screen, similar in spirit to the Pixel bottom gesture bar. **Swipe right** (left to right) on it opens the overlay.
+- A thin touchable strip at the **top center** of the screen, similar in spirit to the Pixel bottom gesture bar. **Swipe left** on it, or tap it, to open the overlay. In the overlay the strip becomes a handle: swipe right on it, tap it, or press Back to close.
 - Implemented as a small `TYPE_APPLICATION_OVERLAY` window (about 30% of screen width, about 24dp tall). Only the strip is touchable. The rest of the screen is untouched.
 - Position and width are adjustable in settings, since camera cutouts and OEM status bar behavior vary.
 - A top strip avoids the system back gesture zones on the left and right edges.

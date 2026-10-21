@@ -9,21 +9,29 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
-import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
-import com.juice.core.economy.ItemType as EconomyItemType
-import com.juice.core.intake.ItemType
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.viewinterop.AndroidView
+import com.juice.core.economy.EconomyConfig
+import com.juice.feedback.FeedbackEvent
+import com.juice.ui.Tier
+import com.juice.ui.overlay.OverlayActions
+import com.juice.ui.overlay.OverlayEffects
+import com.juice.ui.overlay.hud
+import com.juice.ui.overlay.multiplierLabel
+import com.juice.ui.overlay.toEconomy
 import com.juice.data.EconomyStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
@@ -55,6 +63,7 @@ class OverlayService : Service() {
     private var overlay: View? = null
     private var starting = false
     private var overlayLifecycle: OverlayLifecycleOwner? = null
+    private val backdrop = mutableStateOf(Backdrop.SCRIM)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
@@ -118,7 +127,9 @@ class OverlayService : Service() {
     private fun applySettings(next: JuiceSettings) {
         val layoutChanged = next.stripPosition != settings.stripPosition ||
             next.stripWidthPercent != settings.stripWidthPercent
+        val blurChanged = next.blur != settings.blur
         settings = next
+        if (blurChanged) applyBackdrop()
         val view = strip ?: return
         if (layoutChanged) windowManager.updateViewLayout(view, stripParams())
     }
@@ -136,8 +147,7 @@ class OverlayService : Service() {
     }
 
     private fun showStrip() {
-        val view = View(this).apply {
-            setBackgroundColor(STRIP_COLOR)
+        val view = StripView(this).apply {
             setOnTouchListener(SwipeLeftListener(::swapToOverlay))
         }
         val params = stripParams()
@@ -165,78 +175,118 @@ class OverlayService : Service() {
     }
 
     private fun showOverlay() {
-        val backdrop = Backdrop.choose(
-            blurEnabled = settings.blur,
-            blurSupported = windowManager.isCrossWindowBlurEnabled,
-            batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
-        )
-        val reservoir = ThirstReservoirView(this).apply {
-            sloshEnabled = settings.sloshEnabled
-            particlesEnabled = settings.particlesEnabled
-        }
+        val reservoir = ThirstReservoirView(this)
+        val effects = OverlayEffects()
+        val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
         val session = GameSession(
             EconomyStore(this),
-            FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback },
-            onSatiated = reservoir::emitParticles,
-            onFlavourChanged = { reservoir.color = it.reservoirColor },
+            feedback,
+            onSatiated = {
+                reservoir.emitParticles()
+                reservoir.kick(3f)
+                effects.banner(getString(R.string.overlay_banner_satiated))
+            },
+            onFlavourChanged = {
+                reservoir.color = it.reservoirColor
+                reservoir.viscous = it.viscous
+            },
+            onLevelUp = { level, unlocked ->
+                effects.banner(
+                    if (unlocked == null) getString(R.string.overlay_banner_level, level)
+                    else getString(R.string.overlay_banner_unlocked, level, unlocked.displayName),
+                )
+            },
+            chosenFlavour = { settings.flavour },
         )
         session.open()
-        val juiceText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 24f }
-        val badgeText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 18f }
-        fun render() {
-            reservoir.fill = session.fill
-            juiceText.text = getString(R.string.overlay_juice, session.state.juice, session.level)
-            badgeText.text = getString(R.string.overlay_multiplier, session.multiplier)
-        }
-        render()
+        feedback.play(FeedbackEvent.OPEN)
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(if (backdrop == Backdrop.BLUR) BLUR_TINT_COLOR else SCRIM_COLOR)
+        val root = object : FrameLayout(this) {
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                    if (event.action == KeyEvent.ACTION_UP) closeOverlay()
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }.apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-            addView(reservoir, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(composeView, FrameLayout.LayoutParams(MATCH, MATCH))
-            addView(
-                LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(juiceText)
-                    addView(badgeText)
-                    addView(
-                        Button(context).apply {
-                            setText(R.string.overlay_close)
-                            setOnClickListener { closeOverlay() }
-                        },
-                    )
-                },
-                FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END),
-            )
         }
         overlayLifecycle = lifecycleOwner
         val intake = CaptureIntake(
             repository,
             onDeviceOnly = { settingsRepository.current().onDeviceOnly },
-            enqueue = { id, text, onDevice -> IntakeWorker.enqueue(this, id, text, onDevice) },
+            enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
+            cloudAvailable = { IntakeWorker.cloudAvailable },
+        )
+        val actions = OverlayActions(
+            feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
+            onSettingsChange = { change -> scope.launch { settingsRepository.update(change) } },
+            onClose = ::closeOverlay,
+            onScroll = { steps -> reservoir.kick(steps * 2.2f) },
+            onTick = session::tick,
         )
         scope.launch {
             val state = OverlayShellState(
                 repository,
                 scope,
                 repository.active(),
-                onCompleted = { item -> session.complete(item.type.toEconomy()); render() },
-                onCompletionUndone = { session.undo(); render() },
+                onCompleted = { item ->
+                    val type = item.type.toEconomy()
+                    val m = session.multiplier
+                    val earned = session.complete(type)
+                    reservoir.kick(2.4f + (EconomyConfig().fillPercent.getValue(type) / 25f).toFloat())
+                    reservoir.emitParticles(10)
+                    effects.float(if (m > 1.0) "+$earned x${multiplierLabel(m).dropLast(1)}" else "+$earned")
+                },
+                onCompletionUndone = { session.undo() },
                 onCaptured = intake::submit,
             )
             state.observe()
-            composeView.setContent { OverlayShell(state, tapButtons = settings.tapButtons) }
+            composeView.setContent {
+                val current by settingsRepository.settings.collectAsState(settings)
+                LaunchedEffect(current.flavour) { session.applyFlavour() }
+                SideEffect {
+                    reservoir.sloshEnabled = current.sloshEnabled
+                    reservoir.particlesEnabled = current.particlesEnabled
+                }
+                OverlayShell(
+                    state,
+                    settings = current,
+                    hud = session.hud(),
+                    blurred = backdrop.value == Backdrop.BLUR,
+                    actions = actions,
+                    effects = effects,
+                    reservoir = { modifier -> AndroidView(factory = { reservoir }, modifier = modifier) },
+                )
+            }
         }
         val params = overlayLayoutParams()
-        if (backdrop == Backdrop.BLUR) {
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-            params.blurBehindRadius = BLUR_RADIUS_PX
-        }
         windowManager.addView(root, params)
         overlay = root
+        applyBackdrop()
+    }
+
+    /** Blur behind the overlay when it is on, supported and battery saver is off; otherwise the scrim. */
+    private fun applyBackdrop() {
+        val view = overlay ?: return
+        backdrop.value = Backdrop.choose(
+            blurEnabled = settings.blur,
+            blurSupported = windowManager.isCrossWindowBlurEnabled,
+            batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
+        )
+        val params = view.layoutParams as WindowManager.LayoutParams
+        if (backdrop.value == Backdrop.BLUR) {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            params.blurBehindRadius = BLUR_RADIUS_PX
+        } else {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+            params.blurBehindRadius = 0
+        }
+        windowManager.updateViewLayout(view, params)
     }
 
     private fun removeStrip() {
@@ -256,23 +306,12 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val STRIP_HEIGHT_DP = 24
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
-        private const val WRAP = FrameLayout.LayoutParams.WRAP_CONTENT
-        private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
         private const val BLUR_RADIUS_PX = 40
-        private val BLUR_TINT_COLOR = Color.argb(60, 0, 0, 0)
-        private val SCRIM_COLOR = Color.argb(200, 0, 0, 0)
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, OverlayService::class.java))
         }
     }
-}
-
-private fun ItemType.toEconomy() = when (this) {
-    ItemType.Note -> EconomyItemType.NOTE
-    ItemType.Task -> EconomyItemType.TASK
-    ItemType.Goal -> EconomyItemType.GOAL
-    ItemType.Project -> EconomyItemType.PROJECT
 }
 
 private const val TAG = "OverlayService"
@@ -288,7 +327,10 @@ internal fun overlayLayoutParams() = WindowManager.LayoutParams(
     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
         WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
     PixelFormat.TRANSLUCENT,
-)
+).apply {
+    // The capture field sits at the bottom; the window shrinks above the keyboard instead of hiding it.
+    softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+}
 
 /** Builds the overlay; if that fails, cleans up, brings the strip back and reports why instead of crashing. */
 internal fun guardedShowOverlay(

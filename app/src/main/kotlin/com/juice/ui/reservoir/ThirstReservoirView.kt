@@ -66,7 +66,16 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         set(value) {
             field = value
             shader.setColorUniform("u_color", value)
+            particlePaint.color = lighten(value)
             invalidate()
+        }
+
+    /** Golden Honey: heavier liquid, so a softer, slower spring. */
+    var viscous = false
+        set(value) {
+            field = value
+            spring.stiffness = if (value) 24f else 62f
+            spring.damping = if (value) 5.5f else 6.5f
         }
 
     /** Reduce motion turns these off: no tilt/scroll slosh, no particle bursts. */
@@ -88,8 +97,13 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         val dt = if (lastFrameNanos == 0L) 0f else ((nanos - lastFrameNanos) / 1e9f).coerceAtMost(0.05f)
         lastFrameNanos = nanos
         time = (time + dt) % TIME_WRAP
-        spring.step(dt, if (sloshEnabled) tiltImpulse + pendingImpulse else 0f)
+        // A kick is a change of velocity, spread over this frame as an acceleration.
+        val kick = if (dt > 0f) pendingKick / dt else 0f
+        spring.step(dt, if (sloshEnabled) tiltImpulse + pendingImpulse + kick else 0f)
         pendingImpulse = 0f
+        pendingKick = 0f
+        // Satiated: the drink keeps fizzing.
+        if (particlesEnabled && fill > SATIATED_FILL && Random.nextFloat() < dt * 14f) emitBubble()
         particles.removeAll { it.life <= 0f }
         particles.forEach { it.x += it.vx * dt; it.y += it.vy * dt; it.life -= dt }
         invalidate()
@@ -99,7 +113,8 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     private class Particle(var x: Float, var y: Float, val vx: Float, val vy: Float, var life: Float)
 
     private val particles = mutableListOf<Particle>()
-    private val particlePaint = Paint().apply { color = Color.rgb(255, 220, 120) }
+    private val particlePaint = Paint().apply { color = Color.rgb(255, 220, 120); isAntiAlias = true }
+    private var pendingKick = 0f
 
     /** Bursts particles up from the liquid surface, for reaching Satiated. */
     fun emitParticles(count: Int = 40) {
@@ -111,6 +126,18 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
             )
         }
         invalidate()
+    }
+
+    private fun emitBubble() {
+        particles += Particle(
+            Random.nextFloat() * width, height.toFloat(),
+            0f, -(50f + Random.nextFloat() * 70f) * resources.displayMetrics.density, 1.4f + Random.nextFloat(),
+        )
+    }
+
+    /** Sloshes the liquid by changing its velocity at once, e.g. on a carousel snap or a completion. */
+    fun kick(velocity: Float) {
+        if (sloshEnabled) pendingKick += velocity
     }
 
     /** Adds a one-frame slosh impulse, e.g. from scroll velocity. */
@@ -125,8 +152,8 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         shader.setFloatUniform("u_slosh", spring.position)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
         particles.forEach {
-            particlePaint.alpha = (it.life.coerceIn(0f, 1f) * 255).toInt()
-            canvas.drawCircle(it.x, it.y, 6f, particlePaint)
+            particlePaint.alpha = (it.life.coerceIn(0f, 0.9f) * 255).toInt()
+            canvas.drawCircle(it.x, it.y, 3f * resources.displayMetrics.density, particlePaint)
         }
     }
 
@@ -164,7 +191,12 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
+    private fun lighten(c: Int) = Color.rgb(
+        (Color.red(c) + 255) / 2, (Color.green(c) + 255) / 2, (Color.blue(c) + 255) / 2,
+    )
+
     private companion object {
+        const val SATIATED_FILL = 0.75f
         const val TIME_WRAP = 1000f
         const val TILT_GAIN = 4f
     }

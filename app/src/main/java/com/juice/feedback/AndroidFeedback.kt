@@ -6,13 +6,21 @@ import android.media.SoundPool
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import com.juice.R
+import com.juice.core.audio.Cue
+import com.juice.core.audio.Synth
+import com.juice.core.audio.wav
 import com.juice.ui.theme.SoundSet
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 
-/** SoundPool mixer: samples load once, then play with low latency and overlap. */
+/**
+ * SoundPool mixer over synthesized samples: each flavour's cues are rendered once into the cache
+ * directory, then play with low latency and overlap. Rendering runs off the main thread.
+ */
 class SoundPoolOutput(context: Context) : SoundOutput {
     private val pool = SoundPool.Builder()
-        .setMaxStreams(4)
+        .setMaxStreams(6)
         .setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -20,33 +28,38 @@ class SoundPoolOutput(context: Context) : SoundOutput {
                 .build(),
         )
         .build()
-    private val ids = Sound.entries.associateWith { pool.load(context, resourceOf(it), 1) }
+    private val ids = ConcurrentHashMap<Pair<SoundSet, Cue>, Int>()
 
-    private var soundSet = SoundSet.BRIGHT_CLICKS_AND_POPS
+    @Volatile private var soundSet = SoundSet.BRIGHT_CLICKS_AND_POPS
+
+    init {
+        val dir = File(context.cacheDir, "sounds").apply { mkdirs() }
+        thread(name = "juice-synth", isDaemon = true) {
+            // The current set first, so the first sounds after opening are ready soonest.
+            (listOf(soundSet) + SoundSet.entries.filter { it != soundSet }).forEach { set ->
+                Cue.entries.forEach { cue ->
+                    val file = File(dir, "v$VERSION-${set.name}-${cue.name}.wav".lowercase())
+                    if (!file.exists()) file.writeBytes(wav(Synth.render(cue, set.flavour)))
+                    ids[set to cue] = pool.load(file.path, 1)
+                }
+            }
+        }
+    }
 
     override fun useSoundSet(soundSet: SoundSet) {
         this.soundSet = soundSet
     }
 
-    /** The samples are shared; each set is the same bank pitched to its own character. */
-    override fun play(sound: Sound) {
-        ids[sound]?.let { pool.play(it, 1f, 1f, 1, 0, sound.playbackRate * pitchOf(soundSet)) }
-    }
-
-    private fun pitchOf(set: SoundSet) = when (set) {
-        SoundSet.BRIGHT_CLICKS_AND_POPS -> 1f
-        SoundSet.SUB_BASS_AND_FIZZ -> 0.8f
-        SoundSet.METALLIC_CHIMES -> 1.25f
-        SoundSet.BELLS_AND_SPLASHES -> 1.5f
+    override fun play(cue: Cue, rate: Float) {
+        ids[soundSet to cue]?.let { pool.play(it, VOLUME, VOLUME, 1, 0, rate) }
     }
 
     fun release() = pool.release()
 
-    private fun resourceOf(sound: Sound) = when (sound) {
-        Sound.SNAP -> R.raw.snap
-        Sound.SQUEEZE -> R.raw.squeeze
-        Sound.THUD -> R.raw.thud
-        Sound.FIZZ -> R.raw.fizz
+    private companion object {
+        /** Bump when the recipes in [Synth] change, so old renders are not reused. */
+        const val VERSION = 1
+        const val VOLUME = 0.9f
     }
 }
 
@@ -60,6 +73,7 @@ class VibratorOutput(context: Context) : HapticOutput {
             Haptic.MEDIUM_IMPACT -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
             Haptic.DOUBLE_LOW_BUZZ -> VibrationEffect.createWaveform(longArrayOf(0, 40, 60, 40), intArrayOf(0, 90, 0, 90), -1)
             Haptic.CONTINUOUS_LOW_RUMBLE -> VibrationEffect.createOneShot(400, 60)
+            Haptic.REJECT -> VibrationEffect.createWaveform(longArrayOf(0, 10, 30, 10), intArrayOf(0, 120, 0, 120), -1)
         }
         vibrator.vibrate(effect)
     }

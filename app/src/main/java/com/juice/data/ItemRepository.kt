@@ -36,9 +36,13 @@ class ItemRepository(private val dao: ItemDao) {
         save(item.copy(type = merged.type, deadline = merged.deadline))
     }
 
-    /** Applies a landed parse to [id]'s card, plus one linked Task card per sub-item when it is a Project. */
+    /**
+     * Applies a landed parse to [id]'s card, plus one linked Task card per sub-item when it is a
+     * Project. A card that already has sub-item cards (from an earlier parse) keeps just those.
+     */
     suspend fun land(id: String, parsed: ParsedItem, newId: () -> String = { UUID.randomUUID().toString() }): List<Item> {
         applyParse(id, parsed)
+        if (dao.childCount(id) > 0) return listOfNotNull(get(id))
         val children = parsed.toItems(id, newId).filter { it.parentId == id }
         children.forEach { save(it) }
         return listOfNotNull(get(id)) + children
