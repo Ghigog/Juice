@@ -11,6 +11,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.BuildConfig
+import com.juice.data.ItemRepository
+import com.juice.data.JuiceDatabase
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 
@@ -19,18 +21,23 @@ class IntakeWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
         val onDeviceOnly = SettingsRepository(applicationContext).current().onDeviceOnly
+        val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
         val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { onDeviceOnly })
-        return if (parser.parse(text).retryLater) Result.retry() else Result.success()
+        val result = parser.parse(text)
+        if (result.retryLater) return Result.retry()
+        ItemRepository(JuiceDatabase.open(applicationContext).itemDao()).land(itemId, result.item)
+        return Result.success()
     }
 
     companion object {
         private const val KEY_TEXT = "text"
+        private const val KEY_ITEM_ID = "itemId"
 
         /** Queues a parse for [itemId]. Does nothing when [onDeviceOnly] is set. */
         fun enqueue(context: Context, itemId: String, text: String, onDeviceOnly: Boolean) {
             if (onDeviceOnly) return
             val request = OneTimeWorkRequestBuilder<IntakeWorker>()
-                .setInputData(workDataOf(KEY_TEXT to text))
+                .setInputData(workDataOf(KEY_TEXT to text, KEY_ITEM_ID to itemId))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
