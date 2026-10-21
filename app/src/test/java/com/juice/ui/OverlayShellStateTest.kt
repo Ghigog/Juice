@@ -140,4 +140,32 @@ class OverlayShellStateTest {
         assertEquals(listOf(project, steps[1]), state.items)
         assertEquals(ItemStatus.Active, statusEventually("p"))
     }
+
+    @Test
+    fun aTypeThePlayerPickedSurvivesALateParse() = runBlocking {
+        val note = Item("n", ItemType.Note, "Call Sam")
+        repository.save(note)
+        val state = state(note)
+        state.setType(note, ItemType.Goal)
+        assertEquals(ItemType.Goal, state.items.single().type)
+        savedEventually("n") { it.type == ItemType.Goal }
+        repository.applyParse("n", ParsedItem(ItemType.Task, "Call Sam"))
+        assertEquals(ItemType.Goal, repository.get("n")?.type)
+    }
+
+    @Test
+    fun anEditedTitleSurvivesALateParseWhichStillFillsTheDeadline() = runBlocking {
+        val note = Item("n", ItemType.Note, "cal sam")
+        repository.save(note)
+        val state = state(note)
+        state.setTitle(note, " Call Sam ")
+        assertEquals("Call Sam", state.items.single().title)
+        savedEventually("n") { it.title == "Call Sam" }
+        val deadline = java.time.Instant.ofEpochSecond(1_800_000_000)
+        repository.applyParse("n", ParsedItem(ItemType.Task, "Call Samuel", deadline = deadline))
+        val saved = repository.get("n")!!
+        assertEquals("Call Sam", saved.title)
+        assertEquals(deadline, saved.deadline)
+        assertEquals(ItemType.Task, saved.type)
+    }
 }
