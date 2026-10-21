@@ -11,8 +11,8 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -113,8 +113,10 @@ class OverlayService : Service() {
 
     private fun swapToOverlay() {
         removeStrip()
-        showOverlay()
+        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showStrip)
     }
+
+    private fun discardOverlay() = runCatching { removeOverlay() }.onFailure { overlay = null }
 
     private fun closeOverlay() {
         removeOverlay()
@@ -189,13 +191,7 @@ class OverlayService : Service() {
                 FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER),
             )
         }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT,
-        )
+        val params = overlayLayoutParams()
         if (backdrop == Backdrop.BLUR) {
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             params.blurBehindRadius = BLUR_RADIUS_PX
@@ -239,24 +235,28 @@ private fun ItemType.toEconomy() = when (this) {
     ItemType.Project -> EconomyItemType.PROJECT
 }
 
-/** Fires [onSwipeLeft] once a touch on the strip travels left past the touch slop. */
-internal class SwipeLeftListener(private val onSwipeLeft: () -> Unit) : View.OnTouchListener {
-    private var downX = 0f
-    private var fired = false
+private const val TAG = "OverlayService"
 
-    override fun onTouch(view: View, event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                downX = event.rawX
-                fired = false
-            }
-            MotionEvent.ACTION_MOVE -> if (!fired && downX - event.rawX > view.touchSlop()) {
-                fired = true
-                onSwipeLeft()
-            }
-        }
-        return true
+/**
+ * The overlay window must be hardware accelerated: system windows are not by default, and the
+ * Thirst Reservoir's RuntimeShader cannot draw on a software canvas.
+ */
+internal fun overlayLayoutParams() = WindowManager.LayoutParams(
+    WindowManager.LayoutParams.MATCH_PARENT,
+    WindowManager.LayoutParams.MATCH_PARENT,
+    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+    PixelFormat.TRANSLUCENT,
+)
+
+/** Builds the overlay; if that fails, cleans up and brings the strip back instead of crashing. */
+internal fun guardedShowOverlay(show: () -> Unit, cleanup: () -> Unit, restoreStrip: () -> Unit) {
+    try {
+        show()
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to open the overlay; restoring the strip", e)
+        cleanup()
+        restoreStrip()
     }
-
-    private fun View.touchSlop() = android.view.ViewConfiguration.get(context).scaledTouchSlop * 4
 }
