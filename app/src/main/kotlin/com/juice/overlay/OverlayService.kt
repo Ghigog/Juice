@@ -168,13 +168,14 @@ class OverlayService : Service() {
             EconomyStore(this),
             FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback },
             onSatiated = reservoir::emitParticles,
+            onFlavourChanged = { reservoir.color = it.reservoirColor },
         )
         session.open()
         val juiceText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 24f }
         val badgeText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 18f }
         fun render() {
             reservoir.fill = session.fill
-            juiceText.text = getString(R.string.overlay_juice, session.state.juice)
+            juiceText.text = getString(R.string.overlay_juice, session.state.juice, session.level)
             badgeText.text = getString(R.string.overlay_multiplier, session.multiplier)
         }
         render()

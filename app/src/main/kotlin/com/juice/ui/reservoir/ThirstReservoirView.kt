@@ -58,13 +58,19 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
             invalidate()
         }
 
+    /** Liquid colour (ARGB), set from the player's flavour. */
+    var color = Color.rgb(255, 170, 40)
+        set(value) {
+            field = value
+            shader.setColorUniform("u_color", value)
+            invalidate()
+        }
+
     /** Reduce motion turns these off: no tilt/scroll slosh, no particle bursts. */
     var sloshEnabled = true
     var particlesEnabled = true
 
-    private val shader = RuntimeShader(AGSL).apply {
-        setColorUniform("u_color", Color.rgb(255, 170, 40))
-    }
+    private val shader = RuntimeShader(AGSL).apply { setColorUniform("u_color", color) }
     private val paint = Paint().apply { this.shader = this@ThirstReservoirView.shader }
     private val spring = SloshSpring()
     private val sensors = context.getSystemService(SensorManager::class.java)

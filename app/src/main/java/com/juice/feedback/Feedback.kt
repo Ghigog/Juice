@@ -1,11 +1,16 @@
 package com.juice.feedback
 
+import com.juice.ui.theme.SoundSet
+
 /** Moments that produce audio and haptic feedback (design doc §9). */
 enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK }
 
 /** What the UI calls. */
 interface Feedback {
     fun play(event: FeedbackEvent)
+
+    /** Switches to the sounds of the player's flavour. */
+    fun useSoundSet(soundSet: SoundSet) {}
 }
 
 enum class Sound(val playbackRate: Float = 1f) {
@@ -19,7 +24,11 @@ enum class Haptic { SELECTION_TICK, MEDIUM_IMPACT, DOUBLE_LOW_BUZZ, CONTINUOUS_L
 /** The comfort-setting switches. */
 data class FeedbackSettings(val soundEnabled: Boolean = true, val hapticsEnabled: Boolean = true)
 
-interface SoundOutput { fun play(sound: Sound) }
+interface SoundOutput {
+    fun play(sound: Sound)
+
+    fun useSoundSet(soundSet: SoundSet) {}
+}
 
 interface HapticOutput { fun vibrate(haptic: Haptic) }
 
@@ -29,6 +38,8 @@ class FeedbackPlayer(
     private val haptics: HapticOutput,
     private val settings: () -> FeedbackSettings,
 ) : Feedback {
+    override fun useSoundSet(soundSet: SoundSet) = sounds.useSoundSet(soundSet)
+
     override fun play(event: FeedbackEvent) {
         val (sound, haptic) = when (event) {
             FeedbackEvent.SNAP -> Sound.SNAP to Haptic.SELECTION_TICK

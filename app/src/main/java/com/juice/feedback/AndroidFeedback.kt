@@ -7,6 +7,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.juice.R
+import com.juice.ui.theme.SoundSet
 
 /** SoundPool mixer: samples load once, then play with low latency and overlap. */
 class SoundPoolOutput(context: Context) : SoundOutput {
@@ -21,8 +22,22 @@ class SoundPoolOutput(context: Context) : SoundOutput {
         .build()
     private val ids = Sound.entries.associateWith { pool.load(context, resourceOf(it), 1) }
 
+    private var soundSet = SoundSet.BRIGHT_CLICKS_AND_POPS
+
+    override fun useSoundSet(soundSet: SoundSet) {
+        this.soundSet = soundSet
+    }
+
+    /** The samples are shared; each set is the same bank pitched to its own character. */
     override fun play(sound: Sound) {
-        ids[sound]?.let { pool.play(it, 1f, 1f, 1, 0, sound.playbackRate) }
+        ids[sound]?.let { pool.play(it, 1f, 1f, 1, 0, sound.playbackRate * pitchOf(soundSet)) }
+    }
+
+    private fun pitchOf(set: SoundSet) = when (set) {
+        SoundSet.BRIGHT_CLICKS_AND_POPS -> 1f
+        SoundSet.SUB_BASS_AND_FIZZ -> 0.8f
+        SoundSet.METALLIC_CHIMES -> 1.25f
+        SoundSet.BELLS_AND_SPLASHES -> 1.5f
     }
 
     fun release() = pool.release()
