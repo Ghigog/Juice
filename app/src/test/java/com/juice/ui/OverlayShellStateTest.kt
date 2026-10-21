@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.intake.ItemType
+import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.data.ItemRepository
@@ -57,6 +58,15 @@ class OverlayShellStateTest {
         return repository.get(id)?.status
     }
 
+    /** Saves run on Room's executor, so wait for [id] to be stored before reading it. */
+    private suspend fun savedEventually(id: String, ready: (Item) -> Boolean = { true }): Item? {
+        repeat(50) {
+            repository.get(id)?.takeIf(ready)?.let { return it }
+            delay(20)
+        }
+        return repository.get(id)
+    }
+
     @Test
     fun completingSavesTheItemAndReportsItForJuice() = runBlocking {
         repository.save(task)
@@ -94,8 +104,40 @@ class OverlayShellStateTest {
         val state = state()
         state.capture("  buy milk ")
         assertEquals("buy milk", state.items.single().title)
-        repeat(50) { if (repository.get("new") == null) delay(20) }
-        assertEquals(ItemType.Note, repository.get("new")?.type)
+        assertEquals(ItemType.Note, savedEventually("new")?.type)
         assertNull(state.undo)
+    }
+
+    private val project = Item("p", ItemType.Project, "Move house")
+    private val steps = listOf("a", "b").map { Item("s$it", ItemType.Task, it, parentId = "p") }
+
+    @Test
+    fun aLandedProjectShowsAsTheProjectAndLinkedTaskCards() = runBlocking {
+        val ids = ArrayDeque(listOf("x", "y", "z"))
+        val state = OverlayShellState(
+            repository, CoroutineScope(Dispatchers.Unconfined), listOf(Item("n", ItemType.Note, "raw")),
+            newId = { ids.removeFirst() },
+        )
+        state.land("n", ParsedItem(ItemType.Project, "Move house", subItems = listOf("1", "2", "3")))
+        assertEquals(listOf("n", "x", "y", "z"), state.items.map { it.id })
+        assertEquals(listOf(ItemType.Project, ItemType.Task, ItemType.Task, ItemType.Task), state.items.map { it.type })
+        assertEquals(listOf(null, "n", "n", "n"), state.items.map { it.parentId })
+        assertEquals("n", savedEventually("x")?.parentId)
+    }
+
+    @Test
+    fun completingTheLastSubItemCompletesTheProjectAndUndoRevertsBoth() = runBlocking {
+        (listOf(project) + steps).forEach { repository.save(it) }
+        val state = state(project, *steps.toTypedArray())
+        state.complete(steps[0])
+        assertEquals(listOf(steps[0]), completed)
+        state.complete(steps[1])
+        assertEquals(listOf(steps[0], steps[1], project), completed)
+        assertEquals(emptyList(), state.items)
+        assertEquals(ItemStatus.Completed, savedEventually("p") { it.status == ItemStatus.Completed }?.status)
+        state.undoLast()
+        assertEquals(2, undone)
+        assertEquals(listOf(project, steps[1]), state.items)
+        assertEquals(ItemStatus.Active, statusEventually("p"))
     }
 }

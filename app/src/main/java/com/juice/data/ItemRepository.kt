@@ -1,11 +1,14 @@
 package com.juice.data
 
+import com.juice.core.card.toCards
 import com.juice.core.intake.IntakeCard
 import com.juice.core.intake.IntakeField
+import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.mergeParse
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -33,6 +36,14 @@ class ItemRepository(private val dao: ItemDao) {
         save(item.copy(type = merged.type, deadline = merged.deadline))
     }
 
+    /** Applies a landed parse to [id]'s card, plus one linked Task card per sub-item when it is a Project. */
+    suspend fun land(id: String, parsed: ParsedItem, newId: () -> String = { UUID.randomUUID().toString() }): List<Item> {
+        applyParse(id, parsed)
+        val children = parsed.toItems(id, newId).filter { it.parentId == id }
+        children.forEach { save(it) }
+        return listOfNotNull(get(id)) + children
+    }
+
     suspend fun complete(id: String) = setStatus(id, ItemStatus.Completed)
 
     suspend fun archive(id: String) = setStatus(id, ItemStatus.Archived)
@@ -41,3 +52,15 @@ class ItemRepository(private val dao: ItemDao) {
         get(id)?.let { save(it.copy(status = status)) }
     }
 }
+
+/** The items a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items. */
+fun ParsedItem.toItems(id: String, newId: () -> String): List<Item> =
+    copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCards(id, newId).map { card ->
+        Item(
+            card.id,
+            card.type,
+            card.title,
+            deadline = deadline.takeIf { card.id == id },
+            parentId = card.parentId,
+        )
+    }
