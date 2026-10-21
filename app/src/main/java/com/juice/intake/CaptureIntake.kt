@@ -6,8 +6,8 @@ import com.juice.data.ItemRepository
 import java.time.ZonedDateTime
 
 /**
- * Sends a captured item to AI intake, or classifies it locally when on-device only is set or no
- * cloud parser is configured. Local results land at once, Project steps included.
+ * Classifies a captured item locally at once (Project steps included), then queues an AI parse
+ * to refine it unless on-device only is set or no cloud parser is configured.
  */
 class CaptureIntake(
     private val repository: ItemRepository,
@@ -18,10 +18,9 @@ class CaptureIntake(
 ) {
     /** Call once [item] is saved. Returns true when a cloud parse is on its way. */
     suspend fun submit(item: Item): Boolean {
-        if (onDeviceOnly() || !cloudAvailable()) {
-            repository.land(item.id, RulesFallback.classify(item.title, clock()))
-            return false
-        }
+        // The rules result lands at once; a cloud parse then refines it without overwriting user edits.
+        repository.land(item.id, RulesFallback.classify(item.title, clock()))
+        if (onDeviceOnly() || !cloudAvailable()) return false
         enqueue(item.id, item.title)
         return true
     }

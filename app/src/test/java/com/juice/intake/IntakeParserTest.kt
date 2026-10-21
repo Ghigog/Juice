@@ -67,6 +67,14 @@ class IntakeParserTest {
         assertFalse(result.retryLater)
     }
 
+    @Test fun groqNoteWithoutDeadlineKeepsTheRulesDeadline() {
+        reply("""{"type":"Note","title":"Call the dentist","deadline":null}""")
+        val result = parser().parse("call the dentist tomorrow at 3pm")
+        assertEquals(ItemType.Goal, result.item.type)
+        assertEquals("Call the dentist", result.item.title)
+        assertEquals(Instant.parse("2026-10-20T13:00:00Z"), result.item.deadline)
+    }
+
     @Test fun onDeviceOnlySkipsTheNetwork() {
         val result = parser(onDeviceOnly = true).parse("call mum tomorrow")
         assertEquals(ItemType.Goal, result.item.type)
