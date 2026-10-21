@@ -69,6 +69,17 @@ class OverlayShellState(
         }
     }
 
+    /** The user rewrites a title; it is saved as typed and a late parse never changes it. */
+    fun setTitle(item: Item, title: String) {
+        val edited = title.trim()
+        if (edited.isEmpty() || edited == item.title) return
+        items = items.map { if (it.id == item.id) it.copy(title = edited, editedFields = it.editedFields + IntakeField.Title) else it }
+        scope.launch {
+            repository.markEdited(item.id, IntakeField.Title)
+            repository.get(item.id)?.let { repository.save(it.copy(title = edited)) }
+        }
+    }
+
     /** Swaps the captured card [id] for what its parse produced: the card, and a Project's sub-item cards. */
     fun land(id: String, parsed: ParsedItem) {
         val landed = parsed.toItems(id, newId)

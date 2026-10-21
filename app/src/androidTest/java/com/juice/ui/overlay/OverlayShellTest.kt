@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -108,5 +109,30 @@ class OverlayShellTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(OverlayShellState.UNDO_WINDOW_MILLIS + 100)
         compose.onNodeWithTag(TAG_UNDO).assertDoesNotExist()
+    }
+
+    @Test
+    fun pickingATypeChangesTheCardAndSavesIt() {
+        val item = Item("a", ItemType.Note, "Call Sam")
+        runBlocking { repository.save(item) }
+        show(item)
+        compose.onNodeWithTag(TAG_TYPE_PREFIX + "Goal").performClick()
+        compose.waitForIdle()
+        assertEquals(ItemType.Goal, state.items.single().type)
+        assertEquals(ItemType.Goal, runBlocking { repository.get("a")?.type })
+    }
+
+    @Test
+    fun editingTheTitleOnTheCardSavesIt() {
+        val item = Item("a", ItemType.Note, "cal sam")
+        runBlocking { repository.save(item) }
+        show(item)
+        compose.onNodeWithText("cal sam").performClick()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextClearance()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextInput("Call Sam")
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performImeAction()
+        compose.waitForIdle()
+        compose.onNodeWithText("Call Sam").assertIsDisplayed()
+        assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
     }
 }

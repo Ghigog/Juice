@@ -3,6 +3,7 @@ package com.juice.ui.overlay
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,7 @@ import com.juice.R
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.gesture.GestureRecognizer
 import com.juice.core.gesture.GestureResult
+import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -53,6 +56,8 @@ const val TAG_CENTRE_CARD = "centre_card"
 const val TAG_UNDO = "undo"
 const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
+const val TAG_TITLE_FIELD = "title_field"
+const val TAG_TYPE_PREFIX = "type_"
 const val MAX_CARD_SCALE = 1.15f
 
 /** Scale of a card whose centre is [distance] px from the focal dot, falling off over [reach] px. */
@@ -116,6 +121,8 @@ fun OverlayShell(state: OverlayShellState, modifier: Modifier = Modifier, tapBut
                             }
                         },
                         recognise = { stroke -> recognizer.recognise(stroke) },
+                        onType = { state.setType(item, it) },
+                        onTitle = { state.setTitle(item, it) },
                         onComplete = { state.complete(item) },
                         onDismiss = { state.dismiss(item) },
                     )
@@ -146,6 +153,8 @@ private fun ItemCard(
     tapButtons: Boolean,
     scale: () -> Float,
     recognise: (List<GesturePoint>) -> GestureResult,
+    onType: (ItemType) -> Unit,
+    onTitle: (String) -> Unit,
     onComplete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -197,7 +206,20 @@ private fun ItemCard(
             .then(drawing),
     ) {
         Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-            Text(item.title)
+            if (isCentre) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row {
+                        ItemType.entries.forEach { type ->
+                            TextButton(onClick = { onType(type) }, modifier = Modifier.testTag(TAG_TYPE_PREFIX + type.name)) {
+                                Text(type.name, fontWeight = if (type == item.type) FontWeight.Bold else FontWeight.Normal)
+                            }
+                        }
+                    }
+                    EditableTitle(item.title, onTitle)
+                }
+            } else {
+                Text(item.title)
+            }
             if (isCentre && tapButtons) {
                 Row(Modifier.align(Alignment.BottomCenter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onComplete, modifier = Modifier.testTag(TAG_COMPLETE)) {
@@ -209,5 +231,27 @@ private fun ItemCard(
                 }
             }
         }
+    }
+}
+
+/** The title as text; a tap turns it into a field, and Done saves it. */
+@Composable
+private fun EditableTitle(title: String, onTitle: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    var text by remember(title) { mutableStateOf(title) }
+    if (editing) {
+        TextField(
+            value = text,
+            onValueChange = { text = it },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onTitle(text)
+                editing = false
+            }),
+            modifier = Modifier.testTag(TAG_TITLE_FIELD),
+        )
+    } else {
+        Text(title, modifier = Modifier.clickable { editing = true })
     }
 }
