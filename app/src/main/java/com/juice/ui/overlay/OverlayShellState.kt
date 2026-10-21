@@ -4,12 +4,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.juice.core.card.Card
-import com.juice.core.card.complete
+import com.juice.core.card.completeStep
+import com.juice.core.card.open
+import com.juice.core.card.removeStep
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import com.juice.core.model.Step
 import com.juice.data.ItemRepository
 import com.juice.data.toItems
 import java.util.UUID
@@ -17,11 +20,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * The last ✓/✗, kept for [OverlayShellState.UNDO_WINDOW_MILLIS] so it can be taken back.
- * [project] is the Project that completed along with a last sub-item.
- */
-data class Undo(val item: Item, val dismissed: Boolean, val project: Item? = null)
+/** The last ✓/✗, kept for [OverlayShellState.UNDO_WINDOW_MILLIS] so it can be taken back. */
+data class Undo(val item: Item, val dismissed: Boolean)
 
 /** State of the overlay: the Active items shown in the carousel and the pending undo. */
 class OverlayShellState(
@@ -73,9 +73,7 @@ class OverlayShellState(
                 if (landed.isNotEmpty()) parsing = parsing - landed.toSet()
                 val known = items.mapNotNull { byId[it.id] }
                 val added = saved.filter { s -> items.none { it.id == s.id } }
-                // New sub-item cards go right after their Project; anything else new goes last.
-                items = known.flatMap { k -> listOf(k) + added.filter { it.parentId == k.id } } +
-                    added.filter { a -> known.none { it.id == a.parentId } }
+                items = known + added
             }
         }
     }
@@ -89,8 +87,8 @@ class OverlayShellState(
         setType(item, types[(types.indexOf(item.type) + 1) % types.size])
     }
 
-    /** Active sub-item cards of [project]. */
-    fun stepsOf(project: Item): List<Item> = items.filter { it.parentId == project.id }
+    /** The steps of [project] still to do. */
+    fun stepsOf(project: Item): List<Step> = project.steps.open()
 
     /** A Project completes through its steps, so ticking it while steps are open does nothing. */
     fun canComplete(item: Item): Boolean = item.type != ItemType.Project || stepsOf(item).isEmpty()
@@ -109,32 +107,42 @@ class OverlayShellState(
         scope.launch { repository.save(edited) }
     }
 
-    /** Swaps the captured card [id] for what its parse produced: the card, and a Project's sub-item cards. */
+    /** Swaps the captured card [id] for what its parse produced: the card, with a Project's sub-items as steps. */
     fun land(id: String, parsed: ParsedItem) {
-        val landed = parsed.toItems(id, newId)
+        val landed = parsed.toItems(id, newId).first()
         val at = items.indexOfFirst { it.id == id }
         if (at < 0) return
         items = items.take(at) + landed + items.drop(at + 1)
-        scope.launch { landed.forEach { repository.save(it) } }
+        scope.launch { repository.save(landed) }
     }
 
-    /** Completing a Project's last active sub-item completes the Project too. False when [canComplete] is not met. */
+    /** Completing a Project's card. False when [canComplete] is not met. */
     fun complete(item: Item): Boolean {
         if (!canComplete(item)) return false
-        val project = completedProject(item)
-        finish(item, ItemStatus.Completed, dismissed = false, project)
+        finish(item, ItemStatus.Completed, dismissed = false)
         onCompleted(item)
-        if (project != null) onCompleted(project)
         return true
     }
 
-    private fun completedProject(item: Item): Item? {
-        val parentId = item.parentId ?: return null
-        val cards = items.filter { it.id == parentId || it.parentId == parentId }
-        if (cards.none { it.id == parentId }) return null
-        val done = cards.map { Card(it.id, it.type, it.title, it.parentId) }.complete(item.id)
-        return cards.first { it.id == parentId }.takeIf { p -> done.first { it.id == p.id }.completed }
+    /** Ticks a step of [project]; ticking the last open one completes the Project. */
+    fun completeStep(project: Item, stepId: String) {
+        val card = project.toCard().completeStep(stepId)
+        if (!card.completed) return updateSteps(project, card.steps)
+        // Undo takes the Project back with its last step still open.
+        finish(project.copy(steps = card.steps), ItemStatus.Completed, dismissed = false, restore = project)
+        onCompleted(project)
     }
+
+    /** Crosses off a step of [project]: it is removed from the card. */
+    fun removeStep(project: Item, stepId: String) = updateSteps(project, project.toCard().removeStep(stepId).steps)
+
+    private fun updateSteps(project: Item, steps: List<Step>) {
+        val changed = project.copy(steps = steps)
+        items = items.map { if (it.id == project.id) changed else it }
+        scope.launch { repository.save(changed) }
+    }
+
+    private fun Item.toCard() = Card(id, type, title, steps)
 
     fun dismiss(item: Item) = finish(item, ItemStatus.Archived, dismissed = true)
 
@@ -142,10 +150,9 @@ class OverlayShellState(
     fun undoLast() {
         val pending = undo ?: return
         undo = null
-        val restored = listOfNotNull(pending.item, pending.project)
-        if (!pending.dismissed) repeat(restored.size) { onCompletionUndone() }
-        items = (items + restored).sortedBy { order[it.id] ?: Int.MAX_VALUE }
-        scope.launch { restored.forEach { repository.save(it) } }
+        if (!pending.dismissed) onCompletionUndone()
+        items = (items + pending.item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
+        scope.launch { repository.save(pending.item) }
     }
 
     fun expireUndo(expired: Undo) {
@@ -154,14 +161,11 @@ class OverlayShellState(
 
     private val order = HashMap<String, Int>()
 
-    private fun finish(item: Item, status: ItemStatus, dismissed: Boolean, project: Item? = null) {
+    private fun finish(item: Item, status: ItemStatus, dismissed: Boolean, restore: Item = item) {
         items.forEachIndexed { index, it -> order[it.id] = index }
-        items = items.filterNot { it.id == item.id || it.id == project?.id }
-        undo = Undo(item, dismissed, project)
-        scope.launch {
-            repository.save(item.copy(status = status))
-            project?.let { repository.save(it.copy(status = ItemStatus.Completed)) }
-        }
+        items = items.filterNot { it.id == item.id }
+        undo = Undo(restore, dismissed)
+        scope.launch { repository.save(item.copy(status = status)) }
     }
 
     companion object {

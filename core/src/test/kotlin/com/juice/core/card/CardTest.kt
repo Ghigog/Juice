@@ -11,20 +11,34 @@ class CardTest {
     private fun ids() = generateSequence(1) { it + 1 }.map { "c$it" }.iterator().let { { it.next() } }
 
     @Test
-    fun projectWithThreeSubItemsYieldsThreeLinkedCards() {
-        val cards = ParsedItem(ItemType.Project, "Move", subItems = listOf("a", "b", "c")).toCards("p", ids())
-        val children = cards.filter { it.parentId == "p" }
-        assertEquals(3, children.size)
-        assertEquals(4, cards.size)
+    fun projectWithThreeSubItemsYieldsOneCardWithThreeSteps() {
+        val card = ParsedItem(ItemType.Project, "Move", subItems = listOf("a", "b", "c")).toCard("p", ids())
+        assertEquals(listOf("a", "b", "c"), card.steps.map { it.title })
+        assertEquals(listOf("c1", "c2", "c3"), card.steps.map { it.id })
     }
 
     @Test
-    fun lastSubItemCompletesProject() {
-        var cards = ParsedItem(ItemType.Project, "Move", subItems = listOf("a", "b")).toCards("p", ids())
-        cards = cards.complete("c1")
-        assertFalse(cards.first { it.id == "p" }.completed)
-        cards = cards.complete("c2")
-        assertTrue(cards.first { it.id == "p" }.completed)
+    fun nonProjectGetsNoSteps() {
+        assertTrue(ParsedItem(ItemType.Task, "Call", subItems = listOf("a")).toCard("t", ids()).steps.isEmpty())
+    }
+
+    @Test
+    fun lastStepCompletesProjectAndKeepsSteps() {
+        var card = ParsedItem(ItemType.Project, "Move", subItems = listOf("a", "b")).toCard("p", ids())
+        card = card.completeStep("c1")
+        assertFalse(card.completed)
+        card = card.completeStep("c2")
+        assertTrue(card.completed)
+        assertEquals(listOf(true, true), card.steps.map { it.done })
+    }
+
+    @Test
+    fun removingAStepDropsItWithoutCompleting() {
+        val card = ParsedItem(ItemType.Project, "Move", subItems = listOf("a", "b")).toCard("p", ids())
+            .removeStep("c1")
+        assertEquals(listOf("b"), card.steps.map { it.title })
+        assertFalse(card.completed)
+        assertTrue(card.completeStep("c2").completed)
     }
 
     @Test

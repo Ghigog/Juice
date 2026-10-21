@@ -19,6 +19,7 @@ import androidx.room.Room
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import com.juice.core.model.Step
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -128,6 +129,42 @@ class OverlayShellTest {
         idle()
         compose.onNodeWithTag(TAG_UNDO).assertIsDisplayed()
         assertEquals(ItemStatus.Completed, statusOf("a"))
+    }
+
+    private fun drawOnStep(id: String, check: Boolean) {
+        compose.onNodeWithTag(stepTag(id), useUnmergedTree = true).performTouchInput {
+            if (check) {
+                down(Offset(width * 0.1f, height * 0.5f))
+                moveTo(Offset(width * 0.2f, height * 0.9f))
+                moveTo(Offset(width * 0.4f, height * 0.1f))
+                up()
+            } else {
+                down(Offset(width * 0.1f, height * 0.1f))
+                moveTo(Offset(width * 0.3f, height * 0.9f))
+                up()
+                down(Offset(width * 0.3f, height * 0.1f))
+                moveTo(Offset(width * 0.1f, height * 0.9f))
+                up()
+            }
+        }
+        settle()
+    }
+
+    private val project = Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack"), Step("b", "Book van")))
+
+    @Test
+    fun checkOnAStepMarksItDoneAndKeepsTheProject() {
+        show(project)
+        drawOnStep("a", check = true)
+        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
+        assertEquals(ItemStatus.Active, statusOf("p"))
+    }
+
+    @Test
+    fun crossOnAStepRemovesIt() {
+        show(project)
+        drawOnStep("a", check = false)
+        assertEquals(listOf("Book van"), state.items.single().steps.map { it.title })
     }
 
     @Test
