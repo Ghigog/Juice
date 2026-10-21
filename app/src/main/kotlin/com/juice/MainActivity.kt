@@ -1,7 +1,13 @@
 package com.juice
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -37,6 +43,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && !OverlayPermission.isGranted(this)) {
             startActivity(OverlayPermission.settingsIntent(this))
         }
+        offerBatteryExemptionOnce()
         setContent {
             MaterialTheme {
                 val repository = remember { SettingsRepository(this@MainActivity) }
@@ -60,6 +67,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** Asks once for the battery-optimisation exemption so the strip is not killed in the background. */
+    @SuppressLint("BatteryLife")
+    private fun offerBatteryExemptionOnce() {
+        val prefs = getSharedPreferences("juice_prompts", Context.MODE_PRIVATE)
+        val exempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+        if (exempt || prefs.getBoolean("battery_exemption_asked", false)) return
+        prefs.edit().putBoolean("battery_exemption_asked", true).apply()
+        startActivity(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+        )
     }
 
     override fun onResume() {
