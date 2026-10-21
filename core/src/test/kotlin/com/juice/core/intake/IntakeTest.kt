@@ -39,11 +39,49 @@ class IntakeTest {
         assertEquals(ItemType.Note, validate("[]").type)
     }
 
-    @Test fun moreThanTenSubItemsGiveNote() {
+    @Test fun moreThanTenSubItemsAreDroppedButTheItemStays() {
         val many = (1..11).joinToString(",", "[", "]") { "\"s$it\"" }
-        assertEquals(ItemType.Note, validate(json(subItems = many)).type)
+        val item = validate(json(subItems = many))
+        assertEquals(ItemType.Goal, item.type)
+        assertEquals(emptyList(), item.subItems)
         val ten = (1..10).joinToString(",", "[", "]") { "\"s$it\"" }
         assertEquals(10, validate(json(subItems = ten)).subItems.size)
+    }
+
+    @Test fun malformedSubItemsAreDroppedButTypeAndTitleStay() {
+        for (bad in listOf("\"oops\"", "[1,2]", "{\"a\":1}")) {
+            assertEquals(ParsedItem(ItemType.Goal, "Do laundry"), validate(json(subItems = bad)))
+        }
+    }
+
+    @Test fun badCompletionConditionIsDropped() {
+        val item = validate("""{"type":"Goal","title":"x","completion_condition":5}""")
+        assertEquals(ParsedItem(ItemType.Goal, "x"), item)
+    }
+
+    @Test fun rejectionsAreReportedWithAReason() {
+        val reasons = mutableListOf<String>()
+        IntakeValidator.validate(json("tomorrow", subItems = "\"x\""), "raw", now) { reasons += it }
+        assertEquals(2, reasons.size)
+        IntakeValidator.validate("""{"type":"Epic","title":"x"}""", "raw", now) { reasons += it }
+        assertEquals("note fallback: bad type", reasons.last())
+    }
+
+    @Test fun modelNoteWithoutDeadlineKeepsTheRulesTypeAndDeadline() {
+        val rules = ParsedItem(ItemType.Goal, "call the dentist", deadline = now.plusSeconds(60))
+        val model = ParsedItem(ItemType.Note, "Call the dentist")
+        assertEquals(model.copy(type = ItemType.Goal, deadline = rules.deadline), model.improvingOn(rules))
+        val task = model.copy(type = ItemType.Task)
+        assertEquals(ItemType.Goal, task.improvingOn(rules).type)
+    }
+
+    @Test fun modelResultIsKeptWhenItHasADeadlineOrIsNotNoteOrTask() {
+        val rules = ParsedItem(ItemType.Goal, "x", deadline = now.plusSeconds(60))
+        val timed = ParsedItem(ItemType.Task, "x", deadline = now.plusSeconds(5))
+        assertEquals(timed, timed.improvingOn(rules))
+        val project = ParsedItem(ItemType.Project, "x")
+        assertEquals(project, project.improvingOn(rules))
+        assertEquals(ParsedItem(ItemType.Note, "x"), ParsedItem(ItemType.Note, "x").improvingOn(ParsedItem(ItemType.Note, "x")))
     }
 
     @Test fun titlesAreCapped() {

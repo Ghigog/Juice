@@ -1,5 +1,8 @@
 package com.juice.overlay
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.PixelFormat
@@ -7,6 +10,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
@@ -92,34 +96,39 @@ internal class SliceGesture(private val moveSlop: Float) {
 }
 
 /**
- * The floating slice handle, in its own small window. While pressed for a swipe the window grows
- * to show the swipe ring around it; a hold lets it be dragged anywhere and dropped.
+ * The floating slice handle, in its own small window that never changes size, so the system
+ * never has to nudge it back on screen. While pressed, the ring and the slice are drawn on a
+ * full-screen [SliceStage] that ignores touches; the handle hands the slice over to it and back.
  */
 internal class SliceHandleView(
     context: Context,
     private val windowManager: WindowManager,
     private val radius: () -> Float,
+    private val reduceMotion: () -> Boolean,
     private val feedback: (FeedbackEvent) -> Unit,
     private val onMoved: (x: Float, y: Float) -> Unit,
     onOpen: () -> Unit,
 ) : View(context) {
     var style: SliceStyle = SliceStyle.of(com.juice.core.progression.Flavour.ELECTRIC_CITRUS)
-        set(value) { field = value; invalidate() }
+        set(value) { field = value; invalidate(); stage.invalidate() }
     var accent: Int = 0
-        set(value) { field = value; invalidate() }
+        set(value) { field = value; stage.invalidate() }
     var slices: Int = 0
-        set(value) { field = value; invalidate() }
+        set(value) { field = value; invalidate(); stage.invalidate() }
 
     private val density = resources.displayMetrics.density
     private val logo = LOGO_DP * density
+    private val side = (logo + 2 * PAD_DP * density).roundToInt()
     private val painter = SliceLogoPainter()
     private val gesture = SliceGesture(MOVE_SLOP_DP * density)
+    private val stage = SliceStage(context)
     private var centreX = 0f
     private var centreY = 0f
-    private var startX = 0f
-    private var startY = 0f
+    /** True while the stage draws the slice and this window draws nothing. */
+    private var handedOff = false
+    private var springBack: ValueAnimator? = null
     private val params = WindowManager.LayoutParams(
-        0, 0,
+        side, side,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -127,15 +136,14 @@ internal class SliceHandleView(
         PixelFormat.TRANSLUCENT,
     ).apply {
         gravity = Gravity.TOP or Gravity.START
-        // Screen coordinates, the same ones the full-screen overlay draws its slice in.
+        // Screen coordinates, the same ones the stage and the full-screen overlay draw in.
         fitInsetsTypes = 0
         layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     }
     private val hold = Runnable {
         if (gesture.hold()) {
-            place(moveSide())
             feedback(FeedbackEvent.CAPTURE)
-            invalidate()
+            updateStage()
         }
     }
 
@@ -144,66 +152,70 @@ internal class SliceHandleView(
         setOnClickListener { onOpen() }
     }
 
-    /** Adds the handle's window, centred on ([x], [y]) screen px. */
+    /** Adds the handle's window, centred on ([x], [y]) screen px, and its stage. */
     fun show(x: Float, y: Float) {
         centreX = x
         centreY = y
-        place(idleSide())
+        place()
+        windowManager.addView(stage, stage.params)
         windowManager.addView(this, params)
+    }
+
+    /** Removes the handle's window and its stage. */
+    fun dismiss() {
+        springBack?.cancel()
+        windowManager.removeView(this)
+        windowManager.removeView(stage)
     }
 
     /** Moves the handle to ([x], [y]) unless a press is under way. */
     fun moveTo(x: Float, y: Float) {
-        if (gesture.pressed) return
+        if (gesture.pressed || handedOff) return
         centreX = x
         centreY = y
-        place(idleSide())
+        place()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                springBack?.cancel()
                 gesture.down(event.rawX, event.rawY)
-                startX = centreX
-                startY = centreY
-                place(swipeSide())
+                handOff()
                 postDelayed(hold, HOLD_MILLIS)
             }
             MotionEvent.ACTION_MOVE -> {
                 val crossed = gesture.move(event.rawX, event.rawY, radius())
-                if (gesture.moving) {
-                    val bounds = windowManager.maximumWindowMetrics.bounds
-                    val margin = EDGE_DP * density
-                    centreX = (startX + gesture.dx).coerceIn(margin, bounds.width() - margin)
-                    centreY = (startY + gesture.dy).coerceIn(margin, bounds.height() - margin)
-                    place(moveSide())
-                } else if (gesture.pull(radius()) > 0f) {
-                    removeCallbacks(hold)
-                }
+                if (!gesture.moving && gesture.pull(radius()) > 0f) removeCallbacks(hold)
                 if (crossed) feedback(FeedbackEvent.SNAP)
+                updateStage()
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(hold)
-                val release = gesture.up()
-                place(idleSide())
-                when (release) {
-                    Release.OPEN -> performClick()
+                val (x, y) = slicePosition()
+                when (gesture.up()) {
+                    Release.OPEN -> {
+                        stage.slice = null
+                        performClick()
+                    }
                     Release.MOVED -> {
                         feedback(FeedbackEvent.CAPTURE)
-                        onMoved(centreX, centreY)
+                        centreX = x
+                        centreY = y
+                        place()
+                        onMoved(x, y)
+                        takeBack()
                     }
-                    Release.NONE -> Unit
+                    Release.NONE -> returnHome(x, y)
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(hold)
+                val (x, y) = slicePosition()
                 gesture.cancel()
-                centreX = startX
-                centreY = startY
-                place(idleSide())
+                returnHome(x, y)
             }
         }
-        invalidate()
         return true
     }
 
@@ -215,50 +227,144 @@ internal class SliceHandleView(
     }
 
     override fun onDraw(canvas: Canvas) {
-        val cx = width / 2f
-        val cy = height / 2f
-        val r = radius()
-        var x = cx
-        var y = cy
-        if (gesture.swiping) {
-            painter.drawRing(canvas, cx, cy, r, gesture.pull(r), gesture.ready, accent, density)
-            // The slice follows the finger out to the ring and no further.
-            val d = hypot(gesture.dx, gesture.dy)
-            val k = if (d > r) r / d else 1f
-            if (gesture.pull(r) > 0f) {
-                x += gesture.dx * k
-                y += gesture.dy * k
-            }
-        }
-        val scale = when {
-            gesture.moving -> MOVE_SCALE
-            gesture.pressed -> PRESS_SCALE
-            else -> 1f
-        }
-        painter.draw(canvas, x, y, logo * scale, style, slices, active = 0)
+        if (!handedOff) painter.draw(canvas, width / 2f, height / 2f, logo, style, slices, active = 0)
     }
 
-    private fun idleSide() = (logo + 2 * PAD_DP * density).roundToInt()
+    /** Where the slice is drawn now, in screen px: following a move, or out towards the ring. */
+    private fun slicePosition(): Pair<Float, Float> {
+        if (gesture.moving) {
+            val bounds = windowManager.maximumWindowMetrics.bounds
+            val margin = side / 2f
+            return (centreX + gesture.dx).coerceIn(margin, bounds.width() - margin) to
+                (centreY + gesture.dy).coerceIn(margin, bounds.height() - margin)
+        }
+        val r = radius()
+        if (!gesture.swiping || gesture.pull(r) == 0f) return centreX to centreY
+        // The slice follows the finger out to the ring and no further.
+        val d = hypot(gesture.dx, gesture.dy)
+        val k = if (d > r) r / d else 1f
+        return centreX + gesture.dx * k to centreY + gesture.dy * k
+    }
 
-    private fun moveSide() = (logo * MOVE_SCALE + 2 * PAD_DP * density).roundToInt()
+    /** Shows the stage and stops drawing here once the stage's first frame is on screen. */
+    private fun handOff() {
+        updateStage()
+        stage.visibility = VISIBLE
+        stage.whenDrawn {
+            if (gesture.pressed || springBack != null) {
+                handedOff = true
+                invalidate()
+            }
+        }
+    }
 
-    private fun swipeSide() = maxOf(moveSide(), (2 * (radius() + PAD_DP * density)).roundToInt())
+    /** Draws the slice here again, then hides the stage once this window's frame is on screen. */
+    private fun takeBack() {
+        springBack = null
+        handedOff = false
+        invalidate()
+        whenDrawn {
+            if (!gesture.pressed && springBack == null) {
+                stage.slice = null
+                stage.visibility = GONE
+            }
+        }
+    }
 
-    private fun place(side: Int) {
-        params.width = side
-        params.height = side
+    /** Springs the slice back from ([x], [y]) to the handle, then takes it back. */
+    private fun returnHome(x: Float, y: Float) {
+        if (reduceMotion() || (x == centreX && y == centreY)) {
+            takeBack()
+            return
+        }
+        stage.ring = null
+        springBack = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = SPRING_MILLIS
+            interpolator = OvershootInterpolator(2f)
+            addUpdateListener {
+                val t = it.animatedValue as Float
+                stage.slice = SliceStage.Slice(centreX + (x - centreX) * t, centreY + (y - centreY) * t, logo, style, slices)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (springBack === animation) takeBack()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun updateStage() {
+        val (x, y) = slicePosition()
+        val scale = if (gesture.moving) MOVE_SCALE else PRESS_SCALE
+        stage.slice = SliceStage.Slice(x, y, logo * scale, style, slices)
+        val r = radius()
+        stage.ring = if (gesture.swiping) SliceStage.Ring(centreX, centreY, r, gesture.pull(r), gesture.ready, accent) else null
+    }
+
+    private fun place() {
         params.x = (centreX - side / 2f).roundToInt()
         params.y = (centreY - side / 2f).roundToInt()
         if (isAttachedToWindow) windowManager.updateViewLayout(this, params)
     }
 
+    private fun View.whenDrawn(action: () -> Unit) {
+        viewTreeObserver.registerFrameCommitCallback { post(action) }
+        invalidate()
+    }
+
     companion object {
         const val LOGO_DP = 56f
         private const val PAD_DP = 12f
-        private const val EDGE_DP = 30f
+
+        /** How close to the screen's edge the handle's centre may sit: its window stays whole on screen. */
+        const val EDGE_DP = LOGO_DP / 2 + PAD_DP
         private const val MOVE_SLOP_DP = 6f
         private const val HOLD_MILLIS = 420L
+        private const val SPRING_MILLIS = 320L
         private const val PRESS_SCALE = 1.06f
         private const val MOVE_SCALE = 1.22f
+    }
+}
+
+/**
+ * A full-screen window that never takes touches, drawing the swipe ring and the slice while the
+ * handle is pressed. It is gone the rest of the time, so it never sits over other apps' touches.
+ */
+internal class SliceStage(context: Context) : View(context) {
+    data class Slice(val x: Float, val y: Float, val size: Float, val style: SliceStyle, val slices: Int)
+    data class Ring(val x: Float, val y: Float, val radius: Float, val pull: Float, val ready: Boolean, val accent: Int)
+
+    var slice: Slice? = null
+        set(value) { field = value; invalidate() }
+    var ring: Ring? = null
+        set(value) { field = value; invalidate() }
+
+    private val painter = SliceLogoPainter()
+    private val density = resources.displayMetrics.density
+
+    val params = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.MATCH_PARENT,
+        WindowManager.LayoutParams.MATCH_PARENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+        PixelFormat.TRANSLUCENT,
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        fitInsetsTypes = 0
+        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+    }
+
+    init {
+        visibility = GONE
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        ring?.let { painter.drawRing(canvas, it.x, it.y, it.radius, it.pull, it.ready, it.accent, density) }
+        slice?.let { painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0) }
     }
 }
