@@ -23,6 +23,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.juice.core.economy.EconomyConfig
 import com.juice.feedback.FeedbackEvent
@@ -200,6 +202,7 @@ class OverlayService : Service() {
         )
         session.open()
         feedback.play(FeedbackEvent.OPEN)
+        val bars = systemBarsPadding()
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)
         val root = object : FrameLayout(this) {
@@ -261,6 +264,7 @@ class OverlayService : Service() {
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> AndroidView(factory = { reservoir }, modifier = modifier) },
+                    systemBars = bars,
                 )
             }
         }
@@ -268,6 +272,22 @@ class OverlayService : Service() {
         windowManager.addView(root, params)
         overlay = root
         applyBackdrop()
+        windowManager.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
+    }
+
+    /** The system turns cross-window blur off and on (power saving, heat, some transitions); follow it. */
+    private val blurListener = java.util.function.Consumer<Boolean> { applyBackdrop() }
+
+    /**
+     * Status and navigation bar heights, read once from the display rather than from inset
+     * callbacks, which reach an overlay window late or not at all and made the layout jump.
+     */
+    private fun systemBarsPadding(): PaddingValues {
+        val insets = windowManager.maximumWindowMetrics.windowInsets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout(),
+        )
+        val density = resources.displayMetrics.density
+        return PaddingValues(top = (insets.top / density).dp, bottom = (insets.bottom / density).dp)
     }
 
     /** Blur behind the overlay when it is on, supported and battery saver is off; otherwise the scrim. */
@@ -295,6 +315,7 @@ class OverlayService : Service() {
     }
 
     private fun removeOverlay() {
+        if (overlay != null) windowManager.removeCrossWindowBlurEnabledListener(blurListener)
         overlay?.let(windowManager::removeView)
         overlay = null
         overlayLifecycle?.stop()
