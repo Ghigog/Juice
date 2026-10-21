@@ -25,4 +25,11 @@ class JuiceSettingsTest {
         assertFalse(f.hapticsEnabled)
         assertTrue(f.soundEnabled)
     }
+
+    @Test
+    fun `sound off silences sound but keeps haptics`() {
+        val f = JuiceSettings(sound = false).feedback
+        assertFalse(f.soundEnabled)
+        assertTrue(f.hapticsEnabled)
+    }
 }

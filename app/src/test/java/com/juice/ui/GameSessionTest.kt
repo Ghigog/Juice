@@ -28,13 +28,17 @@ class GameSessionTest {
     private val session = GameSession(
         store,
         object : Feedback {
-            override fun play(event: FeedbackEvent) { events += event }
+            override fun play(event: FeedbackEvent, boosted: Boolean) { events += event }
             override fun useSoundSet(soundSet: SoundSet) { soundSets += soundSet }
         },
         clock = { now },
         onSatiated = { satiated++ },
         onFlavourChanged = { themes += it },
+        onLevelUp = { level, unlocked -> levelUps += level to unlocked },
+        chosenFlavour = { chosen },
     )
+    private val levelUps = mutableListOf<Pair<Int, Flavour?>>()
+    private var chosen: Flavour? = null
 
     @Test fun completingUpdatesJuiceMeterAndPlaysFeedback() {
         session.open()
@@ -83,5 +87,41 @@ class GameSessionTest {
         assertEquals(5, session.level)
         assertEquals(FlavourTheme.of(Flavour.BERRY_SURGE), themes.last())
         assertEquals(SoundSet.SUB_BASS_AND_FIZZ, soundSets.last())
+    }
+
+    @Test fun levelUpReportsTheFlavourItUnlocks() {
+        store.save(EconomyState(juice = Progression.thresholdFor(5) - 1), 0)
+        session.open()
+        session.complete(ItemType.TASK)
+        assertEquals(listOf<Pair<Int, Flavour?>>(5 to Flavour.BERRY_SURGE), levelUps)
+        assertEquals(FeedbackEvent.LEVEL_UP, events.last())
+    }
+
+    @Test fun aChosenFlavourAppliesOnlyOnceUnlocked() {
+        chosen = Flavour.GOLDEN_HONEY
+        session.open()
+        assertEquals(Flavour.ELECTRIC_CITRUS, session.flavour)
+        store.save(EconomyState(juice = Progression.thresholdFor(25)), 0)
+        session.open()
+        assertEquals(Flavour.GOLDEN_HONEY, session.flavour)
+        chosen = Flavour.BERRY_SURGE
+        session.applyFlavour()
+        assertEquals(FlavourTheme.of(Flavour.BERRY_SURGE), themes.last())
+    }
+
+    @Test fun meterDrainsWhileOpen() {
+        session.open()
+        session.complete(ItemType.GOAL) // 30
+        now = 5 * 60_000L
+        session.tick()
+        assertEquals(25.0, session.state.meter, 0.01)
+        assertEquals(Tier.THIRSTY, session.tier)
+    }
+
+    @Test fun levelProgressRunsThroughTheLevel() {
+        store.save(EconomyState(juice = 150), 0) // level 2 spans 100..400
+        session.open()
+        assertEquals(2, session.level)
+        assertEquals(50f / 300f, session.levelProgress, 0.001f)
     }
 }

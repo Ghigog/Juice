@@ -73,7 +73,7 @@ class OverlayShellStateTest {
         val state = state(task)
         state.complete(task)
         assertEquals(listOf(task), completed)
-        assertEquals(ItemStatus.Completed, repository.get("t")?.status)
+        assertEquals(ItemStatus.Completed, savedEventually("t") { it.status == ItemStatus.Completed }?.status)
         assertEquals(emptyList(), state.items)
     }
 
@@ -167,5 +167,36 @@ class OverlayShellStateTest {
         assertEquals("Call Sam", saved.title)
         assertEquals(deadline, saved.deadline)
         assertEquals(ItemType.Task, saved.type)
+    }
+
+    @Test
+    fun theTypePillStepsThroughTheTypes() {
+        val note = Item("n", ItemType.Note, "Call Sam")
+        val state = state(note)
+        state.cycleType(state.items.single())
+        state.cycleType(state.items.single())
+        assertEquals(ItemType.Goal, state.items.single().type)
+        repeat(2) { state.cycleType(state.items.single()) }
+        assertEquals(ItemType.Note, state.items.single().type)
+    }
+
+    @Test
+    fun aProjectWithOpenStepsCannotBeTickedDirectly() {
+        val state = state(project, *steps.toTypedArray())
+        assertEquals(false, state.complete(project))
+        assertEquals(emptyList(), completed)
+        assertEquals(3, state.items.size)
+    }
+
+    @Test
+    fun aCaptureWaitingOnTheCloudShowsAsParsingAndNewestComesFirst() = runBlocking {
+        val state = OverlayShellState(
+            repository, CoroutineScope(Dispatchers.Unconfined), listOf(task),
+            newId = { "new" }, onCaptured = { true },
+        )
+        state.capture("buy milk")
+        assertEquals(listOf("new", "t"), state.items.map { it.id })
+        repeat(100) { if (state.parsing.isEmpty()) delay(20) }
+        assertEquals(setOf("new"), state.parsing)
     }
 }

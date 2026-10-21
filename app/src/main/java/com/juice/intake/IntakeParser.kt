@@ -15,13 +15,13 @@ class IntakeParser(
     private val clock: () -> ZonedDateTime = { ZonedDateTime.now() },
 ) {
     fun parse(rawText: String): IntakeResult {
-        if (onDeviceOnly()) return IntakeResult(RulesFallback.classify(rawText), retryLater = false)
         val now = clock()
+        if (onDeviceOnly()) return IntakeResult(RulesFallback.classify(rawText, now), retryLater = false)
         return try {
             val json = groq.parse(rawText, now)
             IntakeResult(IntakeValidator.validate(json, rawText, now.toInstant()), retryLater = false)
         } catch (e: IOException) {
-            IntakeResult(RulesFallback.classify(rawText), retryLater = true)
+            IntakeResult(RulesFallback.classify(rawText, now), retryLater = true)
         }
     }
 }

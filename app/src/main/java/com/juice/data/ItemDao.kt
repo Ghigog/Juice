@@ -14,6 +14,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :id")
     suspend fun get(id: String): ItemEntity?
 
+    @Query("SELECT COUNT(*) FROM items WHERE parentId = :parentId")
+    suspend fun childCount(parentId: String): Int
+
     @Query("SELECT * FROM items WHERE status = 'Active' ORDER BY rowid")
     suspend fun active(): List<ItemEntity>
 

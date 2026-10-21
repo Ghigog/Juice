@@ -3,16 +3,26 @@ package com.juice.ui.theme
 import com.juice.core.progression.Flavour
 
 /** Sound sets named after the design doc's audio column (§6.4). */
-enum class SoundSet { BRIGHT_CLICKS_AND_POPS, SUB_BASS_AND_FIZZ, METALLIC_CHIMES, BELLS_AND_SPLASHES }
+enum class SoundSet(val flavour: Flavour) {
+    BRIGHT_CLICKS_AND_POPS(Flavour.ELECTRIC_CITRUS),
+    SUB_BASS_AND_FIZZ(Flavour.BERRY_SURGE),
+    METALLIC_CHIMES(Flavour.DRAGONFRUIT_OBSIDIAN),
+    BELLS_AND_SPLASHES(Flavour.GOLDEN_HONEY),
+}
 
-/** Reservoir colour (ARGB) and sound set used while a flavour is active. */
-data class FlavourTheme(val reservoirColor: Int, val soundSet: SoundSet) {
+/**
+ * Colours (ARGB) and sound set used while a flavour is active: [accent] is the liquid and the
+ * overlay's highlight, [deep] the bottom of the liquid. Golden Honey is [viscous]: slower slosh.
+ */
+data class FlavourTheme(val accent: Int, val deep: Int, val soundSet: SoundSet, val viscous: Boolean = false) {
+    val reservoirColor: Int get() = accent
+
     companion object {
         fun of(flavour: Flavour): FlavourTheme = when (flavour) {
-            Flavour.ELECTRIC_CITRUS -> FlavourTheme(0xFFFF9F1C.toInt(), SoundSet.BRIGHT_CLICKS_AND_POPS)
-            Flavour.BERRY_SURGE -> FlavourTheme(0xFFC2185B.toInt(), SoundSet.SUB_BASS_AND_FIZZ)
-            Flavour.DRAGONFRUIT_OBSIDIAN -> FlavourTheme(0xFF4A148C.toInt(), SoundSet.METALLIC_CHIMES)
-            Flavour.GOLDEN_HONEY -> FlavourTheme(0xFFFFC107.toInt(), SoundSet.BELLS_AND_SPLASHES)
+            Flavour.ELECTRIC_CITRUS -> FlavourTheme(0xFFFFB020.toInt(), 0xFFE8590C.toInt(), SoundSet.BRIGHT_CLICKS_AND_POPS)
+            Flavour.BERRY_SURGE -> FlavourTheme(0xFFF0489E.toInt(), 0xFF6B0F5A.toInt(), SoundSet.SUB_BASS_AND_FIZZ)
+            Flavour.DRAGONFRUIT_OBSIDIAN -> FlavourTheme(0xFFA78BFA.toInt(), 0xFF2A1250.toInt(), SoundSet.METALLIC_CHIMES)
+            Flavour.GOLDEN_HONEY -> FlavourTheme(0xFFF5C542.toInt(), 0xFFB7791F.toInt(), SoundSet.BELLS_AND_SPLASHES, viscous = true)
         }
     }
 }
