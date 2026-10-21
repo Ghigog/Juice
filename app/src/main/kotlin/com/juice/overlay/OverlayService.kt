@@ -292,14 +292,15 @@ class OverlayService : Service() {
                     reservoir.sloshEnabled = current.sloshEnabled
                     reservoir.particlesEnabled = current.particlesEnabled
                 }
+                val hud = session.hud()
                 OverlayShell(
                     state,
                     settings = current,
-                    hud = session.hud(),
+                    hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
                     actions = actions,
                     effects = effects,
-                    reservoir = { modifier -> AndroidView(factory = { reservoir }, modifier = modifier) },
+                    reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
                     systemBars = bars,
                 )
             }
@@ -418,3 +419,9 @@ internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop
 }
 
 private const val BLUR_RADIUS_PX = 40
+
+/** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
+@androidx.compose.runtime.Composable
+internal fun ReservoirHost(reservoir: ThirstReservoirView, fill: Float, modifier: androidx.compose.ui.Modifier) {
+    AndroidView(factory = { reservoir }, modifier = modifier, update = { it.fill = fill })
+}

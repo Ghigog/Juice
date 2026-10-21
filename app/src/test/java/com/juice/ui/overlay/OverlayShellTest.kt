@@ -3,6 +3,8 @@ package com.juice.ui.overlay
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -113,13 +115,56 @@ class OverlayShellTest {
     fun capturedTextAppearsAsSavedNote() {
         show()
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("Buy milk")
-        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performImeAction()
+        compose.onNodeWithTag(TAG_ADD).performClick()
         idle()
         compose.onAllNodesWithText("Buy milk").onFirst().assertIsDisplayed()
         idle()
         val saved = runBlocking { repository.active() }
         assertEquals(listOf("Buy milk"), saved.map { it.title })
         assertEquals(ItemType.Note, saved.single().type)
+    }
+
+    @Test
+    fun focusingCaptureFieldEntersWritingModeAndSubmitLeavesIt() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performClick()
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_RESERVOIR).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_ADD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CLOSE).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("line one\nline two")
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextContains("line one\nline two")
+        compose.onNodeWithTag(TAG_ADD).performClick()
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_RESERVOIR).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextEquals("Enter new note or task…", includeEditableText = false)
+    }
+
+    @Test
+    fun doneLeavesWritingModeAndKeepsDraft() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("draft")
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_WRITING_DONE).performClick()
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextContains("draft")
+    }
+
+    @Test
+    fun blankDraftStaysInWritingMode() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("  ")
+        compose.onNodeWithTag(TAG_ADD).performClick()
+        idle()
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
+        assertEquals(listOf("Call Sam"), state.items.map { it.title })
     }
 
     @Test

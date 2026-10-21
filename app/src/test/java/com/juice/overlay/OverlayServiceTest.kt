@@ -1,6 +1,12 @@
 package com.juice.overlay
 
 import android.view.WindowManager
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
+import com.juice.ui.reservoir.ThirstReservoirView
+import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -9,6 +15,18 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class OverlayServiceTest {
+    @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun reservoirShowsTheMeterAndFollowsIt() {
+        val reservoir = ThirstReservoirView(ApplicationProvider.getApplicationContext())
+        val fill = mutableFloatStateOf(0.39f)
+        compose.setContent { ReservoirHost(reservoir, fill.floatValue, Modifier) }
+        compose.runOnIdle { assertEquals(0.39f, reservoir.fill) }
+        fill.floatValue = 0.6f
+        compose.runOnIdle { assertEquals(0.6f, reservoir.fill) }
+    }
+
     @Test
     fun overlayWindowIsHardwareAccelerated() {
         val flags = overlayLayoutParams().flags
