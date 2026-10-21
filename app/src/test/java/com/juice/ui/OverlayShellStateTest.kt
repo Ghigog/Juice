@@ -94,6 +94,7 @@ class OverlayShellStateTest {
         val state = state()
         state.capture("  buy milk ")
         assertEquals("buy milk", state.items.single().title)
+        repeat(50) { if (repository.get("new") == null) delay(20) }
         assertEquals(ItemType.Note, repository.get("new")?.type)
         assertNull(state.undo)
     }
