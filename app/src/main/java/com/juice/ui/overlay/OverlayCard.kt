@@ -40,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -243,7 +242,6 @@ internal fun CentreCard(
     Box(
         modifier
             .graphicsLayer { translationX = shake.value }
-            .shadow(24.dp, RoundedCornerShape(30.dp), ambientColor = Color.Black, spotColor = Color.Black)
             .clip(RoundedCornerShape(30.dp))
             .background(JuiceColors.white(0.14f))
             .border(1.dp, JuiceColors.white(0.28f), RoundedCornerShape(30.dp))

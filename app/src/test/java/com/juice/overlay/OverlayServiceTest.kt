@@ -16,6 +16,11 @@ class OverlayServiceTest {
     }
 
     @Test
+    fun overlayWindowRunsUnderTheSystemBars() {
+        assertEquals(0, overlayLayoutParams().fitInsetsTypes)
+    }
+
+    @Test
     fun failureBuildingOverlayCleansUpAndRestoresStrip() {
         val calls = mutableListOf<String>()
         guardedShowOverlay(

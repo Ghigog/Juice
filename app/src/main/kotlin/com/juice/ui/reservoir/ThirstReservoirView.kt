@@ -22,6 +22,7 @@ uniform float  u_slosh;
 layout(color) uniform half4 u_color;
 
 half4 main(float2 fragCoord) {
+    if (u_fill < 0.005) return half4(0.0);   // empty: no stray crest along the bottom edge
     float2 st = fragCoord / u_resolution;
     st.y = 1.0 - st.y;
 
