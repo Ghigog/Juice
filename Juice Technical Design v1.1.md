@@ -65,7 +65,7 @@ Later platforms: reconsider Kotlin Multiplatform or Flutter once the Android cor
 ## 4. Android Overlay
 
 ### 4.1 Trigger strip
-- A thin touchable strip at the **top center** of the screen, similar in spirit to the Pixel bottom gesture bar. **Swipe left** on it, or tap it, to open the overlay. In the overlay the strip becomes a handle: swipe right on it, tap it, or press Back to close.
+- A thin touchable strip at the **top center** of the screen, similar in spirit to the Pixel bottom gesture bar. **Swipe right** (left to right) on it, or tap it, to open the overlay. In the overlay the strip becomes a handle: swipe left on it, tap it, or press Back to close.
 - Implemented as a small `TYPE_APPLICATION_OVERLAY` window (about 30% of screen width, about 24dp tall). Only the strip is touchable. The rest of the screen is untouched.
 - Position and width are adjustable in settings, since camera cutouts and OEM status bar behavior vary.
 - A top strip avoids the system back gesture zones on the left and right edges.
@@ -262,24 +262,27 @@ All sounds and haptics respect the settings toggles above.
 ## 10. Roadmap (Android MVP)
 
 ### Phase 0: Overlay spike (Week 1)
-- [ ] Top-center strip with swipe-right to open, across Pixel and at least one Samsung device.
-- [ ] Verify behavior with cutouts, gesture nav, and 3-button nav.
+MVP testing is scoped to Pixel devices only.
+
+- [x] Top-center strip with swipe-right (or tap) to open, on Pixel.
+- [ ] Verify behavior on Pixel with gesture nav and 3-button nav.
 
 ### Phase 1: Core (Weeks 2 to 4)
-- [ ] Overlay shell, carousel with snap physics, center card.
-- [ ] $1 gesture recognizer for checkmark and X, undo.
-- [ ] Room persistence.
+- [x] Overlay shell, carousel with snap physics, center card.
+- [x] $1 gesture recognizer for checkmark and X, undo.
+- [x] Room persistence.
 
 ### Phase 2: Feel (Weeks 5 to 6)
-- [ ] AGSL reservoir with damped spring slosh.
-- [ ] SoundPool mixer and haptics.
-- [ ] Thirst meter, drain, multiplier, XP.
-- [ ] Blur toggle with fallback.
+- [x] AGSL reservoir with damped spring slosh.
+- [x] SoundPool mixer and haptics.
+- [x] Thirst meter, drain, multiplier, XP.
+- [x] Blur toggle with fallback.
 
 ### Phase 3: Intelligence and progression (Weeks 7 to 8)
-- [ ] Groq intake with JSON mode, date injection, validation, offline fallback.
-- [ ] Levels and flavor switching.
-- [ ] Settings screen: tap alternative, haptics, reduce motion, blur, on-device only, strip position.
+- [x] Groq intake with JSON mode, date injection, validation, offline fallback.
+- [ ] Groq key set as the `GROQ_API_KEY` repository secret, so CI-built APKs use cloud intake. Without it they run on the local rules only.
+- [x] Levels and flavor switching.
+- [x] Settings screen: tap alternative, haptics, reduce motion, blur, on-device only, strip position.
 
 ---
 
@@ -297,7 +300,7 @@ All sounds and haptics respect the settings toggles above.
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
-| Top strip behaves differently across OEMs, cutouts, and status bar gestures | Core entry point unreliable | Phase 0 spike on multiple devices. Adjustable strip position and width |
+| Top strip behaves differently across OEMs, cutouts, and status bar gestures | Core entry point unreliable | MVP scoped to Pixel; other devices post-MVP. Adjustable strip position and width |
 | Overlay permission friction on first run | Drop-off at onboarding | Short guided permission flow, clear explanation |
 | Foreground service killed by aggressive OEM battery management | Strip disappears | Foreground service, battery optimization exemption prompt, restart on boot |
 | Shader and blur battery or thermal cost | Poor reviews, throttling | Render only while visible, blur toggle, reduce motion, cap frame work |

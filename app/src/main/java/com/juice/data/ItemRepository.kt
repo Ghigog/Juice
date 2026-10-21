@@ -31,9 +31,11 @@ class ItemRepository(private val dao: ItemDao) {
     /** Applies a parse to the saved item, keeping what the user edited (and always the title). */
     suspend fun applyParse(id: String, parsed: ParsedItem) {
         val item = get(id) ?: return
-        val card = IntakeCard(item.type, item.title, deadline = item.deadline, editedFields = item.editedFields)
+        val card = IntakeCard(
+            item.type, item.title, item.completionCondition, item.deadline, editedFields = item.editedFields,
+        )
         val merged = card.mergeParse(parsed)
-        save(item.copy(type = merged.type, deadline = merged.deadline))
+        save(item.copy(type = merged.type, deadline = merged.deadline, completionCondition = merged.completionCondition))
     }
 
     /**
@@ -65,6 +67,7 @@ fun ParsedItem.toItems(id: String, newId: () -> String): List<Item> =
             card.type,
             card.title,
             deadline = deadline.takeIf { card.id == id },
+            completionCondition = completionCondition.takeIf { card.id == id },
             parentId = card.parentId,
         )
     }

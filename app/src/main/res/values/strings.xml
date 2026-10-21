@@ -2,7 +2,7 @@
 <resources>
     <string name="overlay_channel_name">Juice overlay</string>
     <string name="overlay_notification_title">Juice is ready</string>
-    <string name="overlay_notification_text">Swipe left on the strip, or tap it, to open Juice</string>
+    <string name="overlay_notification_text">Swipe right on the strip, or tap it, to open Juice</string>
     <string name="overlay_permission_title">Allow Juice to appear on top</string>
     <string name="overlay_permission_body">Juice needs the \"Display over other apps\" permission to show its trigger strip on every screen.</string>
     <string name="overlay_permission_open_settings">Open settings</string>
@@ -43,6 +43,7 @@
     <string name="overlay_add">Add</string>
     <string name="overlay_capture_hint">Enter new note or task…</string>
     <string name="overlay_card_hint">Draw a check to complete. Two strokes for an X to dismiss.</string>
+    <string name="overlay_done_when">Done when: %1$s</string>
     <string name="overlay_empty">All squeezed. Add a note below.</string>
     <string name="overlay_not_recognised">Not recognized</string>
     <string name="overlay_finish_steps">Finish its steps first</string>

@@ -150,7 +150,7 @@ class OverlayService : Service() {
 
     private fun showStrip() {
         val view = StripView(this).apply {
-            setOnTouchListener(SwipeLeftListener(::swapToOverlay))
+            setOnTouchListener(SwipeRightListener(::swapToOverlay))
         }
         val params = stripParams()
         windowManager.addView(view, params)

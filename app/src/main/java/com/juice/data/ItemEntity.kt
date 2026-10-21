@@ -17,15 +17,20 @@ data class ItemEntity(
     val status: String,
     val parentId: String?,
     val editedFields: String = "",
+    val completionCondition: String? = null,
 )
 
-fun Item.toEntity() = ItemEntity(id, type.name, title, deadline?.toEpochMilli(), status.name, parentId, editedFields.joinToString(",") { it.name })
+fun Item.toEntity() = ItemEntity(
+    id, type.name, title, deadline?.toEpochMilli(), status.name, parentId,
+    editedFields.joinToString(",") { it.name }, completionCondition,
+)
 
 fun ItemEntity.toItem() = Item(
     id = id,
     type = ItemType.valueOf(type),
     title = title,
     deadline = deadlineMillis?.let(Instant::ofEpochMilli),
+    completionCondition = completionCondition,
     status = ItemStatus.valueOf(status),
     parentId = parentId,
     editedFields = editedFields.split(",").filter { it.isNotEmpty() }.map(IntakeField::valueOf).toSet(),
