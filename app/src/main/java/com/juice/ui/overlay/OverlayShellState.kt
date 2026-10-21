@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.juice.core.card.Card
 import com.juice.core.card.complete
+import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
@@ -28,6 +29,7 @@ class OverlayShellState(
     initial: List<Item> = emptyList(),
     private val onCompleted: (Item) -> Unit = {},
     private val onCompletionUndone: () -> Unit = {},
+    private val onCaptured: suspend (Item) -> Unit = {},
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
     var items by mutableStateOf(initial)
@@ -41,7 +43,30 @@ class OverlayShellState(
         if (title.isEmpty()) return
         val note = Item(newId(), ItemType.Note, title)
         items = items + note
-        scope.launch { repository.save(note) }
+        scope.launch {
+            repository.save(note)
+            onCaptured(note)
+        }
+    }
+
+    /** Keeps the cards in step with the repository, so a parse landing later updates an open card. */
+    fun observe() {
+        scope.launch {
+            repository.observeActive().collect { saved ->
+                val byId = saved.associateBy { it.id }
+                val known = items.mapNotNull { byId[it.id] }
+                items = known + saved.filter { s -> items.none { it.id == s.id } }
+            }
+        }
+    }
+
+    /** The user picks a type; a late parse will not change it. */
+    fun setType(item: Item, type: ItemType) {
+        items = items.map { if (it.id == item.id) it.copy(type = type, editedFields = it.editedFields + IntakeField.Type) else it }
+        scope.launch {
+            repository.markEdited(item.id, IntakeField.Type)
+            repository.get(item.id)?.let { repository.save(it.copy(type = type)) }
+        }
     }
 
     /** Swaps the captured card [id] for what its parse produced: the card, and a Project's sub-item cards. */

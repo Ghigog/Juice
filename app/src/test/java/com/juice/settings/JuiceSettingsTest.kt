@@ -18,4 +18,11 @@ class JuiceSettingsTest {
         assertTrue(s.sloshEnabled)
         assertTrue(s.particlesEnabled)
     }
+
+    @Test
+    fun `haptics off silences vibration but keeps sound`() {
+        val f = JuiceSettings(haptics = false).feedback
+        assertFalse(f.hapticsEnabled)
+        assertTrue(f.soundEnabled)
+    }
 }

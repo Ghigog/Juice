@@ -2,6 +2,7 @@ package com.juice.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
@@ -15,9 +16,10 @@ data class ItemEntity(
     val deadlineMillis: Long?,
     val status: String,
     val parentId: String?,
+    val editedFields: String = "",
 )
 
-fun Item.toEntity() = ItemEntity(id, type.name, title, deadline?.toEpochMilli(), status.name, parentId)
+fun Item.toEntity() = ItemEntity(id, type.name, title, deadline?.toEpochMilli(), status.name, parentId, editedFields.joinToString(",") { it.name })
 
 fun ItemEntity.toItem() = Item(
     id = id,
@@ -26,4 +28,5 @@ fun ItemEntity.toItem() = Item(
     deadline = deadlineMillis?.let(Instant::ofEpochMilli),
     status = ItemStatus.valueOf(status),
     parentId = parentId,
+    editedFields = editedFields.split(",").filter { it.isNotEmpty() }.map(IntakeField::valueOf).toSet(),
 )

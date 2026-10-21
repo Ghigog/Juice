@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,7 @@ class SettingsRepository(context: Context) {
             onDeviceOnly = p[ON_DEVICE_ONLY] ?: d.onDeviceOnly,
             stripPosition = p[STRIP_POSITION]?.let { runCatching { StripPosition.valueOf(it) }.getOrNull() }
                 ?: d.stripPosition,
+            stripWidthPercent = (p[STRIP_WIDTH_PERCENT] ?: d.stripWidthPercent).coerceStripWidth(),
         )
     }
 
@@ -43,6 +45,7 @@ class SettingsRepository(context: Context) {
             p[BLUR] = next.blur
             p[ON_DEVICE_ONLY] = next.onDeviceOnly
             p[STRIP_POSITION] = next.stripPosition.name
+            p[STRIP_WIDTH_PERCENT] = next.stripWidthPercent.coerceStripWidth()
         }
     }
 
@@ -57,6 +60,10 @@ class SettingsRepository(context: Context) {
         val BLUR = booleanPreferencesKey("blur")
         val ON_DEVICE_ONLY = booleanPreferencesKey("on_device_only")
         val STRIP_POSITION = stringPreferencesKey("strip_position")
+        val STRIP_WIDTH_PERCENT = intPreferencesKey("strip_width_percent")
         val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     }
 }
+
+private fun Int.coerceStripWidth() =
+    coerceIn(JuiceSettings.MIN_STRIP_WIDTH_PERCENT, JuiceSettings.MAX_STRIP_WIDTH_PERCENT)
