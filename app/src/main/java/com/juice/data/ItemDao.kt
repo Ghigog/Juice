@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ItemDao {
@@ -15,4 +16,7 @@ interface ItemDao {
 
     @Query("SELECT * FROM items WHERE status = 'Active' ORDER BY rowid")
     suspend fun active(): List<ItemEntity>
+
+    @Query("SELECT * FROM items WHERE status = 'Active' ORDER BY rowid")
+    fun observeActive(): Flow<List<ItemEntity>>
 }

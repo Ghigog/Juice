@@ -24,6 +24,9 @@ import com.juice.core.intake.ItemType
 import com.juice.data.EconomyStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.intake.CaptureIntake
+import com.juice.intake.IntakeWorker
+import com.juice.settings.SettingsRepository
 import com.juice.feedback.FeedbackPlayer
 import com.juice.feedback.FeedbackSettings
 import com.juice.feedback.SoundPoolOutput
@@ -173,6 +176,12 @@ class OverlayService : Service() {
             )
         }
         overlayLifecycle = lifecycleOwner
+        val settings = SettingsRepository(this)
+        val intake = CaptureIntake(
+            repository,
+            onDeviceOnly = { settings.current().onDeviceOnly },
+            enqueue = { id, text, onDevice -> IntakeWorker.enqueue(this, id, text, onDevice) },
+        )
         scope.launch {
             val state = OverlayShellState(
                 repository,
@@ -180,7 +189,9 @@ class OverlayService : Service() {
                 repository.active(),
                 onCompleted = { item -> session.complete(item.type.toEconomy()); render() },
                 onCompletionUndone = { session.undo(); render() },
+                onCaptured = intake::submit,
             )
+            state.observe()
             composeView.setContent { OverlayShell(state) }
         }
         val params = overlayLayoutParams()
