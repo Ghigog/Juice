@@ -16,6 +16,21 @@ class OverlayServiceTest {
     }
 
     @Test
+    fun keyboardDoesNotResizeTheOverlayWindow() {
+        val mode = overlayLayoutParams().softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST
+        assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING, mode)
+    }
+
+    @Test
+    fun blurIsPartOfTheParamsTheWindowIsAddedWith() {
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND != 0)
+        assertTrue(params.blurBehindRadius > 0)
+        withBackdrop(params, Backdrop.SCRIM)
+        assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+    }
+
+    @Test
     fun overlayWindowRunsUnderTheSystemBars() {
         assertEquals(0, overlayLayoutParams().fitInsetsTypes)
     }

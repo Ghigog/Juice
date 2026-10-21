@@ -239,11 +239,12 @@ class OverlayService : Service() {
             onScroll = { steps -> reservoir.kick(steps * 2.2f) },
             onTick = session::tick,
         )
-        scope.launch {
+        // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
+        run {
             val state = OverlayShellState(
                 repository,
                 scope,
-                repository.active(),
+                emptyList(),
                 onCompleted = { item ->
                     val type = item.type.toEconomy()
                     val m = session.multiplier
@@ -276,9 +277,10 @@ class OverlayService : Service() {
             }
         }
         val params = overlayLayoutParams()
+        backdrop.value = chooseBackdrop()
+        withBackdrop(params, backdrop.value)
         windowManager.addView(root, params)
         overlay = root
-        applyBackdrop()
         windowManager.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
     }
 
@@ -300,21 +302,17 @@ class OverlayService : Service() {
     /** Blur behind the overlay when it is on, supported and battery saver is off; otherwise the scrim. */
     private fun applyBackdrop() {
         val view = overlay ?: return
-        backdrop.value = Backdrop.choose(
-            blurEnabled = settings.blur,
-            blurSupported = windowManager.isCrossWindowBlurEnabled,
-            batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
-        )
+        backdrop.value = chooseBackdrop()
         val params = view.layoutParams as WindowManager.LayoutParams
-        if (backdrop.value == Backdrop.BLUR) {
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-            params.blurBehindRadius = BLUR_RADIUS_PX
-        } else {
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
-            params.blurBehindRadius = 0
-        }
+        withBackdrop(params, backdrop.value)
         windowManager.updateViewLayout(view, params)
     }
+
+    private fun chooseBackdrop() = Backdrop.choose(
+        blurEnabled = settings.blur,
+        blurSupported = windowManager.isCrossWindowBlurEnabled,
+        batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
+    )
 
     private fun removeStrip() {
         strip?.let(windowManager::removeView)
@@ -334,7 +332,6 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val STRIP_HEIGHT_DP = 24
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
-        private const val BLUR_RADIUS_PX = 40
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, OverlayService::class.java))
@@ -356,8 +353,9 @@ internal fun overlayLayoutParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
     PixelFormat.TRANSLUCENT,
 ).apply {
-    // The capture field sits at the bottom; the window shrinks above the keyboard instead of hiding it.
-    softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+    // The window keeps its full size when the keyboard opens and the content moves up inside it
+    // (the IME inset). Resizing the window instead left the screen behind bare while it shrank.
+    softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
     // Cover the status and navigation bars too, so the blur and tint run edge to edge;
     // the content keeps clear of them with inset padding.
     fitInsetsTypes = 0
@@ -380,3 +378,16 @@ internal fun guardedShowOverlay(
         onFailure(e)
     }
 }
+
+/** Blur behind the window for [Backdrop.BLUR], none otherwise. */
+internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop) {
+    if (backdrop == Backdrop.BLUR) {
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+        params.blurBehindRadius = BLUR_RADIUS_PX
+    } else {
+        params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+        params.blurBehindRadius = 0
+    }
+}
+
+private const val BLUR_RADIUS_PX = 40
