@@ -168,10 +168,11 @@ class OverlayService : Service() {
             this,
             windowManager,
             radius = { settings.swipeDistance.dp * density },
+            reduceMotion = { settings.reduceMotion },
             feedback = { handleFeedback.play(it) },
             onMoved = { x, y ->
                 val bounds = windowManager.maximumWindowMetrics.bounds
-                val (fx, fy) = handleFractions(x, y, bounds.width(), bounds.height(), HANDLE_EDGE_DP * density)
+                val (fx, fy) = handleFractions(x, y, bounds.width(), bounds.height(), SliceHandleView.EDGE_DP * density)
                 settings = settings.copy(handleX = fx, handleY = fy)
                 scope.launch { settingsRepository.update { it.copy(handleX = fx, handleY = fy) } }
             },
@@ -342,7 +343,7 @@ class OverlayService : Service() {
     )
 
     private fun removeHandle() {
-        handle?.let(windowManager::removeView)
+        handle?.dismiss()
         handle = null
     }
 
@@ -357,7 +358,6 @@ class OverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "juice_overlay"
         private const val NOTIFICATION_ID = 1
-        private const val HANDLE_EDGE_DP = 30f
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
 
         fun start(context: Context) {
