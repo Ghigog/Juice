@@ -28,10 +28,14 @@ import com.juice.feedback.FeedbackPlayer
 import com.juice.feedback.FeedbackSettings
 import com.juice.feedback.SoundPoolOutput
 import com.juice.feedback.VibratorOutput
+import androidx.compose.ui.platform.ComposeView
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.juice.ui.GameSession
+import com.juice.ui.overlay.OverlayShell
+import com.juice.ui.overlay.OverlayShellState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -43,6 +47,7 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var strip: View? = null
     private var overlay: View? = null
+    private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
     private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
@@ -129,58 +134,34 @@ class OverlayService : Service() {
             blurSupported = windowManager.isCrossWindowBlurEnabled,
             batterySaver = getSystemService(PowerManager::class.java).isPowerSaveMode,
         )
+        val reservoir = ThirstReservoirView(this)
+        val session = GameSession(
+            EconomyStore(this),
+            FeedbackPlayer(sounds, VibratorOutput(this)) { FeedbackSettings() },
+            onSatiated = reservoir::emitParticles,
+        )
+        session.open()
+        val juiceText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 24f }
+        val badgeText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 18f }
+        fun render() {
+            reservoir.fill = session.fill
+            juiceText.text = getString(R.string.overlay_juice, session.state.juice)
+            badgeText.text = getString(R.string.overlay_multiplier, session.multiplier)
+        }
+        render()
+        val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
+        val composeView = ComposeView(this)
         val root = FrameLayout(this).apply {
             setBackgroundColor(if (backdrop == Backdrop.BLUR) BLUR_TINT_COLOR else SCRIM_COLOR)
-            val reservoir = ThirstReservoirView(context)
-            val juiceText = TextView(context).apply { setTextColor(Color.WHITE); textSize = 24f }
-            val badgeText = TextView(context).apply { setTextColor(Color.WHITE); textSize = 18f }
-            val items = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-            lateinit var session: GameSession
-            fun render() {
-                reservoir.fill = session.fill
-                juiceText.text = getString(R.string.overlay_juice, session.state.juice)
-                badgeText.text = getString(R.string.overlay_multiplier, session.multiplier)
-            }
-            session = GameSession(
-                EconomyStore(this@OverlayService),
-                FeedbackPlayer(sounds, VibratorOutput(this@OverlayService)) { FeedbackSettings() },
-                onSatiated = reservoir::emitParticles,
-            )
-            session.open()
-            fun loadItems(): Job = scope.launch {
-                items.removeAllViews()
-                repository.active().forEach { item ->
-                    items.addView(
-                        Button(context).apply {
-                            text = item.title
-                            setOnClickListener {
-                                scope.launch {
-                                    repository.complete(item.id)
-                                    session.complete(item.type.toEconomy())
-                                    render()
-                                    loadItems()
-                                }
-                            }
-                        },
-                    )
-                }
-            }
-            render()
-            loadItems()
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             addView(reservoir, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(composeView, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(
                 LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
                     addView(juiceText)
                     addView(badgeText)
-                    addView(items)
-                    addView(
-                        Button(context).apply {
-                            setText(R.string.overlay_undo)
-                            setOnClickListener { session.undo(); render() }
-                        },
-                    )
                     addView(
                         Button(context).apply {
                             setText(R.string.overlay_close)
@@ -188,8 +169,19 @@ class OverlayService : Service() {
                         },
                     )
                 },
-                FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER),
+                FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END),
             )
+        }
+        overlayLifecycle = lifecycleOwner
+        scope.launch {
+            val state = OverlayShellState(
+                repository,
+                scope,
+                repository.active(),
+                onCompleted = { item -> session.complete(item.type.toEconomy()); render() },
+                onCompletionUndone = { session.undo(); render() },
+            )
+            composeView.setContent { OverlayShell(state) }
         }
         val params = overlayLayoutParams()
         if (backdrop == Backdrop.BLUR) {
@@ -208,6 +200,8 @@ class OverlayService : Service() {
     private fun removeOverlay() {
         overlay?.let(windowManager::removeView)
         overlay = null
+        overlayLifecycle?.stop()
+        overlayLifecycle = null
     }
 
     companion object {
@@ -216,6 +210,7 @@ class OverlayService : Service() {
         private const val STRIP_WIDTH_FRACTION = 0.3f
         private const val STRIP_HEIGHT_DP = 24
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
+        private const val WRAP = FrameLayout.LayoutParams.WRAP_CONTENT
         private val STRIP_COLOR = Color.argb(96, 255, 255, 255)
         private const val BLUR_ENABLED = true // TODO: read from the blur setting once settings exist
         private const val BLUR_RADIUS_PX = 40
