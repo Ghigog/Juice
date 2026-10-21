@@ -25,6 +25,18 @@ android {
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("GROQ_API_KEY", "")}\"")
     }
 
+    // One debug key for every build, so a new APK from CI installs over the last one. CI runners
+    // otherwise make a fresh debug key each run, and Android refuses an update signed differently.
+    // A debug key is not a secret; release builds must not use it.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

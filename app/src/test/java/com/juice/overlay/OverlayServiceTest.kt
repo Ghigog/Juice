@@ -22,8 +22,9 @@ class OverlayServiceTest {
             show = { error("boom") },
             cleanup = { calls += "cleanup" },
             restoreStrip = { calls += "strip" },
+            onFailure = { calls += "report: ${it.message}" },
         )
-        assertEquals(listOf("cleanup", "strip"), calls)
+        assertEquals(listOf("cleanup", "strip", "report: boom"), calls)
     }
 
     @Test

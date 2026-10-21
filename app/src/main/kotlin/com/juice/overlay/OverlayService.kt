@@ -4,6 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -19,6 +21,7 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.juice.core.economy.ItemType as EconomyItemType
 import com.juice.core.intake.ItemType
 import com.juice.data.EconomyStore
@@ -144,7 +147,14 @@ class OverlayService : Service() {
 
     private fun swapToOverlay() {
         removeStrip()
-        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showStrip)
+        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showStrip, ::reportOverlayFailure)
+    }
+
+    /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
+    private fun reportOverlayFailure(e: Exception) {
+        getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("Juice error", Log.getStackTraceString(e)))
+        Toast.makeText(this, getString(R.string.overlay_failed, e.javaClass.simpleName, e.message), Toast.LENGTH_LONG).show()
     }
 
     private fun discardOverlay() = runCatching { removeOverlay() }.onFailure { overlay = null }
@@ -280,13 +290,19 @@ internal fun overlayLayoutParams() = WindowManager.LayoutParams(
     PixelFormat.TRANSLUCENT,
 )
 
-/** Builds the overlay; if that fails, cleans up and brings the strip back instead of crashing. */
-internal fun guardedShowOverlay(show: () -> Unit, cleanup: () -> Unit, restoreStrip: () -> Unit) {
+/** Builds the overlay; if that fails, cleans up, brings the strip back and reports why instead of crashing. */
+internal fun guardedShowOverlay(
+    show: () -> Unit,
+    cleanup: () -> Unit,
+    restoreStrip: () -> Unit,
+    onFailure: (Exception) -> Unit = {},
+) {
     try {
         show()
     } catch (e: Exception) {
         Log.e(TAG, "Failed to open the overlay; restoring the strip", e)
         cleanup()
         restoreStrip()
+        onFailure(e)
     }
 }
