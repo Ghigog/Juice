@@ -58,6 +58,10 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
             invalidate()
         }
 
+    /** Reduce motion turns these off: no tilt/scroll slosh, no particle bursts. */
+    var sloshEnabled = true
+    var particlesEnabled = true
+
     private val shader = RuntimeShader(AGSL).apply {
         setColorUniform("u_color", Color.rgb(255, 170, 40))
     }
@@ -75,7 +79,7 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         val dt = if (lastFrameNanos == 0L) 0f else ((nanos - lastFrameNanos) / 1e9f).coerceAtMost(0.05f)
         lastFrameNanos = nanos
         time = (time + dt) % TIME_WRAP
-        spring.step(dt, tiltImpulse + pendingImpulse)
+        spring.step(dt, if (sloshEnabled) tiltImpulse + pendingImpulse else 0f)
         pendingImpulse = 0f
         particles.removeAll { it.life <= 0f }
         particles.forEach { it.x += it.vx * dt; it.y += it.vy * dt; it.life -= dt }
@@ -90,6 +94,7 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
 
     /** Bursts particles up from the liquid surface, for reaching Satiated. */
     fun emitParticles(count: Int = 40) {
+        if (!particlesEnabled) return
         repeat(count) {
             particles += Particle(
                 Random.nextFloat() * width, height * (1f - fill),
