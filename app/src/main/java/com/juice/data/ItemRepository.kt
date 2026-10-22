@@ -14,7 +14,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ItemRepository(private val dao: ItemDao) {
-    suspend fun save(item: Item) = dao.upsert(item.toEntity())
+    /** Saves [item]; an item already stored keeps its place in the order, a new one goes last. */
+    suspend fun save(item: Item) {
+        val position = dao.get(item.id)?.position ?: ((dao.maxPosition() ?: 0) + 1)
+        dao.upsert(item.toEntity(position))
+    }
+
+    /** Stores the order the user chose: [ids] first to last. */
+    suspend fun reorder(ids: List<String>) {
+        val base = (dao.maxPosition() ?: 0) + 1
+        ids.forEachIndexed { index, id -> dao.setPosition(id, base + index) }
+    }
 
     suspend fun get(id: String): Item? = dao.get(id)?.toItem()
 

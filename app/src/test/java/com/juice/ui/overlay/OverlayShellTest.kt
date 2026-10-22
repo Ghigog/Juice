@@ -293,4 +293,34 @@ class OverlayShellTest {
         compose.onAllNodesWithText("Call Sam").onFirst().assertIsDisplayed()
         assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
     }
+
+    private fun swipeCentre(toRight: Boolean) {
+        compose.onNodeWithTag(TAG_CENTRE_CARD).performTouchInput {
+            val (from, to) = if (toRight) 0.2f to 0.8f else 0.8f to 0.2f
+            down(Offset(width * from, height * 0.5f))
+            moveTo(Offset(width * (from + to) / 2, height * 0.5f))
+            moveTo(Offset(width * to, height * 0.5f))
+            up()
+        }
+        idle()
+    }
+
+    @Test
+    fun swipingRightHoldsTheCardAndSwipingLeftDropsItAtTheFocalCard() {
+        show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"), Item("c", ItemType.Task, "C"))
+        swipeCentre(toRight = true)
+        assertEquals("a", state.held)
+        state.moveTarget(2)
+        swipeCentre(toRight = false)
+        assertEquals(null, state.held)
+        assertEquals(listOf("b", "c", "a"), state.items.map { it.id })
+    }
+
+    @Test
+    fun drawingACheckWhileNothingIsHeldStillCompletes() {
+        show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"))
+        drawCheckmark()
+        assertEquals(ItemStatus.Completed, statusOf("a"))
+        assertEquals(null, state.held)
+    }
 }

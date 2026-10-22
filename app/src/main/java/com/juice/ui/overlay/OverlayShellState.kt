@@ -7,6 +7,7 @@ import com.juice.core.card.Card
 import com.juice.core.card.completeStep
 import com.juice.core.card.open
 import com.juice.core.card.removeStep
+import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
@@ -16,6 +17,7 @@ import com.juice.core.model.Step
 import com.juice.data.ItemRepository
 import com.juice.data.toItems
 import java.util.UUID
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,6 +39,14 @@ class OverlayShellState(
     var items by mutableStateOf(initial)
         private set
     var undo by mutableStateOf<Undo?>(null)
+        private set
+
+    /** Id of the card picked up to be moved, if any. */
+    var held by mutableStateOf<String?>(null)
+        private set
+
+    /** Index the held card would take if dropped now: that of the card at the focal dot. */
+    var target by mutableStateOf(0)
         private set
 
     /** Ids of captured cards whose cloud parse has not landed yet. */
@@ -76,6 +86,36 @@ class OverlayShellState(
                 items = known + added
             }
         }
+    }
+
+    /** Picks [item] up to move it; the list keeps scrolling while it is held. */
+    fun pickUp(item: Item, at: Int = items.indexOfFirst { it.id == item.id }) {
+        if (at < 0) return
+        held = item.id
+        target = at
+    }
+
+    /** Where the held card would land: the index of the card at the focal dot. */
+    fun moveTarget(index: Int) {
+        target = index.coerceIn(0, items.lastIndex.coerceAtLeast(0))
+    }
+
+    /** Puts the held card down without moving it. */
+    fun cancelHold() {
+        held = null
+    }
+
+    /** Moves the held card to the target index and saves the order. False when the order is unchanged. */
+    fun drop(): Boolean {
+        val card = items.firstOrNull { it.id == held }
+        held = null
+        card ?: return false
+        val rest = items.filterNot { it.id == card.id }
+        val reordered = rest.take(target) + card + rest.drop(target)
+        if (reordered == items) return false
+        items = reordered
+        scope.launch { repository.reorder(reordered.map { it.id }) }
+        return true
     }
 
     /** The user picks a type; a late parse will not change it. */
@@ -174,4 +214,18 @@ class OverlayShellState(
         /** How long a card shows that a cloud parse is running before giving up on showing it. */
         const val PARSE_PATIENCE_MILLIS = 15_000L
     }
+}
+
+enum class Swipe { LEFT, RIGHT }
+
+/**
+ * The direction of a mostly-horizontal swipe, or null when [stroke] is too short or too tall to be one
+ * (a drawn ✓ or ✗ is as high as it is wide). [minDistance] is the least sideways travel.
+ */
+fun swipeOf(stroke: List<GesturePoint>, minDistance: Double): Swipe? {
+    if (stroke.size < 2) return null
+    val dx = stroke.last().x - stroke.first().x
+    val height = stroke.maxOf { it.y } - stroke.minOf { it.y }
+    if (abs(dx) < minDistance || height > abs(dx) * 0.35) return null
+    return if (dx > 0) Swipe.RIGHT else Swipe.LEFT
 }

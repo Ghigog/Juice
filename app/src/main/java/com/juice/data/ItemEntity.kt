@@ -22,11 +22,13 @@ data class ItemEntity(
     val completionCondition: String? = null,
     /** The Project's steps as a JSON array of {id, title, done}. */
     val steps: String = "[]",
+    /** Place in the user's chosen order of cards; lower comes first. */
+    val position: Int = 0,
 )
 
-fun Item.toEntity() = ItemEntity(
+fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
-    editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(),
+    editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
 )
 
 fun ItemEntity.toItem() = Item(

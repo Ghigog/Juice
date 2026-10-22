@@ -52,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -127,6 +129,10 @@ private const val BANNER_MILLIS = 2200L
 private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
 private const val SLICE_DP = 56
+private const val WIGGLE_MILLIS = 110
+private const val WIGGLE_DEGREES = 1.5f
+private const val WIGGLE_DP = 1.5f
+private const val HELD_ALPHA = 0.4f
 
 /** Scale of a card whose centre is [distance] px from the focal dot, falling off over [reach] px. */
 internal fun focalScale(distance: Float, reach: Float): Float =
@@ -196,7 +202,7 @@ fun OverlayShell(
                     HydrationLabel(hud, Modifier.padding(start = 18.dp, bottom = 6.dp))
                     val list = state.items
                     Row(Modifier.weight(1f).fillMaxWidth()) {
-                        Carousel(list, hud, actions, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
+                        Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             CentreCard(
@@ -368,7 +374,15 @@ private fun Header(hud: Hud, onSettings: () -> Unit) {
 
 /** The left column: cards scale up near the focal dot and snap to it. Tap a card to bring it in. */
 @Composable
-private fun Carousel(items: List<Item>, hud: Hud, actions: OverlayActions, onCentre: (Int) -> Unit, modifier: Modifier) {
+private fun Carousel(
+    items: List<Item>,
+    hud: Hud,
+    actions: OverlayActions,
+    state: OverlayShellState,
+    reduceMotion: Boolean,
+    onCentre: (Int) -> Unit,
+    modifier: Modifier,
+) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -380,6 +394,17 @@ private fun Carousel(items: List<Item>, hud: Hud, actions: OverlayActions, onCen
         }
     }
     var lastCentre by remember { mutableStateOf<Int?>(null) }
+    val held = state.held
+    val heldIndex = items.indexOfFirst { it.id == held }
+    // While a card is held, the card at the focal dot is where it would land.
+    LaunchedEffect(centreIndex, held) { if (held != null) state.moveTarget(centreIndex) }
+    val wiggle: State<Float> = if (held != null && !reduceMotion) {
+        rememberInfiniteTransition(label = "wiggle")
+            .animateFloat(-1f, 1f, infiniteRepeatable(tween(WIGGLE_MILLIS, easing = LinearEasing), RepeatMode.Reverse), label = "wiggle")
+    } else {
+        remember { mutableStateOf(0f) }
+    }
+    val lineColor = hud.accent
     LaunchedEffect(centreIndex) {
         onCentre(centreIndex)
         val previous = lastCentre
@@ -420,6 +445,19 @@ private fun Carousel(items: List<Item>, hud: Hud, actions: OverlayActions, onCen
                                 scaleX = s * (1f - steps * 0.08f).coerceAtLeast(0.78f)
                                 scaleY = scaleX
                                 alpha = (1f - steps * 0.26f).coerceIn(0.3f, 1f)
+                            }
+                            if (item.id == held) {
+                                alpha *= HELD_ALPHA
+                            } else if (held != null) {
+                                rotationZ = wiggle.value * WIGGLE_DEGREES * if (index % 2 == 0) 1 else -1
+                                translationX = wiggle.value * WIGGLE_DP.dp.toPx()
+                            }
+                        }
+                        .drawBehind {
+                            // The line sits in the gap between the focal card and the side the held card would land on.
+                            if (held != null && index == state.target && heldIndex >= 0 && heldIndex != index) {
+                                val y = if (index > heldIndex) size.height + CAROUSEL_GAP_DP.dp.toPx() / 2 else -CAROUSEL_GAP_DP.dp.toPx() / 2
+                                drawLine(lineColor, Offset(0f, y), Offset(size.width, y), 3.dp.toPx(), StrokeCap.Round)
                             }
                         }
                         .clip(RoundedCornerShape(16.dp))

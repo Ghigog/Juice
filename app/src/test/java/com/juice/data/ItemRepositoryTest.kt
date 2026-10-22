@@ -114,4 +114,21 @@ class ItemRepositoryTest {
         assertEquals(ItemStatus.Completed, repository.get("b")?.status)
         assertEquals(ItemStatus.Archived, repository.get("c")?.status)
     }
+
+    @Test
+    fun reorderedItemsComeBackInTheChosenOrderAndKeepItAfterAnEdit() = runBlocking {
+        listOf("a", "b", "c").forEach { repository.save(item(it)) }
+        repository.reorder(listOf("c", "a", "b"))
+        assertEquals(listOf("c", "a", "b"), repository.active().map { it.id })
+        repository.save(item("c").copy(title = "Edited"))
+        assertEquals(listOf("c", "a", "b"), repository.active().map { it.id })
+    }
+
+    @Test
+    fun aNewItemGoesAfterTheReorderedOnes() = runBlocking {
+        listOf("a", "b").forEach { repository.save(item(it)) }
+        repository.reorder(listOf("b", "a"))
+        repository.save(item("z"))
+        assertEquals(listOf("b", "a", "z"), repository.active().map { it.id })
+    }
 }
