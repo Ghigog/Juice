@@ -13,6 +13,8 @@ import com.juice.core.model.Step
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import java.time.Instant
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -130,5 +132,18 @@ class ItemRepositoryTest {
         repository.reorder(listOf("b", "a"))
         repository.save(item("z"))
         assertEquals(listOf("b", "a", "z"), repository.active().map { it.id })
+    }
+
+    @Test
+    fun concurrentSavesOfOneItemLandInTheOrderAsked() = runBlocking {
+        repository.save(item("a"))
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+        repeat(20) {
+            val jobs = listOf(ItemStatus.Completed, ItemStatus.Active).map { status ->
+                scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { repository.save(item("a", status)) }
+            }
+            jobs.joinAll()
+            assertEquals(ItemStatus.Active, repository.get("a")?.status)
+        }
     }
 }
