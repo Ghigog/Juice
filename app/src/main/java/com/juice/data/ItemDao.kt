@@ -20,9 +20,9 @@ interface ItemDao {
     @Query("UPDATE items SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 
-    @Query("SELECT * FROM items WHERE status = 'Active' ORDER BY position, rowid")
-    suspend fun active(): List<ItemEntity>
+    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
+    suspend fun active(todayEpochDay: Long): List<ItemEntity>
 
-    @Query("SELECT * FROM items WHERE status = 'Active' ORDER BY position, rowid")
-    fun observeActive(): Flow<List<ItemEntity>>
+    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
+    fun observeActive(todayEpochDay: Long): Flow<List<ItemEntity>>
 }

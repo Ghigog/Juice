@@ -12,7 +12,12 @@ import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Step
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import com.juice.core.routine.Cadence
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -145,5 +150,79 @@ class ItemRepositoryTest {
             jobs.joinAll()
             assertEquals(ItemStatus.Active, repository.get("a")?.status)
         }
+    }
+
+    private val wednesday = LocalDate.of(2026, 10, 21)
+    private val sunday = LocalDate.of(2026, 10, 25)
+    private val sundays = Cadence(setOf(DayOfWeek.SUNDAY))
+
+    @Test
+    fun migrationFiveToSixKeepsItemsWithoutCadence() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(ApplicationProvider.getApplicationContext())
+                .name(null)
+                .callback(object : SupportSQLiteOpenHelper.Callback(5) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL(
+                            "CREATE TABLE items (id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, " +
+                                "status TEXT NOT NULL, editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, " +
+                                "steps TEXT NOT NULL DEFAULT '[]', position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(id))",
+                        )
+                        db.execSQL("INSERT INTO items (id, type, title, deadlineMillis, status) VALUES ('a', 'Task', 'A', 5, 'Active')")
+                    }
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build(),
+        )
+        val db = helper.writableDatabase
+        JuiceDatabase.addCadence.migrate(db)
+        db.query("SELECT id, title, deadlineMillis, cadence, nextDueOn FROM items").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals(listOf("a", "A", "5"), (0..2).map { i -> it.getString(i) })
+            assertEquals(true, it.isNull(3) && it.isNull(4))
+        }
+        helper.close()
+    }
+
+    @Test
+    fun aRoutineIsOnlyActiveOnItsDueDays() = runBlocking {
+        repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
+        repository.save(item("t"))
+        assertEquals(listOf("t"), repository.active(wednesday).map { it.id })
+        assertEquals(listOf("r", "t"), repository.active(sunday).map { it.id })
+        assertEquals(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday), repository.get("r"))
+    }
+
+    @Test
+    fun advancingAMissedRoutineSkipsToTheFirstDayAfterToday() {
+        val missed = Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday.minusWeeks(2))
+        assertEquals(sunday, missed.advance(wednesday).nextDueOn)
+        val ontime = missed.copy(nextDueOn = sunday)
+        assertEquals(sunday.plusWeeks(1), ontime.advance(wednesday).nextDueOn)
+    }
+
+    @Test
+    fun advancingARoutineKeepsOneRowAndSetsTheDeadline() = runBlocking {
+        val zone = ZoneId.systemDefault()
+        val timed = Cadence(setOf(DayOfWeek.SUNDAY), LocalTime.of(9, 0))
+        repository.save(Item("r", ItemType.Routine, "Review", cadence = timed, nextDueOn = sunday.minusWeeks(2), status = ItemStatus.Completed))
+        repository.advanceRoutine("r", wednesday)
+        val advanced = repository.get("r")!!
+        assertEquals(sunday, advanced.nextDueOn)
+        assertEquals(ItemStatus.Active, advanced.status)
+        assertEquals(sunday.atTime(9, 0).atZone(zone).toInstant(), advanced.deadline)
+        assertEquals(1, repository.active(sunday).size)
+    }
+
+    @Test
+    fun aDailyRoutineLandingFromAParseIsDueTodayWithItsDeadline() = runBlocking {
+        repository.save(Item("r", ItemType.Note, "Stretch"))
+        val daily = Cadence(DayOfWeek.entries.toSet(), LocalTime.of(9, 0))
+        repository.land("r", ParsedItem(ItemType.Routine, "Stretch", cadence = daily), today = wednesday)
+        val saved = repository.get("r")!!
+        assertEquals(wednesday, saved.nextDueOn)
+        assertEquals(daily, saved.cadence)
+        assertEquals(wednesday.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant(), saved.deadline)
     }
 }

@@ -7,7 +7,11 @@ import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import com.juice.core.routine.Cadence
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -24,11 +28,16 @@ data class ItemEntity(
     val steps: String = "[]",
     /** Place in the user's chosen order of cards; lower comes first. */
     val position: Int = 0,
+    /** A Routine's cadence, e.g. "SUN,THU;09:00" (days, then an optional time). */
+    val cadence: String? = null,
+    /** The epoch day a Routine is next due. */
+    val nextDueOn: Long? = null,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
+    cadence?.encode(), nextDueOn?.toEpochDay(),
 )
 
 fun ItemEntity.toItem() = Item(
@@ -40,6 +49,8 @@ fun ItemEntity.toItem() = Item(
     status = ItemStatus.valueOf(status),
     editedFields = editedFields.split(",").filter { it.isNotEmpty() }.map(IntakeField::valueOf).toSet(),
     steps = steps.decodeSteps(),
+    cadence = cadence?.decodeCadence(),
+    nextDueOn = nextDueOn?.let(LocalDate::ofEpochDay),
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
@@ -48,4 +59,12 @@ internal fun List<Step>.encode(): String = JSONArray().also { array ->
 
 internal fun String.decodeSteps(): List<Step> = JSONArray(this).let { array ->
     (0 until array.length()).map { array.getJSONObject(it).let { o -> Step(o.getString("id"), o.getString("title"), o.getBoolean("done")) } }
+}
+
+internal fun Cadence.encode(): String =
+    days.sorted().joinToString(",") { it.name.take(3) } + (time?.let { ";$it" } ?: "")
+
+internal fun String.decodeCadence(): Cadence {
+    val days = substringBefore(';').split(",").map { abbreviation -> DayOfWeek.entries.first { it.name.take(3) == abbreviation } }
+    return Cadence(days.toSet(), if (';' in this) LocalTime.parse(substringAfter(';')) else null)
 }
