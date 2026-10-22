@@ -47,6 +47,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.test.onRoot
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
@@ -155,6 +158,27 @@ class OverlayShellTest {
     fun hydrationLabelShowsTierAndPercent() {
         show(hud = Hud(fill = 0.37f, tier = Tier.HYDRATED))
         compose.onNodeWithTag(TAG_HYDRATION).assertTextEquals("HYDRATED: 37%")
+    }
+
+    @Test
+    fun juiceBoxFillsTheContentWidthWithNoCards() {
+        show()
+        val box = compose.onNodeWithTag(TAG_JUICE_BOX).fetchSemanticsNode().boundsInRoot
+        val label = compose.onNodeWithTag(TAG_HYDRATION).fetchSemanticsNode().boundsInRoot
+        assertEquals(label.left, box.left, 0.5f)
+        assertTrue(label.bottom <= box.top + 0.5f)
+        // Content has 14dp padding each side, so the box starts at the padding and nothing sits before it.
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(root.width - 2 * box.left, box.width, 0.5f)
+    }
+
+    @Test
+    fun hydrationLabelAlignsToJuiceBoxWithCards() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        val box = compose.onNodeWithTag(TAG_JUICE_BOX).fetchSemanticsNode().boundsInRoot
+        val label = compose.onNodeWithTag(TAG_HYDRATION).fetchSemanticsNode().boundsInRoot
+        assertEquals(box.left, label.left, 0.5f)
+        assertTrue(box.left > 14f)
     }
 
     @Test
