@@ -75,4 +75,26 @@ class OverlayServiceTest {
         guardedShowOverlay({ calls += "show" }, { calls += "cleanup" }, { calls += "strip" })
         assertEquals(listOf("show"), calls)
     }
+
+    // applyBackdrop() re-applies withBackdrop() to the window's own params, so a re-run with an
+    // unchanged backdrop must leave the blur flag and radius as they were. This rules out
+    // updateViewLayout dropping FLAG_BLUR_BEHIND from our side (docs/overlay-blur-flicker.md).
+    @Test
+    fun reapplyingTheSameBackdropKeepsTheBlurParams() {
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        val flags = params.flags
+        val radius = params.blurBehindRadius
+        withBackdrop(params, Backdrop.BLUR)
+        assertEquals(flags, params.flags)
+        assertEquals(radius, params.blurBehindRadius)
+    }
+
+    @Test
+    fun scrimAndBackAgainRestoresTheBlurParams() {
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        val blurred = params.flags to params.blurBehindRadius
+        withBackdrop(params, Backdrop.SCRIM)
+        withBackdrop(params, Backdrop.BLUR)
+        assertEquals(blurred, params.flags to params.blurBehindRadius)
+    }
 }
