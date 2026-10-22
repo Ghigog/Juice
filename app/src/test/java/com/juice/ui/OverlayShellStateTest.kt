@@ -15,7 +15,6 @@ import com.juice.ui.overlay.Swipe
 import com.juice.ui.overlay.swipeOf
 import com.juice.core.gesture.GesturePoint
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CoroutineScope
 import org.junit.After
@@ -58,31 +57,13 @@ class OverlayShellStateTest {
         onCompletionUndone = { undone++ },
     )
 
-    /** Saves run on Room's executor, so wait for the status to settle on what the last save wrote. */
-    private suspend fun statusEventually(id: String): ItemStatus? {
-        repeat(50) {
-            delay(20)
-            if (repository.get(id)?.status == ItemStatus.Active) return ItemStatus.Active
-        }
-        return repository.get(id)?.status
-    }
-
-    /** Saves run on Room's executor, so wait for [id] to be stored before reading it. */
-    private suspend fun savedEventually(id: String, ready: (Item) -> Boolean = { true }): Item? {
-        repeat(50) {
-            repository.get(id)?.takeIf(ready)?.let { return it }
-            delay(20)
-        }
-        return repository.get(id)
-    }
-
     @Test
     fun completingSavesTheItemAndReportsItForJuice() = runBlocking {
         repository.save(task)
         val state = state(task)
         state.complete(task)
         assertEquals(listOf(task), completed)
-        assertEquals(ItemStatus.Completed, savedEventually("t") { it.status == ItemStatus.Completed }?.status)
+        assertEquals(ItemStatus.Completed, repository.get("t")?.status)
         assertEquals(emptyList(), state.items)
     }
 
@@ -93,7 +74,7 @@ class OverlayShellStateTest {
         state.complete(task)
         state.undoLast()
         assertEquals(1, undone)
-        assertEquals(ItemStatus.Active, statusEventually("t"))
+        assertEquals(ItemStatus.Active, repository.get("t")?.status)
         assertEquals(listOf(task), state.items)
     }
 
@@ -105,7 +86,7 @@ class OverlayShellStateTest {
         state.undoLast()
         assertEquals(emptyList(), completed)
         assertEquals(0, undone)
-        assertEquals(ItemStatus.Active, statusEventually("t"))
+        assertEquals(ItemStatus.Active, repository.get("t")?.status)
     }
 
     @Test
@@ -113,7 +94,7 @@ class OverlayShellStateTest {
         val state = state()
         state.capture("  buy milk ")
         assertEquals("buy milk", state.items.single().title)
-        assertEquals(ItemType.Note, savedEventually("new")?.type)
+        assertEquals(ItemType.Note, repository.get("new")?.type)
         assertNull(state.undo)
     }
 
@@ -130,7 +111,7 @@ class OverlayShellStateTest {
         state.land("n", ParsedItem(ItemType.Project, "Move house", subItems = listOf("1", "2", "3")))
         assertEquals(listOf("n"), state.items.map { it.id })
         assertEquals(listOf("1", "2", "3"), state.items.single().steps.map { it.title })
-        assertEquals(3, savedEventually("n") { it.steps.size == 3 }?.steps?.size)
+        assertEquals(3, repository.get("n")?.steps?.size)
     }
 
     @Test
@@ -143,11 +124,11 @@ class OverlayShellStateTest {
         state.completeStep(state.items.single(), "sb")
         assertEquals(listOf(project.id), completed.map { it.id })
         assertEquals(emptyList(), state.items)
-        assertEquals(ItemStatus.Completed, savedEventually("p") { it.status == ItemStatus.Completed }?.status)
+        assertEquals(ItemStatus.Completed, repository.get("p")?.status)
         state.undoLast()
         assertEquals(1, undone)
         assertEquals(listOf(false), state.items.single().steps.filter { it.id == "sb" }.map { it.done })
-        assertEquals(ItemStatus.Active, statusEventually("p"))
+        assertEquals(ItemStatus.Active, repository.get("p")?.status)
     }
 
     @Test
@@ -156,7 +137,7 @@ class OverlayShellStateTest {
         val state = state(project)
         state.removeStep(project, "sa")
         assertEquals(listOf("b"), state.items.single().steps.map { it.title })
-        assertEquals(listOf("b"), savedEventually("p") { it.steps.size == 1 }?.steps?.map { it.title })
+        assertEquals(listOf("b"), repository.get("p")?.steps?.map { it.title })
     }
 
     @Test
@@ -174,7 +155,6 @@ class OverlayShellStateTest {
         val state = state(note)
         state.setType(note, ItemType.Goal)
         assertEquals(ItemType.Goal, state.items.single().type)
-        savedEventually("n") { it.type == ItemType.Goal }
         repository.applyParse("n", ParsedItem(ItemType.Task, "Call Sam"))
         assertEquals(ItemType.Goal, repository.get("n")?.type)
     }
@@ -186,7 +166,6 @@ class OverlayShellStateTest {
         val state = state(note)
         state.setTitle(note, " Call Sam ")
         assertEquals("Call Sam", state.items.single().title)
-        savedEventually("n") { it.title == "Call Sam" }
         val deadline = java.time.Instant.ofEpochSecond(1_800_000_000)
         repository.applyParse("n", ParsedItem(ItemType.Task, "Call Samuel", deadline = deadline))
         val saved = repository.get("n")!!
@@ -222,7 +201,6 @@ class OverlayShellStateTest {
         )
         state.capture("buy milk")
         assertEquals(listOf("new", "t"), state.items.map { it.id })
-        repeat(100) { if (state.parsing.isEmpty()) delay(20) }
         assertEquals(setOf("new"), state.parsing)
     }
 
@@ -237,7 +215,6 @@ class OverlayShellStateTest {
         assertEquals(true, s.drop())
         assertEquals(listOf("b", "c", "a"), s.items.map { it.id })
         assertNull(s.held)
-        repeat(50) { if (repository.active().map { it.id } != listOf("b", "c", "a")) delay(20) }
         assertEquals(listOf("b", "c", "a"), repository.active().map { it.id })
     }
 
