@@ -25,4 +25,10 @@ interface ItemDao {
 
     @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
     fun observeActive(todayEpochDay: Long): Flow<List<ItemEntity>>
+
+    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY position, rowid")
+    suspend fun recapItems(sinceMillis: Long): List<ItemEntity>
+
+    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY position, rowid")
+    fun observeRecapItems(sinceMillis: Long): Flow<List<ItemEntity>>
 }

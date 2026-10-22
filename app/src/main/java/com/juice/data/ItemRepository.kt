@@ -10,6 +10,7 @@ import com.juice.core.intake.mergeParse
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.routine.Cadence
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
@@ -18,14 +19,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class ItemRepository(private val dao: ItemDao) {
+class ItemRepository(private val dao: ItemDao, private val clock: () -> Instant = Instant::now) {
     /** Writes run one at a time, in the order they were asked for, so a quick complete then undo lands in order. */
     private val writes = Mutex()
 
-    /** Saves [item]; an item already stored keeps its place in the order, a new one goes last. */
+    /**
+     * Saves [item]; an item already stored keeps its place in the order, a new one goes last. Times are
+     * stamped here: createdAt on first save, completedAt on completing (cleared by an undo; a Routine
+     * keeps the one it carries), doneAt on a step newly ticked.
+     */
     suspend fun save(item: Item) = writes.withLock {
-        val position = dao.get(item.id)?.position ?: ((dao.maxPosition() ?: 0) + 1)
-        dao.upsert(item.toEntity(position))
+        val stored = dao.get(item.id)
+        val now = clock()
+        val before = stored?.toItem()
+        val completedAt = when {
+            item.status == ItemStatus.Completed -> before?.completedAt?.takeIf { before.status == ItemStatus.Completed } ?: now
+            item.cadence != null -> item.completedAt
+            else -> null
+        }
+        val steps = item.steps.map { step ->
+            val earlier = before?.steps?.firstOrNull { it.id == step.id }
+            step.copy(doneAt = if (step.done) earlier?.doneAt?.takeIf { earlier.done } ?: step.doneAt ?: now else null)
+        }
+        val position = stored?.position ?: ((dao.maxPosition() ?: 0) + 1)
+        val createdAt = before?.createdAt ?: item.createdAt ?: now.takeIf { stored == null }
+        dao.upsert(item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt).toEntity(position))
     }
 
     /** Stores the order the user chose: [ids] first to last. */
@@ -43,6 +61,13 @@ class ItemRepository(private val dao: ItemDao) {
     /** Active items, re-emitted whenever they change. */
     fun observeActive(today: LocalDate = LocalDate.now()): Flow<List<Item>> =
         dao.observeActive(today.toEpochDay()).map { list -> list.map { it.toItem() } }
+
+    /** Items for a Recap: not archived, and either still active or completed at or after [since]. */
+    suspend fun recapItems(since: Instant): List<Item> =
+        dao.recapItems(since.toEpochMilli()).map { it.toItem() }
+
+    fun observeRecapItems(since: Instant): Flow<List<Item>> =
+        dao.observeRecapItems(since.toEpochMilli()).map { list -> list.map { it.toItem() } }
 
     /** Marks [field] as changed by the user, so a later parse leaves it alone. */
     suspend fun markEdited(id: String, field: IntakeField) {
@@ -79,7 +104,7 @@ class ItemRepository(private val dao: ItemDao) {
 
     /** Completing or skipping a Routine's occurrence: it moves on to its next due day and stays Active. */
     suspend fun advanceRoutine(id: String, today: LocalDate = LocalDate.now()) {
-        get(id)?.let { save(it.advance(today)) }
+        get(id)?.let { save(it.advance(today).copy(completedAt = clock())) }
     }
 
     suspend fun complete(id: String) = setStatus(id, ItemStatus.Completed)
