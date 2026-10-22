@@ -4,7 +4,7 @@ import com.juice.core.audio.Cue
 import com.juice.ui.theme.SoundSet
 
 /** Moments that produce audio and haptic feedback (design doc §9, plus the overlay's smaller moments). */
-enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT_RECOGNISED, UNDO, OPEN, LEVEL_UP }
+enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT_RECOGNISED, UNDO, OPEN, LEVEL_UP, RECAP_OPEN, RECAP_REVEAL }
 
 /** What the UI calls. [boosted] raises the pitch, used while the meter is Satiated. */
 interface Feedback {
@@ -49,6 +49,8 @@ class FeedbackPlayer(
             FeedbackEvent.UNDO -> Cue.UNDO to Haptic.SELECTION_TICK
             FeedbackEvent.OPEN -> Cue.OPEN to Haptic.SELECTION_TICK
             FeedbackEvent.LEVEL_UP -> Cue.LEVEL to Haptic.MEDIUM_IMPACT
+            FeedbackEvent.RECAP_OPEN -> Cue.RECAP_OPEN to Haptic.MEDIUM_IMPACT
+            FeedbackEvent.RECAP_REVEAL -> Cue.RECAP_REVEAL to Haptic.SELECTION_TICK
         }
         val rate = if (boosted || event == FeedbackEvent.SATIATED_PEAK) BOOSTED_RATE else 1f
         val current = settings()

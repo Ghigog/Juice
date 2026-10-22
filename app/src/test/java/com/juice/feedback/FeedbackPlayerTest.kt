@@ -51,4 +51,22 @@ class FeedbackPlayerTest {
             haptics,
         )
     }
+
+    @Test fun recapOpenPlaysItsCueAndHaptic() {
+        player(FeedbackSettings()).play(FeedbackEvent.RECAP_OPEN)
+        assertEquals(listOf(Cue.RECAP_OPEN to 1f), sounds)
+        assertEquals(listOf(Haptic.MEDIUM_IMPACT), haptics)
+    }
+
+    @Test fun recapRevealWithSoundOffOnlyVibrates() {
+        player(FeedbackSettings(soundEnabled = false)).play(FeedbackEvent.RECAP_REVEAL)
+        assertTrue(sounds.isEmpty())
+        assertEquals(listOf(Haptic.SELECTION_TICK), haptics)
+    }
+
+    @Test fun recapOpenWithHapticsOffOnlySounds() {
+        player(FeedbackSettings(hapticsEnabled = false)).play(FeedbackEvent.RECAP_OPEN)
+        assertEquals(listOf(Cue.RECAP_OPEN to 1f), sounds)
+        assertTrue(haptics.isEmpty())
+    }
 }
