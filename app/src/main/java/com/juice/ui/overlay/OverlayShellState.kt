@@ -14,6 +14,9 @@ import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import com.juice.core.character.Characters
+import com.juice.data.CharacterRepository
+import com.juice.data.CoachCardKind
 import com.juice.data.ItemRepository
 import com.juice.data.advance
 import com.juice.data.toItems
@@ -40,6 +43,10 @@ class OverlayShellState(
     private val newId: () -> String = { UUID.randomUUID().toString() },
     /** The day the overlay opened; Routines due later stay out of the carousel. */
     private val today: LocalDate = LocalDate.now(),
+    /** Where coach cards are told apart and a dismissed meet card turns its character away; null when there are no characters. */
+    private val characters: CharacterRepository? = null,
+    /** Fires when a coach card is completed; the chat opens from here in a later ticket. */
+    private val onCoachCardCompleted: (characterId: String, cardKind: CoachCardKind) -> Unit = { _, _ -> },
 ) {
     var items by mutableStateOf(initial)
         private set
@@ -168,6 +175,7 @@ class OverlayShellState(
         if (!canComplete(item)) return false
         finish(item, ItemStatus.Completed, dismissed = false)
         onCompleted(item)
+        coachCard(item)?.let { (id, kind) -> onCoachCardCompleted(id, kind) }
         return true
     }
 
@@ -191,8 +199,20 @@ class OverlayShellState(
 
     private fun Item.toCard() = Card(id, type, title, steps)
 
-    /** A dismissed Routine skips this occurrence; any other item is archived. */
-    fun dismiss(item: Item) = finish(item, ItemStatus.Archived, dismissed = true)
+    private fun coachCard(item: Item): Pair<String, CoachCardKind>? {
+        val id = item.characterId ?: return null
+        return characters?.cardKind(item)?.let { id to it }
+    }
+
+    /** A dismissed Routine skips this occurrence, a coach meet card dismisses its character; any other item is archived. */
+    fun dismiss(item: Item) {
+        val coach = coachCard(item)
+        if (coach?.second != CoachCardKind.Meet) return finish(item, ItemStatus.Archived, dismissed = true)
+        val character = Characters.byId(coach.first)
+        if (character == null) return finish(item, ItemStatus.Archived, dismissed = true)
+        items = items.filterNot { it.id == item.id }
+        scope.launch { characters?.dismiss(character) }
+    }
 
     /** Puts the undone item back where it was in the carousel. */
     fun undoLast() {

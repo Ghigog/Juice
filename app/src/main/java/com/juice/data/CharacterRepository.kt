@@ -11,6 +11,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
+/** Which of a character's cards an item is. */
+enum class CoachCardKind { Meet, CheckIn }
+
 /** A character's saved state together with the cards that belong to it. */
 class CharacterRepository(private val store: CharacterStore, private val items: ItemRepository) {
     fun state(characterId: String): CharacterState = store.load(characterId)
@@ -74,6 +77,14 @@ class CharacterRepository(private val store: CharacterStore, private val items: 
         if (items.get(checkInCardId(character)) != null) return false
         items.save(Item(checkInCardId(character), ItemType.Task, "Check in with ${character.name}", characterId = character.id))
         return true
+    }
+
+    /** The kind of coach card [item] is, or null for a normal card. */
+    fun cardKind(item: Item): CoachCardKind? = when {
+        item.characterId == null -> null
+        item.id.startsWith("meet-") -> CoachCardKind.Meet
+        item.id.startsWith("checkin-") -> CoachCardKind.CheckIn
+        else -> null
     }
 
     private fun meetCard(character: Character) =

@@ -48,6 +48,13 @@ class GameSessionTest {
         assertEquals(EconomyState(25, 12.0), store.load()?.state)
     }
 
+    @Test fun crossingTheLevelFiveThresholdReportsLevelFive() {
+        store.save(EconomyState(juice = Progression.thresholdFor(5) - 1, meter = 50.0), 0L)
+        session.open()
+        session.complete(ItemType.TASK)
+        assertEquals(5, levelUps.last().first)
+    }
+
     @Test fun reopeningAfterTenMinutesDrainsTenPercent() {
         session.open()
         session.complete(ItemType.GOAL) // meter 30
