@@ -5,9 +5,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.and
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -131,7 +131,8 @@ class OverlayShellTest {
     @Test
     fun multiplierBadgeIsInTheHeader() {
         show(hud = Hud(multiplier = 1.5))
-        compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed().assertTextEquals("1.5x")
+        compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed()
+        compose.onNode(hasText("1.5x") and hasAnyAncestor(hasTestTag(TAG_MULTIPLIER)), useUnmergedTree = true).assertExists()
     }
 
     @Test

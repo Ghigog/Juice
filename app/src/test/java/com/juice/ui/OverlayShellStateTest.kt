@@ -86,6 +86,7 @@ class OverlayShellStateTest {
         repository.save(task)
         val state = state(task)
         state.complete(task)
+        savedEventually("t") { it.status == ItemStatus.Completed }
         state.undoLast()
         assertEquals(1, undone)
         assertEquals(ItemStatus.Active, statusEventually("t"))

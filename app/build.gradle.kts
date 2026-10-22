@@ -58,6 +58,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Compose tests need ui-test-manifest, which is a debug-only dependency, so unit tests run on debug only.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { it.enableUnitTest = false }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(platform(libs.androidx.compose.bom))
