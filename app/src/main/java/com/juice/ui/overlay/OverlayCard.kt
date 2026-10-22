@@ -102,6 +102,7 @@ internal fun CentreCard(
     onDeviceOnly: Boolean,
     actions: OverlayActions,
     effects: OverlayEffects,
+    reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val recognizer = remember { GestureRecognizer() }
@@ -273,6 +274,8 @@ internal fun CentreCard(
             .onGloballyPositioned { cardOrigin = it.positionInRoot() }
             .then(drawing),
     ) {
+        // The juice sits behind the text, outside the Column that flies away.
+        Box(Modifier.fillMaxSize().testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
         if (item == null) {
             Text(
                 stringResource(R.string.overlay_empty),
