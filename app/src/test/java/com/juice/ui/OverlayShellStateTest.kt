@@ -24,6 +24,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import com.juice.core.routine.Cadence
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 class OverlayShellStateTest {
@@ -48,6 +51,9 @@ class OverlayShellStateTest {
     @After
     fun tearDown() = db.close()
 
+    private val sunday = LocalDate.of(2026, 10, 18)
+    private val routine = Item("r", ItemType.Routine, "Water plants", cadence = Cadence(setOf(DayOfWeek.SUNDAY)), nextDueOn = sunday)
+
     private fun state(vararg items: Item) = OverlayShellState(
         repository,
         CoroutineScope(Dispatchers.Unconfined),
@@ -55,6 +61,7 @@ class OverlayShellStateTest {
         newId = { "new" },
         onCompleted = { completed += it },
         onCompletionUndone = { undone++ },
+        today = sunday,
     )
 
     @Test
@@ -87,6 +94,52 @@ class OverlayShellStateTest {
         assertEquals(emptyList(), completed)
         assertEquals(0, undone)
         assertEquals(ItemStatus.Active, repository.get("t")?.status)
+    }
+
+    @Test
+    fun completingARoutineHidesItAndMovesItToNextSunday() = runBlocking {
+        repository.save(routine)
+        val state = state(routine)
+        state.complete(routine)
+        assertEquals(listOf(routine), completed)
+        assertEquals(emptyList(), state.items)
+        val saved = repository.get("r")!!
+        assertEquals(ItemStatus.Active, saved.status)
+        assertEquals(sunday.plusDays(7), saved.nextDueOn)
+    }
+
+    @Test
+    fun dismissingARoutineEarnsNothingAndSkipsToNextSunday() = runBlocking {
+        repository.save(routine)
+        val state = state(routine)
+        state.dismiss(routine)
+        assertEquals(emptyList(), completed)
+        assertEquals(emptyList(), state.items)
+        assertEquals(sunday.plusDays(7), repository.get("r")?.nextDueOn)
+    }
+
+    @Test
+    fun undoingARoutineRestoresItsDueDayAndRevertsJuice() = runBlocking {
+        repository.save(routine)
+        val state = state(routine)
+        state.complete(routine)
+        state.undoLast()
+        assertEquals(1, undone)
+        assertEquals(listOf(routine), state.items)
+        assertEquals(sunday, repository.get("r")?.nextDueOn)
+    }
+
+    @Test
+    fun changingARoutineToATaskEndsTheRecurrence() = runBlocking {
+        repository.save(routine)
+        val state = state(routine)
+        state.setType(routine, ItemType.Task)
+        val saved = repository.get("r")!!
+        assertEquals(ItemType.Task, saved.type)
+        assertNull(saved.cadence)
+        assertNull(saved.nextDueOn)
+        state.complete(state.items.first())
+        assertEquals(ItemStatus.Completed, repository.get("r")?.status)
     }
 
     @Test
