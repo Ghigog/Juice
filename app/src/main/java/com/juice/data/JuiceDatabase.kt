@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 
-@Database(entities = [ItemEntity::class], version = 6, exportSchema = false)
+@Database(entities = [ItemEntity::class], version = 7, exportSchema = false)
 abstract class JuiceDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
@@ -37,6 +37,12 @@ abstract class JuiceDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN cadence TEXT")
                 db.execSQL("ALTER TABLE items ADD COLUMN nextDueOn INTEGER")
+            }
+        }
+
+        internal val addCharacterId = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE items ADD COLUMN characterId TEXT")
             }
         }
 
@@ -80,7 +86,7 @@ abstract class JuiceDatabase : RoomDatabase() {
         /** One shared instance, so the overlay's observers see writes made by the intake worker. */
         fun open(context: Context): JuiceDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, "juice.db")
-                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence)
+                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addCharacterId)
                 .build()
                 .also { instance = it }
         }
