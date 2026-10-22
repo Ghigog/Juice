@@ -28,6 +28,23 @@ class EconomyTest {
     }
 
     @Test
+    fun thirstyEdgeIsOneTimes() {
+        assertEquals(1.0, economy.multiplier(25.0), 1e-9)
+    }
+
+    @Test
+    fun satiatedIsEightTimesJustAboveSeventyFiveUpToFull() {
+        assertEquals(8.0, economy.multiplier(75.1), 1e-9)
+        assertEquals(8.0, economy.multiplier(100.0), 1e-9)
+    }
+
+    @Test
+    fun completionPastFullLeavesMeterAtOneHundred() {
+        val (state, _) = economy.complete(EconomyState(0, 90.0), ItemType.GOAL)
+        assertEquals(100.0, state.meter, 1e-9)
+    }
+
+    @Test
     fun undoRestoresJuiceAndMeter() {
         val before = EconomyState(40, 80.0)
         val (after, c) = economy.complete(before, ItemType.PROJECT)
