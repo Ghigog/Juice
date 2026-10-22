@@ -10,7 +10,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** Short feedback sounds. [TICK] and [DONE] change character with the flavour; the rest are shared. */
-enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL }
+enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, RECAP_REVEAL }
 
 /**
  * Renders every cue as mono PCM (-1..1) from oscillators and filtered noise, so each flavour has its
@@ -74,6 +74,11 @@ object Synth {
             }
             Cue.UNDO -> mix.tone(520.0, 300.0, 0.12, Wave.SINE, 0.16)
             Cue.OPEN -> mix.tone(300.0, 760.0, 0.14, Wave.SINE, 0.12)
+            Cue.RECAP_OPEN -> {
+                mix.tone(392.0, 392.0, 0.18, Wave.SINE, 0.12)
+                mix.tone(587.0, 587.0, 0.22, Wave.SINE, 0.1, 0.08)
+            }
+            Cue.RECAP_REVEAL -> mix.tone(880.0, 1100.0, 0.08, Wave.TRIANGLE, 0.1)
             Cue.LEVEL -> LEVEL_NOTES.forEachIndexed { i, f -> mix.tone(f, f, 0.35, Wave.TRIANGLE, 0.13, i * 0.09) }
         }
         return mix.samples()
