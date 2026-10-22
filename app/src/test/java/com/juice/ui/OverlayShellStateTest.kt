@@ -181,7 +181,7 @@ class OverlayShellStateTest {
         state.cycleType(state.items.single())
         state.cycleType(state.items.single())
         assertEquals(ItemType.Goal, state.items.single().type)
-        repeat(2) { state.cycleType(state.items.single()) }
+        repeat(3) { state.cycleType(state.items.single()) }
         assertEquals(ItemType.Note, state.items.single().type)
     }
 

@@ -121,7 +121,7 @@ class OverlayShellState(
     /** The user picks a type; a late parse will not change it. */
     fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) { it.copy(type = type) }
 
-    /** Tapping the type pill steps Note, Task, Goal, Project and round again. */
+    /** Tapping the type pill steps Note, Task, Goal, Project, Routine and round again. */
     fun cycleType(item: Item) {
         val types = ItemType.entries
         setType(item, types[(types.indexOf(item.type) + 1) % types.size])
