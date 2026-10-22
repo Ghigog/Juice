@@ -122,10 +122,9 @@ class OverlayShellState(
     /** The user picks a type; a late parse will not change it. */
     fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) { it.copy(type = type) }
 
-    /** Tapping the type pill steps Note, Task, Goal, Project and round again. */
+    /** Tapping the type pill steps Note, Task, Goal, Project and round again. A Routine needs a cadence, so the pill never makes one. */
     fun cycleType(item: Item) {
-        val types = ItemType.entries
-        setType(item, types[(types.indexOf(item.type) + 1) % types.size])
+        setType(item, PILL_TYPES[(PILL_TYPES.indexOf(item.type) + 1) % PILL_TYPES.size])
     }
 
     /** The steps of [project] still to do. */
@@ -215,6 +214,8 @@ class OverlayShellState(
 
         /** How long a card shows that a cloud parse is running before giving up on showing it. */
         const val PARSE_PATIENCE_MILLIS = 15_000L
+
+        private val PILL_TYPES = listOf(ItemType.Note, ItemType.Task, ItemType.Goal, ItemType.Project)
     }
 }
 
