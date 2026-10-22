@@ -147,4 +147,13 @@ class IntakeTest {
         val card = IntakeCard(ItemType.Task, "t", editedFields = setOf(IntakeField.Type))
         assertEquals(ItemType.Task, card.mergeParse(ParsedItem(ItemType.Goal, "t")).type)
     }
+
+    @Test fun lateParseDropsCadenceWhenUserSetANonRoutineType() {
+        val cadence = com.juice.core.routine.Cadence(setOf(java.time.DayOfWeek.SUNDAY))
+        val card = IntakeCard(ItemType.Task, "t", editedFields = setOf(IntakeField.Type))
+        val merged = card.mergeParse(ParsedItem(ItemType.Routine, "t", cadence = cadence))
+        assertEquals(ItemType.Task, merged.type)
+        assertEquals(null, merged.cadence)
+        assertEquals(cadence, IntakeCard(ItemType.Note, "t").mergeParse(ParsedItem(ItemType.Routine, "t", cadence = cadence)).cadence)
+    }
 }

@@ -15,6 +15,13 @@ class EconomyTest {
     }
 
     @Test
+    fun routineAtBaseMeterEarnsTwentyFiveXpAndFillsTwelvePercent() {
+        val (state, c) = economy.complete(EconomyState(0, 20.0), ItemType.ROUTINE)
+        assertEquals(25, c.earned)
+        assertEquals(32.0, state.meter, 1e-9)
+    }
+
+    @Test
     fun taskAtEightyPercentEarnsEightTimes() {
         val (state, _) = economy.complete(EconomyState(0, 80.0), ItemType.TASK)
         assertEquals(200, state.juice)

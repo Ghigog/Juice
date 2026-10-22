@@ -1,15 +1,17 @@
 package com.juice.core.economy
 
 /** Item size classes, with base Juice and Thirst Meter fill (percent) per completion. */
-enum class ItemType { NOTE, TASK, GOAL, PROJECT }
+enum class ItemType { NOTE, TASK, GOAL, PROJECT, ROUTINE }
 
 /** Tunable economy values (design doc §6). Meter values are percentages, 0..100. */
 data class EconomyConfig(
     val baseXp: Map<ItemType, Long> = mapOf(
         ItemType.NOTE to 10L, ItemType.TASK to 25L, ItemType.GOAL to 100L, ItemType.PROJECT to 500L,
+        ItemType.ROUTINE to 25L,
     ),
     val fillPercent: Map<ItemType, Double> = mapOf(
         ItemType.NOTE to 5.0, ItemType.TASK to 12.0, ItemType.GOAL to 30.0, ItemType.PROJECT to 50.0,
+        ItemType.ROUTINE to 12.0,
     ),
     val drainPercentPerMinute: Double = 1.0,
     /** Meter at or below this is Thirsty (1×). */
