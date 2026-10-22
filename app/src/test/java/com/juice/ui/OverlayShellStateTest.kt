@@ -10,6 +10,9 @@ import com.juice.core.model.ItemStatus
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.ui.overlay.OverlayShellState
+import com.juice.ui.overlay.Swipe
+import com.juice.ui.overlay.swipeOf
+import com.juice.core.gesture.GesturePoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -198,5 +201,52 @@ class OverlayShellStateTest {
         assertEquals(listOf("new", "t"), state.items.map { it.id })
         repeat(100) { if (state.parsing.isEmpty()) delay(20) }
         assertEquals(setOf("new"), state.parsing)
+    }
+
+    private val abc = arrayOf("a", "b", "c").map { Item(it, ItemType.Task, it) }.toTypedArray()
+
+    @Test
+    fun droppingAHeldCardAtANewIndexMovesItAndSavesTheOrder() = runBlocking {
+        abc.forEach { repository.save(it) }
+        val s = state(*abc)
+        s.pickUp(abc[0])
+        s.moveTarget(2)
+        assertEquals(true, s.drop())
+        assertEquals(listOf("b", "c", "a"), s.items.map { it.id })
+        assertNull(s.held)
+        repeat(50) { if (repository.active().map { it.id } != listOf("b", "c", "a")) delay(20) }
+        assertEquals(listOf("b", "c", "a"), repository.active().map { it.id })
+    }
+
+    @Test
+    fun droppingInPlaceLeavesTheOrderAndPutsTheCardDown() {
+        val s = state(*abc)
+        s.pickUp(abc[1])
+        s.moveTarget(1)
+        assertEquals(false, s.drop())
+        assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
+        assertNull(s.held)
+    }
+
+    @Test
+    fun cancellingAHoldKeepsTheOrder() {
+        val s = state(*abc)
+        s.pickUp(abc[0])
+        s.moveTarget(2)
+        s.cancelHold()
+        assertNull(s.held)
+        assertEquals(false, s.drop())
+        assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
+    }
+
+    private fun stroke(vararg p: Pair<Double, Double>) = p.map { GesturePoint(it.first, it.second) }
+
+    @Test
+    fun aLongFlatStrokeIsASwipeAndADrawnCheckOrCrossIsNot() {
+        assertEquals(Swipe.RIGHT, swipeOf(stroke(0.0 to 10.0, 100.0 to 15.0), 50.0))
+        assertEquals(Swipe.LEFT, swipeOf(stroke(100.0 to 10.0, 0.0 to 5.0), 50.0))
+        assertNull(swipeOf(stroke(0.0 to 10.0, 20.0 to 10.0), 50.0))
+        assertNull(swipeOf(stroke(0.0 to 50.0, 40.0 to 90.0, 100.0 to 0.0), 50.0))
+        assertNull(swipeOf(stroke(0.0 to 0.0, 100.0 to 100.0), 50.0))
     }
 }

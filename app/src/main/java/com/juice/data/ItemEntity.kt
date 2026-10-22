@@ -18,11 +18,13 @@ data class ItemEntity(
     val parentId: String?,
     val editedFields: String = "",
     val completionCondition: String? = null,
+    /** Place in the user's chosen order of cards; lower comes first. */
+    val position: Int = 0,
 )
 
-fun Item.toEntity() = ItemEntity(
+fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name, parentId,
-    editedFields.joinToString(",") { it.name }, completionCondition,
+    editedFields.joinToString(",") { it.name }, completionCondition, position,
 )
 
 fun ItemEntity.toItem() = Item(
