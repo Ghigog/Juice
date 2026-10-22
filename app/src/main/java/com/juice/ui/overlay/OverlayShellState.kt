@@ -19,6 +19,7 @@ import com.juice.data.toItems
 import java.util.UUID
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -192,7 +193,8 @@ class OverlayShellState(
         undo = null
         if (!pending.dismissed) onCompletionUndone()
         items = (items + pending.item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
-        scope.launch { repository.save(pending.item) }
+        // Undispatched, so it queues for the write lock right after the save it undoes.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(pending.item) }
     }
 
     fun expireUndo(expired: Undo) {
@@ -205,7 +207,7 @@ class OverlayShellState(
         items.forEachIndexed { index, it -> order[it.id] = index }
         items = items.filterNot { it.id == item.id }
         undo = Undo(restore, dismissed)
-        scope.launch { repository.save(item.copy(status = status)) }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(item.copy(status = status)) }
     }
 
     companion object {

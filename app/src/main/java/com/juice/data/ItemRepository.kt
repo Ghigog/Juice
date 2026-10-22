@@ -12,16 +12,21 @@ import com.juice.core.model.ItemStatus
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class ItemRepository(private val dao: ItemDao) {
+    /** Writes run one at a time, in the order they were asked for, so a quick complete then undo lands in order. */
+    private val writes = Mutex()
+
     /** Saves [item]; an item already stored keeps its place in the order, a new one goes last. */
-    suspend fun save(item: Item) {
+    suspend fun save(item: Item) = writes.withLock {
         val position = dao.get(item.id)?.position ?: ((dao.maxPosition() ?: 0) + 1)
         dao.upsert(item.toEntity(position))
     }
 
     /** Stores the order the user chose: [ids] first to last. */
-    suspend fun reorder(ids: List<String>) {
+    suspend fun reorder(ids: List<String>) = writes.withLock {
         val base = (dao.maxPosition() ?: 0) + 1
         ids.forEachIndexed { index, id -> dao.setPosition(id, base + index) }
     }
