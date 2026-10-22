@@ -32,6 +32,8 @@ data class Item(
     val cadence: Cadence? = null,
     /** The next day a Routine is due. */
     val nextDueOn: LocalDate? = null,
+    /** The coach this card belongs to; null for the player's own cards. */
+    val characterId: String? = null,
     /** When the item was saved; null for legacy rows. */
     val createdAt: Instant? = null,
     /** When the item was completed; null while it is open or after an undo. */

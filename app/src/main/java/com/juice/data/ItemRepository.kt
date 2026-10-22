@@ -34,6 +34,13 @@ class ItemRepository(private val dao: ItemDao) {
         ids.forEachIndexed { index, id -> dao.setPosition(id, base + index) }
     }
 
+    /** Every card and regular task that belongs to [characterId], whatever its status. */
+    suspend fun byCharacter(characterId: String): List<Item> = dao.byCharacter(characterId).map { it.toItem() }
+
+    suspend fun deleteByCharacter(characterId: String) = writes.withLock { dao.deleteByCharacter(characterId) }
+
+    suspend fun delete(id: String) = writes.withLock { dao.delete(id) }
+
     suspend fun get(id: String): Item? = dao.get(id)?.toItem()
 
     /** Items still to do: completed and archived ones are left out. */
