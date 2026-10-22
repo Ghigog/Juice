@@ -51,6 +51,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.juice.ui.GameSession
 import com.juice.ui.overlay.OverlayShell
 import com.juice.ui.overlay.OverlayShellState
+import com.juice.ui.overlay.WritingBack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -234,10 +235,11 @@ class OverlayService : Service() {
         val bars = systemBarsPadding()
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)
+        val writingBack = WritingBack()
         val root = object : FrameLayout(this) {
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                    if (event.action == KeyEvent.ACTION_UP) closeOverlay()
+                    if (event.action == KeyEvent.ACTION_UP) writingBack.back(::closeOverlay)
                     return true
                 }
                 return super.dispatchKeyEvent(event)
@@ -303,6 +305,7 @@ class OverlayService : Service() {
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
                     systemBars = bars,
+                    writingBack = writingBack,
                 )
             }
         }
