@@ -5,6 +5,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.and
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -21,8 +24,10 @@ import androidx.room.Room
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import com.juice.core.model.Step
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.ui.Tier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,11 +71,11 @@ class OverlayShellTest {
         db.close()
     }
 
-    private fun show(vararg items: Item) {
+    private fun show(vararg items: Item, hud: Hud = Hud()) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state) }
+        compose.setContent { OverlayShell(state, hud = hud) }
         idle()
     }
 
@@ -111,6 +116,31 @@ class OverlayShellTest {
     }
 
     @Test
+    fun reservoirIsBehindTheCentreCard() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        compose.onNodeWithTag(TAG_RESERVOIR, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNode(hasTestTag(TAG_RESERVOIR) and hasAnyAncestor(hasTestTag(TAG_CENTRE_CARD)), useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun emptyCardStillShowsTheReservoir() {
+        show()
+        compose.onNode(hasTestTag(TAG_RESERVOIR) and hasAnyAncestor(hasTestTag(TAG_CENTRE_CARD)), useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun multiplierBadgeIsInTheHeader() {
+        show(hud = Hud(multiplier = 1.5))
+        compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed().assertTextEquals("1.5x")
+    }
+
+    @Test
+    fun hydrationLabelShowsTierAndPercent() {
+        show(hud = Hud(fill = 0.37f, tier = Tier.HYDRATED))
+        compose.onNodeWithTag(TAG_HYDRATION).assertTextEquals("HYDRATED: 37%")
+    }
+
+    @Test
     fun capturedTextAppearsAsSavedNote() {
         show()
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("Buy milk")
@@ -131,6 +161,7 @@ class OverlayShellTest {
         idle()
         compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
         compose.onNodeWithTag(TAG_RESERVOIR).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_HYDRATION).assertDoesNotExist()
         compose.onNodeWithTag(TAG_ADD).assertIsDisplayed()
         compose.onNodeWithTag(TAG_CLOSE).assertIsDisplayed()
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("line one\nline two")
@@ -141,6 +172,7 @@ class OverlayShellTest {
         idle()
         compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
         compose.onNodeWithTag(TAG_RESERVOIR).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_HYDRATION).assertIsDisplayed()
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextEquals("Enter new note or task…", includeEditableText = false)
     }
 
@@ -173,6 +205,42 @@ class OverlayShellTest {
         idle()
         compose.onNodeWithTag(TAG_UNDO).assertIsDisplayed()
         assertEquals(ItemStatus.Completed, statusOf("a"))
+    }
+
+    private fun drawOnStep(id: String, check: Boolean) {
+        compose.onNodeWithTag(stepTag(id), useUnmergedTree = true).performTouchInput {
+            if (check) {
+                down(Offset(width * 0.1f, height * 0.5f))
+                moveTo(Offset(width * 0.2f, height * 0.9f))
+                moveTo(Offset(width * 0.4f, height * 0.1f))
+                up()
+            } else {
+                down(Offset(width * 0.1f, height * 0.1f))
+                moveTo(Offset(width * 0.3f, height * 0.9f))
+                up()
+                down(Offset(width * 0.3f, height * 0.1f))
+                moveTo(Offset(width * 0.1f, height * 0.9f))
+                up()
+            }
+        }
+        settle()
+    }
+
+    private val project = Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack"), Step("b", "Book van")))
+
+    @Test
+    fun checkOnAStepMarksItDoneAndKeepsTheProject() {
+        show(project)
+        drawOnStep("a", check = true)
+        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
+        assertEquals(ItemStatus.Active, statusOf("p"))
+    }
+
+    @Test
+    fun crossOnAStepRemovesIt() {
+        show(project)
+        drawOnStep("a", check = false)
+        assertEquals(listOf("Book van"), state.items.single().steps.map { it.title })
     }
 
     @Test

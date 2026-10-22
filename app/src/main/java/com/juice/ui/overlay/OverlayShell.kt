@@ -107,6 +107,8 @@ const val TAG_CAPTURE_FIELD = "capture_field"
 const val TAG_ADD = "add_button"
 const val TAG_CENTRE_CARD = "centre_card"
 const val TAG_RESERVOIR = "reservoir"
+const val TAG_HYDRATION = "hydration_label"
+const val TAG_MULTIPLIER = "multiplier_badge"
 const val TAG_WRITING_DONE = "writing_done"
 const val TAG_UNDO = "undo"
 const val TAG_COMPLETE = "complete_button"
@@ -138,8 +140,8 @@ internal fun focalScale(distance: Float, reach: Float): Float =
 
 /**
  * The overlay: header, snapping carousel, the centre card where ✓/✗ are drawn, the undo prompt,
- * the Thirst Reservoir and the capture field, plus its settings sheet (design doc §5.1).
- * [reservoir] draws the liquid; the default is a plain fill for tests and previews.
+ * the hydration label and the capture field, plus its settings sheet (design doc §5.1).
+ * [reservoir] draws the liquid behind the centre card; the default is a plain fill for tests and previews.
  */
 @Composable
 fun OverlayShell(
@@ -197,6 +199,7 @@ fun OverlayShell(
                 if (!writing) {
                     Header(hud, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
+                    HydrationLabel(hud, Modifier.padding(start = 18.dp, bottom = 6.dp))
                     val list = state.items
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
@@ -211,6 +214,7 @@ fun OverlayShell(
                                 onDeviceOnly = settings.onDeviceOnly,
                                 actions = actions,
                                 effects = effects,
+                                reservoir = reservoir,
                                 modifier = Modifier.fillMaxSize(),
                             )
                             Floats(effects, hud, Modifier.fillMaxSize())
@@ -223,8 +227,6 @@ fun OverlayShell(
                             actions.feedback(FeedbackEvent.UNDO)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Reservoir(hud, reservoir)
                     Spacer(Modifier.height(12.dp))
                 }
                 Capture(
@@ -339,6 +341,8 @@ private fun Header(hud: Hud, onSettings: () -> Unit) {
             }
         }
         Spacer(Modifier.weight(1f))
+        MultiplierBadge(hud)
+        Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(String.format("%,d", hud.juice), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)
             Text(stringResource(R.string.overlay_juice_label), fontSize = 11.sp, letterSpacing = 1.sp, color = JuiceColors.white(0.75f))
@@ -513,46 +517,40 @@ private fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
     }
 }
 
+/** The tier and fill percent, e.g. "HYDRATED: 37%", above the centre card. */
 @Composable
-private fun Reservoir(hud: Hud, reservoir: @Composable (Modifier) -> Unit) {
+private fun HydrationLabel(hud: Hud, modifier: Modifier = Modifier) {
+    val label = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 1f), 6f))
+    Text(
+        stringResource(R.string.overlay_thirst, hud.tier.name, Math.round(hud.fill * 100)),
+        fontSize = 11.sp,
+        letterSpacing = 1.5.sp,
+        fontWeight = FontWeight.Bold,
+        style = LocalTextStyle.current.merge(label),
+        modifier = modifier.testTag(TAG_HYDRATION),
+    )
+}
+
+/** The multiplier pill; it pulses while Satiated. */
+@Composable
+private fun MultiplierBadge(hud: Hud) {
+    val satiated = hud.tier == Tier.SATIATED
+    val pulse by rememberInfiniteTransition(label = "badge").animateFloat(
+        1f, if (satiated) 1.08f else 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse",
+    )
     Box(
         Modifier
-            .testTag(TAG_RESERVOIR)
-            .fillMaxWidth()
-            .height(118.dp)
-            .clip(RoundedCornerShape(30.dp))
-            .background(Color.Black.copy(alpha = 0.34f))
-            .border(1.dp, JuiceColors.white(0.2f), RoundedCornerShape(30.dp)),
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .widthIn(min = 56.dp)
+            .height(34.dp)
+            .clip(RoundedCornerShape(17.dp))
+            .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
+            .border(if (satiated) 2.dp else 1.dp, hud.accent, RoundedCornerShape(17.dp))
+            .padding(horizontal = 12.dp)
+            .testTag(TAG_MULTIPLIER),
+        contentAlignment = Alignment.Center,
     ) {
-        reservoir(Modifier.fillMaxSize())
-        val label = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 1f), 6f))
-        Text(
-            stringResource(R.string.overlay_thirst, hud.tier.name, Math.round(hud.fill * 100)),
-            fontSize = 11.sp,
-            letterSpacing = 1.5.sp,
-            fontWeight = FontWeight.Bold,
-            style = LocalTextStyle.current.merge(label),
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 18.dp, top = 12.dp),
-        )
-        val satiated = hud.tier == Tier.SATIATED
-        val pulse by rememberInfiniteTransition(label = "badge").animateFloat(
-            1f, if (satiated) 1.08f else 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse",
-        )
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 10.dp, end = 14.dp)
-                .graphicsLayer { scaleX = pulse; scaleY = pulse }
-                .widthIn(min = 56.dp)
-                .height(34.dp)
-                .clip(RoundedCornerShape(17.dp))
-                .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
-                .border(if (satiated) 2.dp else 1.dp, hud.accent, RoundedCornerShape(17.dp))
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(hud.multiplierLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        Text(hud.multiplierLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     }
 }
 

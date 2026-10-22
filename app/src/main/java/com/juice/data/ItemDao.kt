@@ -14,9 +14,6 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :id")
     suspend fun get(id: String): ItemEntity?
 
-    @Query("SELECT COUNT(*) FROM items WHERE parentId = :parentId")
-    suspend fun childCount(parentId: String): Int
-
     @Query("SELECT MAX(position) FROM items")
     suspend fun maxPosition(): Int?
 

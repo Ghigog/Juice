@@ -7,6 +7,7 @@ import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import com.juice.core.model.Step
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.ui.overlay.OverlayShellState
@@ -111,37 +112,54 @@ class OverlayShellStateTest {
         assertNull(state.undo)
     }
 
-    private val project = Item("p", ItemType.Project, "Move house")
-    private val steps = listOf("a", "b").map { Item("s$it", ItemType.Task, it, parentId = "p") }
+    private val steps = listOf("a", "b").map { Step("s$it", it) }
+    private val project = Item("p", ItemType.Project, "Move house", steps = steps)
 
     @Test
-    fun aLandedProjectShowsAsTheProjectAndLinkedTaskCards() = runBlocking {
+    fun aLandedProjectShowsAsOneCardWithItsSteps() = runBlocking {
         val ids = ArrayDeque(listOf("x", "y", "z"))
         val state = OverlayShellState(
             repository, CoroutineScope(Dispatchers.Unconfined), listOf(Item("n", ItemType.Note, "raw")),
             newId = { ids.removeFirst() },
         )
         state.land("n", ParsedItem(ItemType.Project, "Move house", subItems = listOf("1", "2", "3")))
-        assertEquals(listOf("n", "x", "y", "z"), state.items.map { it.id })
-        assertEquals(listOf(ItemType.Project, ItemType.Task, ItemType.Task, ItemType.Task), state.items.map { it.type })
-        assertEquals(listOf(null, "n", "n", "n"), state.items.map { it.parentId })
-        assertEquals("n", savedEventually("x")?.parentId)
+        assertEquals(listOf("n"), state.items.map { it.id })
+        assertEquals(listOf("1", "2", "3"), state.items.single().steps.map { it.title })
+        assertEquals(3, savedEventually("n") { it.steps.size == 3 }?.steps?.size)
     }
 
     @Test
-    fun completingTheLastSubItemCompletesTheProjectAndUndoRevertsBoth() = runBlocking {
-        (listOf(project) + steps).forEach { repository.save(it) }
-        val state = state(project, *steps.toTypedArray())
-        state.complete(steps[0])
-        assertEquals(listOf(steps[0]), completed)
-        state.complete(steps[1])
-        assertEquals(listOf(steps[0], steps[1], project), completed)
+    fun tickingAStepKeepsTheProjectAndTheLastOneCompletesItOnce() = runBlocking {
+        repository.save(project)
+        val state = state(project)
+        state.completeStep(project, "sa")
+        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
+        assertEquals(emptyList(), completed)
+        state.completeStep(state.items.single(), "sb")
+        assertEquals(listOf(project.id), completed.map { it.id })
         assertEquals(emptyList(), state.items)
         assertEquals(ItemStatus.Completed, savedEventually("p") { it.status == ItemStatus.Completed }?.status)
         state.undoLast()
-        assertEquals(2, undone)
-        assertEquals(listOf(project, steps[1]), state.items)
+        assertEquals(1, undone)
+        assertEquals(listOf(false), state.items.single().steps.filter { it.id == "sb" }.map { it.done })
         assertEquals(ItemStatus.Active, statusEventually("p"))
+    }
+
+    @Test
+    fun crossingAStepRemovesItFromTheProject() = runBlocking {
+        repository.save(project)
+        val state = state(project)
+        state.removeStep(project, "sa")
+        assertEquals(listOf("b"), state.items.single().steps.map { it.title })
+        assertEquals(listOf("b"), savedEventually("p") { it.steps.size == 1 }?.steps?.map { it.title })
+    }
+
+    @Test
+    fun stepsOfListsOnlyOpenStepsAndGatesCompletion() {
+        val state = state(project.copy(steps = listOf(Step("a", "a", done = true), Step("b", "b"))))
+        assertEquals(listOf("b"), state.stepsOf(state.items.single()).map { it.id })
+        assertEquals(false, state.canComplete(state.items.single()))
+        assertEquals(true, state.canComplete(project.copy(steps = listOf(Step("a", "a", done = true)))))
     }
 
     @Test
@@ -185,10 +203,10 @@ class OverlayShellStateTest {
 
     @Test
     fun aProjectWithOpenStepsCannotBeTickedDirectly() {
-        val state = state(project, *steps.toTypedArray())
+        val state = state(project)
         assertEquals(false, state.complete(project))
         assertEquals(emptyList(), completed)
-        assertEquals(3, state.items.size)
+        assertEquals(1, state.items.size)
     }
 
     @Test

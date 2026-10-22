@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -33,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +49,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -60,6 +63,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +75,7 @@ import com.juice.core.gesture.GestureRecognizer
 import com.juice.core.gesture.GestureResult
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
+import com.juice.core.model.Step
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -100,6 +105,7 @@ internal fun CentreCard(
     onDeviceOnly: Boolean,
     actions: OverlayActions,
     effects: OverlayEffects,
+    reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val recognizer = remember { GestureRecognizer() }
@@ -111,6 +117,7 @@ internal fun CentreCard(
     var editing by remember(item?.id) { mutableStateOf(false) }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
+    val stepBounds = remember { mutableStateMapOf<String, Rect>() }
     val shake = remember { Animatable(0f) }
     val flyX = remember(item?.id) { Animatable(0f) }
     val flyY = remember(item?.id) { Animatable(0f) }
@@ -162,6 +169,18 @@ internal fun CentreCard(
         }
     }
 
+    fun actOnStep(project: Item, step: Step, complete: Boolean) {
+        if (busy) return
+        if (complete) {
+            if (step.done) return
+            actions.feedback(FeedbackEvent.CHECKMARK)
+            state.completeStep(project, step.id)
+        } else {
+            actions.feedback(FeedbackEvent.DISMISS)
+            state.removeStep(project, step.id)
+        }
+    }
+
     fun read() {
         val drawn = strokes.toList()
         strokes.clear()
@@ -172,14 +191,20 @@ internal fun CentreCard(
             GestureResult.NotRecognised -> Tint.BAD
         }
         strokes.addAll(drawn)
+        val points = drawn.flatten()
+        // A gesture drawn over a step acts on that step; anywhere else it acts on the card.
+        val centre = if (points.isEmpty()) Offset.Zero else Offset(
+            (points.minOf { it.x } + points.maxOf { it.x }) / 2, (points.minOf { it.y } + points.maxOf { it.y }) / 2,
+        )
+        val step = item?.steps?.firstOrNull { stepBounds[it.id]?.contains(centre) == true }
         scope.launch {
             delay(380)
             strokes.clear()
             tint = null
         }
         when (result) {
-            is GestureResult.Checkmark -> act(complete = true)
-            is GestureResult.Dismiss -> act(complete = false)
+            is GestureResult.Checkmark -> if (step != null && item != null) actOnStep(item, step, complete = true) else act(complete = true)
+            is GestureResult.Dismiss -> if (step != null && item != null) actOnStep(item, step, complete = false) else act(complete = false)
             GestureResult.NotRecognised -> reject(notRecognised)
         }
     }
@@ -268,6 +293,8 @@ internal fun CentreCard(
             .onGloballyPositioned { cardOrigin = it.positionInRoot() }
             .then(drawing),
     ) {
+        // The juice sits behind the text, outside the Column that flies away.
+        Box(Modifier.fillMaxSize().testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
         if (item == null) {
             Text(
                 stringResource(R.string.overlay_empty),
@@ -328,7 +355,12 @@ internal fun CentreCard(
                         modifier = Modifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
                     )
                 }
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(12.dp))
+                Column(Modifier.weight(1f).clip(RectangleShape)) {
+                    item.steps.forEach { step ->
+                        StepRow(step, Modifier.onGloballyPositioned { stepBounds[step.id] = it.boundsInRoot().translate(-cardOrigin) })
+                    }
+                }
                 item.completionCondition?.let { done ->
                     Text(
                         stringResource(R.string.overlay_done_when, done),
@@ -389,6 +421,23 @@ internal fun CentreCard(
         }
     }
 }
+
+/** One step of a Project; a done step stays listed, struck through. */
+@Composable
+private fun StepRow(step: Step, modifier: Modifier = Modifier) {
+    Text(
+        (if (step.done) "✓ " else "○ ") + step.title,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        color = JuiceColors.white(if (step.done) 0.5f else 0.92f),
+        textDecoration = if (step.done) TextDecoration.LineThrough else null,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.fillMaxWidth().height(36.dp).wrapContentHeight(Alignment.CenterVertically).testTag(stepTag(step.id)),
+    )
+}
+
+internal fun stepTag(id: String) = "step_$id"
 
 @Composable
 private fun ParsingChip(onDeviceOnly: Boolean) {
@@ -452,17 +501,13 @@ internal fun PillButton(label: String, background: Color, content: Color, modifi
     }
 }
 
-private fun metaOf(state: OverlayShellState, item: Item): String {
-    val parent = item.parentId?.let { id -> state.items.firstOrNull { it.id == id } }
-    return when {
-        item.type == ItemType.Project -> state.stepsOf(item).size.let { left ->
-            if (left == 0) "All steps done. Tick it off." else "$left ${if (left == 1) "step" else "steps"} to go"
-        }
-        item.deadline != null -> "Due ${deadlineLabel(item.deadline!!)}"
-        parent != null -> "Step of ${parent.title}"
-        item.type == ItemType.Note -> "No deadline. Notes are quick catches."
-        else -> "Add a time to make it a Goal."
+private fun metaOf(state: OverlayShellState, item: Item): String = when {
+    item.type == ItemType.Project -> state.stepsOf(item).size.let { left ->
+        if (left == 0) "All steps done. Tick it off." else "$left ${if (left == 1) "step" else "steps"} to go"
     }
+    item.deadline != null -> "Due ${deadlineLabel(item.deadline!!)}"
+    item.type == ItemType.Note -> "No deadline. Notes are quick catches."
+    else -> "Add a time to make it a Goal."
 }
 
 private fun worthOf(item: Item, hud: Hud): String {

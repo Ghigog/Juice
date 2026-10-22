@@ -80,10 +80,10 @@ class CaptureIntakeTest {
         assertEquals(emptyList<Pair<String, String>>(), enqueued)
         val active = repository.active()
         assertEquals(ItemType.Project, active.first { it.id == "a" }.type)
-        assertEquals(listOf("Write copy", "Record demo", "Ship"), active.filter { it.parentId == "a" }.map { it.title })
+        assertEquals(listOf("Write copy", "Record demo", "Ship"), active.single().steps.map { it.title })
         // A second parse of the same card does not add the steps twice.
         repository.land("a", com.juice.core.intake.RulesFallback.classify(note.title))
-        assertEquals(3, repository.active().count { it.parentId == "a" })
+        assertEquals(3, repository.get("a")!!.steps.size)
     }
 
     @Test
