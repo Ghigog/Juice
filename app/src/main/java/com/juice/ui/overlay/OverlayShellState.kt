@@ -15,7 +15,9 @@ import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 import com.juice.data.ItemRepository
+import com.juice.data.advance
 import com.juice.data.toItems
+import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +38,8 @@ class OverlayShellState(
     /** Hands a saved capture to intake; true means a cloud parse is on its way. */
     private val onCaptured: suspend (Item) -> Boolean = { false },
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    /** The day the overlay opened; Routines due later stay out of the carousel. */
+    private val today: LocalDate = LocalDate.now(),
 ) {
     var items by mutableStateOf(initial)
         private set
@@ -74,7 +78,7 @@ class OverlayShellState(
     /** Keeps the cards in step with the repository, so a parse landing later updates an open card. */
     fun observe() {
         scope.launch {
-            repository.observeActive().collect { saved ->
+            repository.observeActive(today).collect { saved ->
                 val byId = saved.associateBy { it.id }
                 val landed = parsing.filter { id ->
                     val before = items.firstOrNull { it.id == id }
@@ -120,7 +124,10 @@ class OverlayShellState(
     }
 
     /** The user picks a type; a late parse will not change it. */
-    fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) { it.copy(type = type) }
+    fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) {
+        // Leaving Routine ends the recurrence.
+        if (type == ItemType.Routine) it.copy(type = type) else it.copy(type = type, cadence = null, nextDueOn = null)
+    }
 
     /** Tapping the type pill steps Note, Task, Goal, Project and round again. A Routine needs a cadence, so the pill never makes one. */
     fun cycleType(item: Item) {
@@ -184,6 +191,7 @@ class OverlayShellState(
 
     private fun Item.toCard() = Card(id, type, title, steps)
 
+    /** A dismissed Routine skips this occurrence; any other item is archived. */
     fun dismiss(item: Item) = finish(item, ItemStatus.Archived, dismissed = true)
 
     /** Puts the undone item back where it was in the carousel. */
@@ -206,7 +214,9 @@ class OverlayShellState(
         items.forEachIndexed { index, it -> order[it.id] = index }
         items = items.filterNot { it.id == item.id }
         undo = Undo(restore, dismissed)
-        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(item.copy(status = status)) }
+        // A Routine moves on to its next due day and stays Active instead of finishing.
+        val saved = if (item.type == ItemType.Routine && item.cadence != null) item.advance(today) else item.copy(status = status)
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(saved) }
     }
 
     companion object {

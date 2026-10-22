@@ -26,6 +26,8 @@ import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import com.juice.core.routine.Cadence
+import java.time.DayOfWeek
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.ui.Tier
@@ -81,6 +83,13 @@ class OverlayShellTest {
         compose.mainClock.autoAdvance = false
         compose.setContent { OverlayShell(state, hud = hud) }
         idle()
+    }
+
+    @Test
+    fun aRoutineCardShowsItsTypeAndCadence() {
+        show(Item("r", ItemType.Routine, "Water plants", cadence = Cadence(setOf(DayOfWeek.SUNDAY))))
+        compose.onAllNodesWithText("Every Sun").onFirst().assertIsDisplayed()
+        compose.onAllNodesWithText("Routine", ignoreCase = true).onFirst().assertIsDisplayed()
     }
 
     private fun idle() {
