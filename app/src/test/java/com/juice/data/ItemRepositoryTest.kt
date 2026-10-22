@@ -38,8 +38,10 @@ class ItemRepositoryTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java).allowMainThreadQueries().build()
-        repository = ItemRepository(db.itemDao())
+        repository = ItemRepository(db.itemDao()) { now }
     }
+
+    private var now = Instant.ofEpochMilli(1_000)
 
     @After
     fun tearDown() = db.close()
@@ -99,14 +101,14 @@ class ItemRepositoryTest {
     fun savedItemIsLoadedWithTheSameFields() = runBlocking {
         val saved = item("a")
         repository.save(saved)
-        assertEquals(saved, repository.get("a"))
+        assertEquals(saved.copy(createdAt = now), repository.get("a"))
     }
 
     @Test
     fun nullableFieldsRoundTrip() = runBlocking {
         val saved = Item("n", ItemType.Note, "Just a note")
         repository.save(saved)
-        assertEquals(saved, repository.get("n"))
+        assertEquals(saved.copy(createdAt = now), repository.get("n"))
         assertNull(repository.get("missing"))
     }
 
@@ -186,12 +188,101 @@ class ItemRepositoryTest {
     }
 
     @Test
+    fun migrationSixToSevenKeepsItemsWithNullTimes() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(ApplicationProvider.getApplicationContext())
+                .name(null)
+                .callback(object : SupportSQLiteOpenHelper.Callback(6) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL(
+                            "CREATE TABLE items (id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, " +
+                                "status TEXT NOT NULL, editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, " +
+                                "steps TEXT NOT NULL DEFAULT '[]', position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, PRIMARY KEY(id))",
+                        )
+                        db.execSQL("INSERT INTO items (id, type, title, deadlineMillis, status) VALUES ('a', 'Task', 'A', 5, 'Active')")
+                    }
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build(),
+        )
+        val db = helper.writableDatabase
+        JuiceDatabase.addTimes.migrate(db)
+        db.query("SELECT id, createdAtMillis, completedAtMillis FROM items").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals("a", it.getString(0))
+            assertEquals(true, it.isNull(1) && it.isNull(2))
+        }
+        helper.close()
+    }
+
+    @Test
+    fun createdAtIsStampedOnFirstSaveAndKeptAfter() = runBlocking {
+        repository.save(item("a"))
+        now = Instant.ofEpochMilli(2_000)
+        repository.save(repository.get("a")!!.copy(title = "New"))
+        repository.save(item("a"))
+        assertEquals(Instant.ofEpochMilli(1_000), repository.get("a")!!.createdAt)
+    }
+
+    @Test
+    fun completingStampsCompletedAtAndUndoClearsIt() = runBlocking {
+        repository.save(item("a"))
+        now = Instant.ofEpochMilli(2_000)
+        repository.complete("a")
+        assertEquals(Instant.ofEpochMilli(2_000), repository.get("a")!!.completedAt)
+        now = Instant.ofEpochMilli(3_000)
+        repository.save(repository.get("a")!!)
+        assertEquals(Instant.ofEpochMilli(2_000), repository.get("a")!!.completedAt)
+        repository.save(repository.get("a")!!.copy(status = ItemStatus.Active))
+        assertNull(repository.get("a")!!.completedAt)
+    }
+
+    @Test
+    fun advancingARoutineStampsItsLatestOccurrenceAndKeepsItAcrossLaterSaves() = runBlocking {
+        repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
+        now = Instant.ofEpochMilli(2_000)
+        repository.advanceRoutine("r", wednesday)
+        now = Instant.ofEpochMilli(3_000)
+        repository.save(repository.get("r")!!.copy(title = "Weekly review"))
+        assertEquals(Instant.ofEpochMilli(2_000), repository.get("r")!!.completedAt)
+        assertEquals(ItemStatus.Active, repository.get("r")!!.status)
+    }
+
+    @Test
+    fun oldStepJsonDecodesAndATickedStepGetsDoneAt() = runBlocking {
+        db.itemDao().upsert(
+            ItemEntity("p", "Project", "P", null, "Active", steps = """[{"id":"s1","title":"One","done":false},{"id":"s2","title":"Two","done":true}]"""),
+        )
+        val loaded = repository.get("p")!!
+        assertEquals(listOf(null, null), loaded.steps.map { it.doneAt })
+        now = Instant.ofEpochMilli(2_000)
+        repository.save(loaded.copy(steps = loaded.steps.map { if (it.id == "s1") it.copy(done = true) else it }))
+        assertEquals(listOf(Instant.ofEpochMilli(2_000), Instant.ofEpochMilli(2_000)), repository.get("p")!!.steps.map { it.doneAt })
+        now = Instant.ofEpochMilli(3_000)
+        val ticked = repository.get("p")!!
+        repository.save(ticked.copy(steps = ticked.steps.map { if (it.id == "s2") it.copy(done = false) else it }))
+        assertEquals(listOf(Instant.ofEpochMilli(2_000), null), repository.get("p")!!.steps.map { it.doneAt })
+    }
+
+    @Test
+    fun recapItemsAreActiveOnesAndThoseCompletedSinceExcludingArchived() = runBlocking {
+        listOf("active", "old", "recent", "gone").forEach { repository.save(item(it)) }
+        now = Instant.ofEpochMilli(5_000)
+        repository.complete("old")
+        now = Instant.ofEpochMilli(9_000)
+        repository.complete("recent")
+        repository.archive("gone")
+        assertEquals(listOf("active", "recent"), repository.recapItems(Instant.ofEpochMilli(8_000)).map { it.id })
+    }
+
+    @Test
     fun aRoutineIsOnlyActiveOnItsDueDays() = runBlocking {
         repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
         repository.save(item("t"))
         assertEquals(listOf("t"), repository.active(wednesday).map { it.id })
         assertEquals(listOf("r", "t"), repository.active(sunday).map { it.id })
-        assertEquals(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday), repository.get("r"))
+        assertEquals(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday, createdAt = now), repository.get("r"))
     }
 
     @Test

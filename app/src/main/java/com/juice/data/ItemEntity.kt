@@ -24,7 +24,7 @@ data class ItemEntity(
     val status: String,
     val editedFields: String = "",
     val completionCondition: String? = null,
-    /** The Project's steps as a JSON array of {id, title, done}. */
+    /** The Project's steps as a JSON array of {id, title, done, doneAt?}. */
     val steps: String = "[]",
     /** Place in the user's chosen order of cards; lower comes first. */
     val position: Int = 0,
@@ -32,6 +32,10 @@ data class ItemEntity(
     val cadence: String? = null,
     /** The epoch day a Routine is next due. */
     val nextDueOn: Long? = null,
+    /** When the item was first saved; null for rows from before it was recorded. */
+    val createdAtMillis: Long? = null,
+    /** When the item was completed (a Routine: its latest occurrence); null while open or after an undo. */
+    val completedAtMillis: Long? = null,
     /** The character (coach) this card belongs to; null for the player's own cards. */
     val characterId: String? = null,
 )
@@ -39,7 +43,8 @@ data class ItemEntity(
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
-    cadence?.encode(), nextDueOn?.toEpochDay(), characterId,
+    cadence?.encode(), nextDueOn?.toEpochDay(), createdAt?.toEpochMilli(), completedAt?.toEpochMilli(),
+    characterId,
 )
 
 fun ItemEntity.toItem() = Item(
@@ -53,15 +58,21 @@ fun ItemEntity.toItem() = Item(
     steps = steps.decodeSteps(),
     cadence = cadence?.decodeCadence(),
     nextDueOn = nextDueOn?.let(LocalDate::ofEpochDay),
+    createdAt = createdAtMillis?.let(Instant::ofEpochMilli),
+    completedAt = completedAtMillis?.let(Instant::ofEpochMilli),
     characterId = characterId,
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
-    forEach { array.put(JSONObject().put("id", it.id).put("title", it.title).put("done", it.done)) }
+    forEach { step ->
+        val json = JSONObject().put("id", step.id).put("title", step.title).put("done", step.done)
+        step.doneAt?.let { json.put("doneAt", it.toEpochMilli()) }
+        array.put(json)
+    }
 }.toString()
 
 internal fun String.decodeSteps(): List<Step> = JSONArray(this).let { array ->
-    (0 until array.length()).map { array.getJSONObject(it).let { o -> Step(o.getString("id"), o.getString("title"), o.getBoolean("done")) } }
+    (0 until array.length()).map { array.getJSONObject(it).let { o -> Step(o.getString("id"), o.getString("title"), o.getBoolean("done"), if (o.has("doneAt")) Instant.ofEpochMilli(o.getLong("doneAt")) else null) } }
 }
 
 internal fun Cadence.encode(): String =
