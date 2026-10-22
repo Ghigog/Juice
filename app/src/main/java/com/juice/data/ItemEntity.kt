@@ -36,12 +36,15 @@ data class ItemEntity(
     val createdAtMillis: Long? = null,
     /** When the item was completed (a Routine: its latest occurrence); null while open or after an undo. */
     val completedAtMillis: Long? = null,
+    /** The character (coach) this card belongs to; null for the player's own cards. */
+    val characterId: String? = null,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
     cadence?.encode(), nextDueOn?.toEpochDay(), createdAt?.toEpochMilli(), completedAt?.toEpochMilli(),
+    characterId,
 )
 
 fun ItemEntity.toItem() = Item(
@@ -57,6 +60,7 @@ fun ItemEntity.toItem() = Item(
     nextDueOn = nextDueOn?.let(LocalDate::ofEpochDay),
     createdAt = createdAtMillis?.let(Instant::ofEpochMilli),
     completedAt = completedAtMillis?.let(Instant::ofEpochMilli),
+    characterId = characterId,
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->

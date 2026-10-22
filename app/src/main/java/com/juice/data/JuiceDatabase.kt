@@ -47,6 +47,20 @@ abstract class JuiceDatabase : RoomDatabase() {
             }
         }
 
+        internal val addCharacterId = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE items ADD COLUMN characterId TEXT")
+            }
+        }
+
+        /** Room takes one step per version pair, so the two 6→7 column additions run together. */
+        private val addTimesAndCharacterId = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addTimes.migrate(db)
+                addCharacterId.migrate(db)
+            }
+        }
+
         /** Child Task cards become steps of their Project; the parentId column goes. */
         internal val stepsInsideProjects = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -87,7 +101,7 @@ abstract class JuiceDatabase : RoomDatabase() {
         /** One shared instance, so the overlay's observers see writes made by the intake worker. */
         fun open(context: Context): JuiceDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, "juice.db")
-                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimes)
+                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimesAndCharacterId)
                 .build()
                 .also { instance = it }
         }

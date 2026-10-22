@@ -20,6 +20,15 @@ interface ItemDao {
     @Query("UPDATE items SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 
+    @Query("SELECT * FROM items WHERE characterId = :characterId ORDER BY position, rowid")
+    suspend fun byCharacter(characterId: String): List<ItemEntity>
+
+    @Query("DELETE FROM items WHERE characterId = :characterId")
+    suspend fun deleteByCharacter(characterId: String)
+
+    @Query("DELETE FROM items WHERE id = :id")
+    suspend fun delete(id: String)
+
     @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
     suspend fun active(todayEpochDay: Long): List<ItemEntity>
 
