@@ -3,11 +3,14 @@ package com.juice.core.intake
 /** Applies a late parse to a card: user edits win, and the title is never overwritten. */
 fun IntakeCard.mergeParse(parsed: ParsedItem): IntakeCard {
     fun touched(field: IntakeField) = field in editedFields
+    val mergedType = if (touched(IntakeField.Type)) type else parsed.type
     return copy(
-        type = if (touched(IntakeField.Type)) type else parsed.type,
+        type = mergedType,
         completionCondition = if (touched(IntakeField.CompletionCondition)) completionCondition else parsed.completionCondition,
         deadline = if (touched(IntakeField.Deadline)) deadline else parsed.deadline,
         subItems = if (touched(IntakeField.SubItems)) subItems else parsed.subItems,
+        // A user-set type that is not Routine drops the parsed cadence.
+        cadence = if (touched(IntakeField.Type) && type != ItemType.Routine) cadence else parsed.cadence,
     )
 }
 

@@ -1,5 +1,6 @@
 package com.juice.ui.overlay
 
+import com.juice.RegisterComposeActivity
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
@@ -37,6 +38,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -45,7 +47,9 @@ import org.junit.Assert.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class OverlayShellTest {
-    @get:Rule val compose = createComposeRule()
+    val compose = createComposeRule()
+
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(RegisterComposeActivity()).around(compose)
 
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
