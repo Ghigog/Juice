@@ -59,7 +59,7 @@ object IntakeValidator {
         return ParsedItem(type, title, condition, null, subItems, cadence)
     }
 
-    private fun cadence(obj: JsonObject): Cadence {
+    internal fun cadence(obj: JsonObject): Cadence {
         val raw = obj["cadence"] as? JsonObject ?: throw IllegalArgumentException("missing cadence")
         val days = when (val d = raw["days"]) {
             JsonPrimitive("daily") -> DayOfWeek.entries.toSet()
