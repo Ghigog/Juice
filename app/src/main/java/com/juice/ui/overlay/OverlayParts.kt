@@ -62,6 +62,7 @@ fun ItemType.toEconomy() = when (this) {
     ItemType.Task -> EconomyItemType.TASK
     ItemType.Goal -> EconomyItemType.GOAL
     ItemType.Project -> EconomyItemType.PROJECT
+    ItemType.Routine -> EconomyItemType.ROUTINE
 }
 
 /** What the overlay asks of its host: feedback, settings changes, closing, and the meter's clock. */
@@ -117,6 +118,7 @@ object JuiceColors {
         ItemType.Task -> Color(0xFF38BDF8)
         ItemType.Goal -> Color(0xFFFBBF24)
         ItemType.Project -> Color(0xFFA78BFA)
+        ItemType.Routine -> Color(0xFF34D399)
     }
 }
 

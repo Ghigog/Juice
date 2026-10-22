@@ -2,7 +2,9 @@ package com.juice.core.model
 
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
+import com.juice.core.routine.Cadence
 import java.time.Instant
+import java.time.LocalDate
 
 enum class ItemStatus { Active, Completed, Archived }
 
@@ -20,4 +22,8 @@ data class Item(
     /** What "done" means, when the parser found one (e.g. "Dryer ordered"). */
     val completionCondition: String? = null,
     val steps: List<Step> = emptyList(),
+    /** How often a Routine repeats; null for every other type. */
+    val cadence: Cadence? = null,
+    /** The next day a Routine is due. */
+    val nextDueOn: LocalDate? = null,
 )
