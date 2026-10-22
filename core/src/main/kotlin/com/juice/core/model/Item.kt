@@ -9,7 +9,13 @@ import java.time.LocalDate
 enum class ItemStatus { Active, Completed, Archived }
 
 /** One step of a Project, kept inside the Project's card. */
-data class Step(val id: String, val title: String, val done: Boolean = false)
+data class Step(
+    val id: String,
+    val title: String,
+    val done: Boolean = false,
+    /** When the step was ticked; null for legacy rows and open steps. */
+    val doneAt: Instant? = null,
+)
 
 /** A saved note, task, goal or project. A Project keeps its [steps] in order; [editedFields] are the ones the user changed, which a late parse must not overwrite. */
 data class Item(
@@ -28,4 +34,8 @@ data class Item(
     val nextDueOn: LocalDate? = null,
     /** The coach this card belongs to; null for the player's own cards. */
     val characterId: String? = null,
+    /** When the item was saved; null for legacy rows. */
+    val createdAt: Instant? = null,
+    /** When the item was completed; null while it is open or after an undo. */
+    val completedAt: Instant? = null,
 )
