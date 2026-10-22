@@ -505,6 +505,8 @@ private fun metaOf(state: OverlayShellState, item: Item): String = when {
     item.type == ItemType.Project -> state.stepsOf(item).size.let { left ->
         if (left == 0) "All steps done. Tick it off." else "$left ${if (left == 1) "step" else "steps"} to go"
     }
+    item.type == ItemType.Routine && item.cadence != null -> item.cadence!!.label() +
+        (item.deadline?.let { " · Due ${deadlineLabel(it)}" } ?: "")
     item.deadline != null -> "Due ${deadlineLabel(item.deadline!!)}"
     item.type == ItemType.Note -> "No deadline. Notes are quick catches."
     else -> "Add a time to make it a Goal."
