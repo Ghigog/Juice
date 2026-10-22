@@ -32,12 +32,14 @@ data class ItemEntity(
     val cadence: String? = null,
     /** The epoch day a Routine is next due. */
     val nextDueOn: Long? = null,
+    /** The character (coach) this card belongs to; null for the player's own cards. */
+    val characterId: String? = null,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
-    cadence?.encode(), nextDueOn?.toEpochDay(),
+    cadence?.encode(), nextDueOn?.toEpochDay(), characterId,
 )
 
 fun ItemEntity.toItem() = Item(
@@ -51,6 +53,7 @@ fun ItemEntity.toItem() = Item(
     steps = steps.decodeSteps(),
     cadence = cadence?.decodeCadence(),
     nextDueOn = nextDueOn?.let(LocalDate::ofEpochDay),
+    characterId = characterId,
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
