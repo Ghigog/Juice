@@ -1,7 +1,10 @@
 package com.juice.core.intake
 
+import com.juice.core.routine.Cadence
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -43,7 +46,40 @@ object IntakeValidator {
         require(title.isNotEmpty()) { "empty title" }
         val subItems = lenient("sub_items", onRejected, emptyList()) { subItems(obj) }
         val condition = lenient("completion_condition", onRejected, null) { optionalString(obj, "completion_condition") }
-        return ParsedItem(type, title, condition, deadline(obj, now, onRejected), subItems)
+        if (type != ItemType.Routine) {
+            if (obj["cadence"].let { it != null && it != JsonNull }) onRejected("dropped cadence: not a Routine")
+            return ParsedItem(type, title, condition, deadline(obj, now, onRejected), subItems)
+        }
+        val cadence = lenient("cadence", onRejected, null) { cadence(obj) }
+        if (cadence == null) {
+            onRejected("downgraded Routine to Task: no valid cadence")
+            return ParsedItem(ItemType.Task, title, condition, deadline(obj, now, onRejected), subItems)
+        }
+        // A Routine's deadline derives from its due date.
+        return ParsedItem(type, title, condition, null, subItems, cadence)
+    }
+
+    private fun cadence(obj: JsonObject): Cadence {
+        val raw = obj["cadence"] as? JsonObject ?: throw IllegalArgumentException("missing cadence")
+        val days = when (val d = raw["days"]) {
+            JsonPrimitive("daily") -> DayOfWeek.entries.toSet()
+            is JsonArray -> d.map { day ->
+                val name = (day as? JsonPrimitive)?.takeIf { it.isString }?.content
+                DayOfWeek.entries.firstOrNull { it.name.take(3) == name?.uppercase() } ?: throw IllegalArgumentException("bad day")
+            }.toSet()
+            else -> throw IllegalArgumentException("bad days")
+        }
+        require(days.isNotEmpty()) { "no days" }
+        val time = when (val t = raw["time"]) {
+            null, JsonNull -> null
+            is JsonPrimitive -> try {
+                LocalTime.parse(t.takeIf { it.isString }?.content ?: throw IllegalArgumentException("bad time"))
+            } catch (e: java.time.DateTimeException) {
+                throw IllegalArgumentException("bad time")
+            }
+            else -> throw IllegalArgumentException("bad time")
+        }
+        return Cadence(days, time)
     }
 
     private fun <T> lenient(field: String, onRejected: (String) -> Unit, default: T, read: () -> T): T =

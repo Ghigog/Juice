@@ -1,13 +1,15 @@
 package com.juice.core.intake
 
+import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
+import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 /**
- * Local classifier for offline, API failure and on-device-only mode: a date or time phrase makes a
- * Goal, "Title: a, b and c" makes a Project, an action verb makes a Task, anything else is a Note.
+ * Local classifier for offline, API failure and on-device-only mode: a cadence phrase ("every Sunday")
+ * makes a Routine, a date or time phrase makes a Goal, "Title: a, b and c" makes a Project, an action verb makes a Task, anything else is a Note.
  */
 object RulesFallback {
     /** Spans of time; a bare "week" or "month" needs "this", "next" or "end of" to count. */
@@ -34,6 +36,13 @@ object RulesFallback {
     )
     private val clockTime = Regex("""\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b""", RegexOption.IGNORE_CASE)
     private val dayWord = Regex("""\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b""", RegexOption.IGNORE_CASE)
+    private const val WEEKDAY = """(?:mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b"""
+    private val dailyPhrase = Regex("""\b(?:every ?day|daily)\b""", RegexOption.IGNORE_CASE)
+    private val weekdayCadence = Regex(
+        """\b(?:every|weekly on)\s+($WEEKDAY(?:\s*(?:,|&|\band\b)\s*$WEEKDAY)*)""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val weekdayName = Regex(WEEKDAY, RegexOption.IGNORE_CASE)
     private val listSplit = Regex(""",|\band\b""", RegexOption.IGNORE_CASE)
     private val period = Regex("""\b($PERIOD)\b""", RegexOption.IGNORE_CASE)
     private val within = Regex("""\b$WITHIN\b""", RegexOption.IGNORE_CASE)
@@ -43,11 +52,37 @@ object RulesFallback {
         val text = rawText.trim()
         val title = text.take(IntakeValidator.MAX_TITLE_LENGTH)
         projectOf(text)?.let { return it }
+        cadenceOf(text)?.let { return ParsedItem(ItemType.Routine, title, cadence = it) }
         if (dateOrTimePhrase.containsMatchIn(text)) {
             return ParsedItem(ItemType.Goal, title, deadline = now?.let { deadlineIn(text, it) }?.toInstant())
         }
         val type = if (actionVerb.containsMatchIn(text)) ItemType.Task else ItemType.Note
         return ParsedItem(type, title)
+    }
+
+    /** "every day", "daily", "every Mon and Thu" or "weekly on Friday", with an optional clock time. */
+    private fun cadenceOf(text: String): Cadence? {
+        val days = if (dailyPhrase.containsMatchIn(text)) {
+            DayOfWeek.entries.toSet()
+        } else {
+            val list = weekdayCadence.find(text)?.groupValues?.get(1) ?: return null
+            weekdayName.findAll(list).map { dayOfWeek(it.value) }.toSet()
+        }
+        return Cadence(days, clockTimeIn(text))
+    }
+
+    private fun dayOfWeek(name: String): DayOfWeek =
+        DayOfWeek.entries.first { it.name.startsWith(name.take(3).uppercase()) }
+
+    private fun clockTimeIn(text: String): LocalTime? {
+        val g = clockTime.find(text)?.groupValues ?: return null
+        var hour = (g[1].ifEmpty { g[4] }).toInt()
+        val minute = (g[2].ifEmpty { g[5] }).ifEmpty { "0" }.toInt()
+        when (g[3].lowercase()) {
+            "pm" -> if (hour < 12) hour += 12
+            "am" -> if (hour == 12) hour = 0
+        }
+        return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
     }
 
     /** "Launch: write copy, record demo and ship" is a Project with three steps. */

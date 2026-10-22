@@ -156,4 +156,69 @@ class IntakeTest {
         assertEquals(null, merged.cadence)
         assertEquals(cadence, IntakeCard(ItemType.Note, "t").mergeParse(ParsedItem(ItemType.Routine, "t", cadence = cadence)).cadence)
     }
+
+    private fun routine(text: String) = RulesFallback.classify(text)
+    private fun cadence(vararg d: java.time.DayOfWeek, time: java.time.LocalTime? = null) =
+        com.juice.core.routine.Cadence(d.toSet(), time)
+
+    @Test fun rulesReadEverySundayAsRoutine() {
+        val item = routine("go to the library every Sunday")
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals("go to the library every Sunday", item.title)
+        assertEquals(cadence(java.time.DayOfWeek.SUNDAY), item.cadence)
+    }
+
+    @Test fun rulesReadDailyWithClockTime() {
+        val item = routine("go to the gym every day at 9")
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals(com.juice.core.routine.Cadence(java.time.DayOfWeek.entries.toSet(), java.time.LocalTime.of(9, 0)), item.cadence)
+        assertEquals(java.time.DayOfWeek.entries.toSet(), routine("stretch daily").cadence?.days)
+    }
+
+    @Test fun rulesReadWeekdayListsAndWeekly() {
+        assertEquals(cadence(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.THURSDAY), routine("every Mon and Thu").cadence)
+        assertEquals(cadence(java.time.DayOfWeek.FRIDAY), routine("weekly on Friday").cadence)
+    }
+
+    @Test fun rulesKeepGoalWithoutCadencePhrase() {
+        assertEquals(ItemType.Goal, routine("call mum on Sunday").type)
+        assertNull(routine("call mum on Sunday").cadence)
+    }
+
+    @Test fun validatorAcceptsRoutineCadence() {
+        val item = validate("""{"type":"Routine","title":"Gym","deadline":"2026-06-01T18:00:00Z","cadence":{"days":["MON","thu"],"time":"07:30"}}""")
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals(cadence(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.THURSDAY, time = java.time.LocalTime.of(7, 30)), item.cadence)
+        assertNull(item.deadline)
+        assertEquals(java.time.DayOfWeek.entries.toSet(), validate("""{"type":"Routine","title":"x","cadence":{"days":"daily","time":null}}""").cadence?.days)
+    }
+
+    @Test fun validatorDowngradesRoutineWithoutValidCadenceToTask() {
+        for (bad in listOf("", ""","cadence":null""", ""","cadence":{"days":[],"time":null}""", ""","cadence":{"days":["FUNDAY"]}""", ""","cadence":{"days":"daily","time":"9am"}""")) {
+            val reasons = mutableListOf<String>()
+            val item = IntakeValidator.validate("""{"type":"Routine","title":"x"$bad}""", "raw", now) { reasons += it }
+            assertEquals(ItemType.Task, item.type)
+            assertNull(item.cadence)
+            assertEquals(true, reasons.isNotEmpty())
+        }
+    }
+
+    @Test fun validatorDropsCadenceOnOtherTypes() {
+        val reasons = mutableListOf<String>()
+        val item = IntakeValidator.validate("""{"type":"Goal","title":"x","cadence":{"days":"daily","time":null}}""", "raw", now) { reasons += it }
+        assertEquals(ItemType.Goal, item.type)
+        assertNull(item.cadence)
+        assertEquals(1, reasons.size)
+    }
+
+    @Test fun improvingOnKeepsTheRulesRoutine() {
+        val rules = routine("go to the library every Sunday")
+        for (type in listOf(ItemType.Note, ItemType.Task, ItemType.Goal)) {
+            val improved = ParsedItem(type, "Library").improvingOn(rules)
+            assertEquals(ItemType.Routine, improved.type)
+            assertEquals(rules.cadence, improved.cadence)
+        }
+        val project = ParsedItem(ItemType.Project, "p")
+        assertEquals(project, project.improvingOn(rules))
+    }
 }
