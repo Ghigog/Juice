@@ -43,6 +43,7 @@ class IntakeParserTest {
         assertTrue("2026-10-19" in body)
         assertTrue("09:30" in body)
         assertTrue("Europe/Berlin" in body)
+        assertTrue("Routine" in body && "cadence" in body)
     }
 
     @Test fun httpErrorFallsBackToRulesAndRetries() {
@@ -80,5 +81,11 @@ class IntakeParserTest {
         assertEquals(ItemType.Goal, result.item.type)
         assertFalse(result.retryLater)
         assertEquals(0, server.requestCount)
+    }
+
+    @Test fun onDeviceOnlyReadsACadencePhraseAsRoutine() {
+        val item = parser(onDeviceOnly = true).parse("go to the library every Sunday").item
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals(setOf(java.time.DayOfWeek.SUNDAY), item.cadence?.days)
     }
 }
