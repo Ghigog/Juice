@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -59,6 +61,7 @@ class OverlayShellTest {
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
     private lateinit var state: OverlayShellState
+    private val writingBack = WritingBack()
 
     @Before
     fun setUp() {
@@ -84,7 +87,7 @@ class OverlayShellTest {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, hud = hud) }
+        compose.setContent { OverlayShell(state, hud = hud, writingBack = writingBack) }
         idle()
     }
 
@@ -215,15 +218,36 @@ class OverlayShellTest {
     }
 
     @Test
-    fun doneLeavesWritingModeAndKeepsDraft() {
+    fun tappingOutsideTheFieldLeavesWritingModeAndKeepsDraft() {
         show(Item("a", ItemType.Task, "Call Sam"))
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("draft")
         idle()
         compose.onNodeWithTag(TAG_CENTRE_CARD).assertDoesNotExist()
-        compose.onNodeWithTag(TAG_WRITING_DONE).performClick()
+        compose.onRoot().performTouchInput { click(Offset(width / 2f, 40f)) }
         idle()
         compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
         compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextContains("draft")
+    }
+
+    @Test
+    fun backLeavesWritingModeAndKeepsDraft() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).performTextInput("draft")
+        idle()
+        var closed = false
+        compose.runOnUiThread { writingBack.back { closed = true } }
+        idle()
+        assertEquals(false, closed)
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertTextContains("draft")
+    }
+
+    @Test
+    fun backOutsideWritingModeCloses() {
+        show(Item("a", ItemType.Task, "Call Sam"))
+        var closed = false
+        compose.runOnUiThread { writingBack.back { closed = true } }
+        assertEquals(true, closed)
     }
 
     @Test

@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -56,6 +57,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -110,7 +112,6 @@ const val TAG_RESERVOIR = "reservoir"
 const val TAG_HYDRATION = "hydration_label"
 const val TAG_JUICE_BOX = "juice_box"
 const val TAG_MULTIPLIER = "multiplier_badge"
-const val TAG_WRITING_DONE = "writing_done"
 const val TAG_UNDO = "undo"
 const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
@@ -156,6 +157,8 @@ fun OverlayShell(
     reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
     /** Room kept clear for the status and navigation bars, measured once by the host so nothing jumps. */
     systemBars: PaddingValues = PaddingValues(0.dp),
+    /** Lets the host's BACK key leave writing mode instead of closing the overlay. */
+    writingBack: WritingBack = remember { WritingBack() },
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -165,6 +168,23 @@ fun OverlayShell(
     var centre by remember { mutableStateOf(0) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    // The keyboard going away does not drop focus, so leaving writing mode is explicit; the draft is kept.
+    fun leaveWriting() {
+        focus.clearFocus()
+        writing = false
+    }
+    SideEffect {
+        writingBack.isWriting = { writing }
+        writingBack.leave = ::leaveWriting
+    }
+    // The keyboard swallows the first back press to hide itself, so the app only sees it close.
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeWasVisible && !imeVisible && writing) leaveWriting()
+        imeWasVisible = imeVisible
+    }
     var ringPreview by remember { mutableStateOf(0) }
     LaunchedEffect(ringPreview) {
         if (ringPreview > 0) {
@@ -195,6 +215,11 @@ fun OverlayShell(
             Column(
                 Modifier
                     .fillMaxSize()
+                    .then(
+                        // Outside the field and the plus button, a tap ends writing mode.
+                        if (writing) Modifier.pointerInput(Unit) { detectTapGestures { leaveWriting() } }
+                        else Modifier,
+                    )
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 if (!writing) {
@@ -238,6 +263,7 @@ fun OverlayShell(
                     hud,
                     writing = writing,
                     onWritingChange = { writing = it },
+                    onLeave = ::leaveWriting,
                     modifier = if (writing) Modifier.weight(1f) else Modifier,
                 ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
@@ -559,6 +585,15 @@ private fun MultiplierBadge(hud: Hud) {
     }
 }
 
+/** Tells the host whether the shell is in writing mode and lets it end that mode, for the BACK key. */
+class WritingBack {
+    internal var isWriting: () -> Boolean = { false }
+    internal var leave: () -> Unit = {}
+
+    /** BACK ends writing mode (keeping the draft) while writing, and otherwise calls [close]. */
+    fun back(close: () -> Unit) = if (isWriting()) leave() else close()
+}
+
 /** A still liquid, for previews and tests; the overlay passes the AGSL reservoir instead. */
 @Composable
 fun PlainReservoir(hud: Hud, modifier: Modifier) {
@@ -573,21 +608,16 @@ private fun Capture(
     hud: Hud,
     writing: Boolean,
     onWritingChange: (Boolean) -> Unit,
+    onLeave: () -> Unit,
     modifier: Modifier,
     onSubmit: (String) -> Unit,
 ) {
     var draft by remember { mutableStateOf("") }
-    val focus = LocalFocusManager.current
-    // The keyboard going away does not drop focus, so leaving writing mode is explicit.
-    fun leaveWriting() {
-        focus.clearFocus()
-        onWritingChange(false)
-    }
     fun submit() {
         if (draft.isBlank()) return
         onSubmit(draft)
         draft = ""
-        leaveWriting()
+        onLeave()
     }
     val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
     Row(
@@ -624,18 +654,6 @@ private fun Capture(
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             if (writing) {
-                Box(
-                    Modifier
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(JuiceColors.white(0.14f))
-                        .clickable { leaveWriting() }
-                        .padding(horizontal = 14.dp)
-                        .testTag(TAG_WRITING_DONE),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(stringResource(R.string.overlay_writing_done), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
                 Spacer(Modifier.weight(1f))
             }
         val label = stringResource(R.string.overlay_add)
