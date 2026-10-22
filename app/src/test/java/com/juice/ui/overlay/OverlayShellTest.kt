@@ -1,13 +1,14 @@
 package com.juice.ui.overlay
 
+import com.juice.RegisterComposeActivity
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.and
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -37,6 +38,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -45,7 +47,9 @@ import org.junit.Assert.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class OverlayShellTest {
-    @get:Rule val compose = createComposeRule()
+    val compose = createComposeRule()
+
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(RegisterComposeActivity()).around(compose)
 
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
@@ -131,7 +135,8 @@ class OverlayShellTest {
     @Test
     fun multiplierBadgeIsInTheHeader() {
         show(hud = Hud(multiplier = 1.5))
-        compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed().assertTextEquals("1.5x")
+        compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed()
+        compose.onNode(hasText("1.5x") and hasAnyAncestor(hasTestTag(TAG_MULTIPLIER)), useUnmergedTree = true).assertExists()
     }
 
     @Test

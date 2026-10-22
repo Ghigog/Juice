@@ -1,5 +1,6 @@
 package com.juice.overlay
 
+import com.juice.RegisterComposeActivity
 import android.view.WindowManager
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
@@ -10,12 +11,15 @@ import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class OverlayServiceTest {
-    @get:Rule val compose = createComposeRule()
+    val compose = createComposeRule()
+
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(RegisterComposeActivity()).around(compose)
 
     @Test
     fun reservoirShowsTheMeterAndFollowsIt() {

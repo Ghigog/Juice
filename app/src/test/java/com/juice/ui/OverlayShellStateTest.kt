@@ -37,7 +37,12 @@ class OverlayShellStateTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java).allowMainThreadQueries().build()
+        db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java)
+            .allowMainThreadQueries()
+            // Run queries where they are called, so no save is still in flight when the database closes.
+            .setQueryExecutor { it.run() }
+            .setTransactionExecutor { it.run() }
+            .build()
         repository = ItemRepository(db.itemDao())
     }
 
