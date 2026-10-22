@@ -106,7 +106,7 @@ class CharacterRepositoryTest {
         characters.unlockAtLevel(jim, 9)
 
         assertEquals(emptyList(), items.byCharacter(jim.id))
-        assertEquals(other, items.get("mine"))
+        assertEquals(other.copy(createdAt = items.get("mine")?.createdAt), items.get("mine"))
         assertEquals(true, characters.state(jim.id).disabled)
     }
 
