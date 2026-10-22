@@ -108,6 +108,7 @@ const val TAG_ADD = "add_button"
 const val TAG_CENTRE_CARD = "centre_card"
 const val TAG_RESERVOIR = "reservoir"
 const val TAG_HYDRATION = "hydration_label"
+const val TAG_JUICE_BOX = "juice_box"
 const val TAG_MULTIPLIER = "multiplier_badge"
 const val TAG_WRITING_DONE = "writing_done"
 const val TAG_UNDO = "undo"
@@ -199,12 +200,15 @@ fun OverlayShell(
                 if (!writing) {
                     Header(hud, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
-                    HydrationLabel(hud, Modifier.padding(start = 18.dp, bottom = 6.dp))
                     val list = state.items
                     Row(Modifier.weight(1f).fillMaxWidth()) {
-                        Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                        if (list.isNotEmpty()) {
+                            Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
+                            Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
                             CentreCard(
                                 state = state,
                                 item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
@@ -218,6 +222,7 @@ fun OverlayShell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                             Floats(effects, hud, Modifier.fillMaxSize())
+                            }
                         }
                     }
                     Spacer(Modifier.height(8.dp))

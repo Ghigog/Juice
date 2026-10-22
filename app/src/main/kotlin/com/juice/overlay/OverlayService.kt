@@ -1,5 +1,6 @@
 package com.juice.overlay
 
+import java.time.LocalDate
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -103,7 +104,7 @@ class OverlayService : Service() {
                 settingsRepository.settings.collect { applySettings(it) }
             }
             scope.launch {
-                repository.observeActive().collect {
+                repository.observeActive(LocalDate.now()).collect {
                     openItems = it.size
                     handle?.slices = SliceLogoPainter.sliceCount(openItems)
                 }
