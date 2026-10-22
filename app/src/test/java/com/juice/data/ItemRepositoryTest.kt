@@ -13,6 +13,9 @@ import com.juice.core.model.Step
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import java.time.Instant
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -39,6 +42,17 @@ class ItemRepositoryTest {
 
     private fun item(id: String, status: ItemStatus = ItemStatus.Active) =
         Item(id, ItemType.Task, "Title $id", Instant.ofEpochMilli(1_800_000_000_000), status)
+
+    @Test
+    fun savesLandInTheOrderTheyWereMade() = runBlocking {
+        repository.save(item("a"))
+        val saves = (1..20).map { n ->
+            val status = if (n % 2 == 1) ItemStatus.Completed else ItemStatus.Active
+            launch(start = CoroutineStart.UNDISPATCHED) { repository.save(item("a", status)) }
+        }
+        saves.joinAll()
+        assertEquals(ItemStatus.Active, repository.get("a")?.status)
+    }
 
     @Test
     fun aLandedProjectKeepsAtMostMaxSubItemsAsStepsAndNoExtraCards() = runBlocking {
