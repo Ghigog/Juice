@@ -8,9 +8,13 @@ import com.juice.coach.CoachConversation
 import com.juice.coach.CoachFinish
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
+import com.juice.core.character.CoachReplyText
 import com.juice.core.character.CoachTask
+import com.juice.core.character.Emotion
 import com.juice.core.model.Item
 import com.juice.data.CharacterRepository
+import com.juice.feedback.Feedback
+import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +39,18 @@ class CoachChatState(
     private val coachTasks: () -> List<Item> = { emptyList() },
     private val onFailed: () -> Unit = {},
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** Plays the coach's mutter as a reply types out. */
+    val feedback: Feedback = SilentFeedback,
 ) {
     var messages by mutableStateOf(emptyList<ChatMessage>())
+        private set
+
+    /** The coach's mood in its latest reply; it stays put across rejected proposals and errors. */
+    var emotion by mutableStateOf(Emotion.NEUTRAL)
+        private set
+
+    /** Index in [messages] of the newest assistant reply, the only one that types out; -1 before any. */
+    var typingIndex by mutableStateOf(-1)
         private set
     var proposal by mutableStateOf<List<CoachTask>?>(null)
         private set
@@ -70,7 +84,12 @@ class CoachChatState(
         messages = messages + ChatMessage("user", said)
         scope.launch {
             when (val reply = withContext(io) { conversation.send(said) }) {
-                is CoachReply.Reply -> messages = messages + ChatMessage("assistant", reply.text)
+                is CoachReply.Reply -> {
+                    val parsed = CoachReplyText.parse(reply.text)
+                    emotion = parsed.emotion
+                    messages = messages + ChatMessage("assistant", parsed.text)
+                    typingIndex = messages.lastIndex
+                }
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
                 is CoachReply.Error -> fail(CoachNotice.Unreachable)
             }
@@ -122,4 +141,8 @@ class CoachChatState(
         open = false
         onFailed()
     }
+}
+
+private object SilentFeedback : Feedback {
+    override fun play(event: FeedbackEvent, boosted: Boolean) {}
 }
