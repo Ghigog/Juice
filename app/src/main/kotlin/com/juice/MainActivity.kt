@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.juice.core.Juice
 import com.juice.onboarding.OnboardingScreen
 import com.juice.data.CharacterRepository
+import com.juice.coach.ConversationStore
+import java.io.File
 import com.juice.data.CharacterStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
@@ -54,7 +56,10 @@ class MainActivity : ComponentActivity() {
                 val repository = remember { SettingsRepository(this@MainActivity) }
                 val scope = rememberCoroutineScope()
                 val characterSettings = remember {
-                    CharacterSettings(CharacterRepository(CharacterStore(this@MainActivity), ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao())), scope)
+                    val store = CharacterStore(this@MainActivity)
+                    val items = ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao(), hiddenCharacterIds = store::disabledIds, hiddenChanges = store.changes())
+                    val conversations = ConversationStore(File(filesDir, "conversations.json"))
+                    CharacterSettings(CharacterRepository(store, items, conversations), scope)
                 }
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())

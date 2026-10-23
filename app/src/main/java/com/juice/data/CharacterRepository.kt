@@ -1,5 +1,6 @@
 package com.juice.data
 
+import com.juice.coach.ConversationStore
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
 import com.juice.core.character.CharacterState
@@ -15,7 +16,11 @@ import java.util.UUID
 enum class CoachCardKind { Meet, CheckIn }
 
 /** A character's saved state together with the cards that belong to it. */
-class CharacterRepository(private val store: CharacterStore, private val items: ItemRepository) {
+class CharacterRepository(
+    private val store: CharacterStore,
+    private val items: ItemRepository,
+    private val conversations: ConversationStore? = null,
+) {
     fun state(characterId: String): CharacterState = store.load(characterId)
 
     /** Unlocks [character] once [level] is high enough and adds its meet card; asking again adds nothing. */
@@ -55,10 +60,22 @@ class CharacterRepository(private val store: CharacterStore, private val items: 
         items.save(meetCard(character))
     }
 
-    /** Turns [character] off for good: its cards and regular tasks are deleted and none are created again. */
+    /** Hides [character]: its cards, tasks and chat go from the lists and no new card is made, but all it has stays stored. */
     suspend fun disable(character: Character) {
         store.save(character.id, CharacterTransitions.disable(state(character.id)))
+    }
+
+    /** Shows a disabled [character] again, with everything it had. */
+    suspend fun enable(character: Character) {
+        store.save(character.id, CharacterTransitions.enable(state(character.id)))
+    }
+
+    /** Starts [character] over: its items and saved conversation are deleted and it is enabled and new. Not for a locked one. */
+    suspend fun reset(character: Character) {
+        if (state(character.id).availability == Availability.Locked) return
         items.deleteByCharacter(character.id)
+        conversations?.clear(character.id)
+        store.save(character.id, CharacterState())
     }
 
     /** Applies a validated proposal: new Routines are added, changed ones updated, removed ones deleted. */

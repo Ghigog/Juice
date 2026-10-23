@@ -194,6 +194,46 @@ class CoachChatTest {
         assertNull(runBlocking { repository.get("t2") })
     }
 
+    private fun chat(onFailed: () -> Unit): CoachChatState {
+        val conversation = CoachConversation(
+            jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
+            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+        )
+        return CoachChatState(jim, conversation, characters, scope, onFailed = onFailed)
+    }
+
+    @Test
+    fun cancellingCallsOnFailedWithoutANotice() {
+        var failed = 0
+        val chat = chat { failed++ }
+        chat.cancel()
+        assertEquals(1, failed)
+        assertEquals(false, chat.open)
+        assertNull(chat.notice)
+    }
+
+    @Test
+    fun confirmingDoesNotCallOnFailed() {
+        var failed = 0
+        show(meet)
+        propose(add("Walk 20 minutes"))
+        val chat = chat { failed++ }
+        chat.confirm()
+        assertEquals(0, failed)
+    }
+
+    @Test
+    fun cancellingAfterAFailureCallsOnFailedOnlyOnce() {
+        var failed = 0
+        val chat = chat { failed++ }
+        chat.start()
+        server.enqueue(MockResponse().setResponseCode(500))
+        chat.finish()
+        waitFor { !chat.open }
+        chat.cancel()
+        assertEquals(1, failed)
+    }
+
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTagCount(tag: String) =
         onAllNodes(androidx.compose.ui.test.hasTestTag(tag)).fetchSemanticsNodes().size
 }

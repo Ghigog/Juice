@@ -39,6 +39,11 @@ class CharacterTest {
         assertFalse(CharacterTransitions.checkInDue(metAt(13), jim, now))
     }
 
+    @Test fun enablingADisabledCharacterKeepsEverythingElse() {
+        val disabled = CharacterTransitions.disable(metAt(30))
+        assertEquals(metAt(30), CharacterTransitions.enable(disabled))
+    }
+
     @Test fun checkInNeverDueWhenDismissedOrDisabled() {
         assertFalse(CharacterTransitions.checkInDue(CharacterTransitions.dismiss(metAt(30)), jim, now))
         assertFalse(CharacterTransitions.checkInDue(CharacterTransitions.disable(metAt(30)), jim, now))
@@ -108,5 +113,36 @@ class CharacterTest {
     @Test fun jimHasOpeningLineAndPitchInRange() {
         assertTrue(jim.openingLine.isNotBlank())
         assertTrue(jim.mutterPitch in 0.5f..2.0f)
+    }
+
+    @Test fun allListsJimNutritionistAndSleepScientistInUnlockOrder() {
+        assertEquals(listOf(jim, Characters.Nutritionist, Characters.SleepScientist), Characters.all)
+        assertEquals(listOf(5, 10, 15), Characters.all.map { it.unlockLevel })
+        assertEquals(Characters.all.size, Characters.all.map { it.id }.toSet().size)
+        assertEquals(Characters.all.size, Characters.all.map { it.openingLine }.toSet().size)
+        assertEquals(Characters.all.size, Characters.all.map { it.mutterPitch }.toSet().size)
+        Characters.all.forEach { assertTrue(it.openingLine.isNotBlank(), it.id) }
+    }
+
+    @Test fun newCharactersKeepGuardrailTagsAndContractWithOwnTopics() {
+        val topics = mapOf(
+            Characters.Nutritionist to listOf("shopping", "cooking", "new foods"),
+            Characters.SleepScientist to listOf("bedtime", "devices", "winding down"),
+        )
+        topics.forEach { (character, words) ->
+            val prompt = character.personaPrompt
+            assertTrue("not a doctor" in prompt, character.id)
+            listOf("[neutral]", "[happy]", "[stern]", "[thinking]").forEach { assertTrue(it in prompt, it) }
+            assertTrue("""{"tasks":[""" in prompt, character.id)
+            assertTrue("no emotion tag" in prompt, character.id)
+            words.forEach { assertTrue(it in prompt, it) }
+        }
+    }
+
+    @Test fun newCharactersBecomeMetPendingAtTheirUnlockLevel() {
+        listOf(Characters.Nutritionist, Characters.SleepScientist).forEach {
+            assertEquals(Availability.Locked, CharacterTransitions.onLevel(CharacterState(), it, it.unlockLevel - 1).availability)
+            assertEquals(Availability.MetPending, CharacterTransitions.onLevel(CharacterState(), it, it.unlockLevel).availability)
+        }
     }
 }

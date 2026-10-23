@@ -14,7 +14,12 @@ import com.juice.data.CharacterStore
 import com.juice.data.CoachCardKind
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.coach.CoachClient
+import com.juice.coach.CoachConversation
+import com.juice.coach.ConversationStore
+import com.juice.ui.overlay.CoachChatState
 import com.juice.ui.overlay.OverlayShellState
+import java.io.File
 import com.juice.ui.overlay.Swipe
 import com.juice.ui.overlay.swipeOf
 import com.juice.core.gesture.GesturePoint
@@ -353,6 +358,36 @@ class OverlayShellStateTest {
 
         assertEquals(listOf(meet), completed)
         assertEquals(listOf(Characters.JIM_ID to CoachCardKind.Meet), coachDone)
+    }
+
+    @Test
+    fun cancellingTheCoachChatPutsTheMeetCardBack() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-shell-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            repository,
+        )
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        val state = OverlayShellState(
+            repository, scope, emptyList(), today = sunday, characters = characters,
+            coachChatFor = { _, onFailed ->
+                val conversation = CoachConversation(
+                    Characters.Jim, CoachClient("key", "http://localhost"),
+                    ConversationStore(File.createTempFile("conversations", ".json")), { false }, { emptyList() },
+                )
+                CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, io = Dispatchers.Unconfined)
+            },
+        )
+        characters.unlockAtLevel(Characters.Jim, 5)
+        val meet = repository.get("meet-jim")!!
+        state.observe()
+        state.complete(meet)
+        assertEquals(emptyList(), state.items)
+
+        state.coachChat!!.cancel()
+
+        assertEquals(listOf("meet-jim"), state.items.map { it.id })
+        assertNull(state.coachChat!!.notice)
     }
 
     private fun stroke(vararg p: Pair<Double, Double>) = p.map { GesturePoint(it.first, it.second) }

@@ -67,6 +67,8 @@ class CharactersSectionTest {
     private fun show() = compose.setContent { CharactersSection(CharacterSettings(characters, scope)) }
 
     private val restoreTag = TAG_CHARACTER_RESTORE_PREFIX + jim.id
+    private val enableTag = TAG_CHARACTER_ENABLE_PREFIX + jim.id
+    private val resetTag = TAG_CHARACTER_RESET_PREFIX + jim.id
     private val disableTag = TAG_CHARACTER_DISABLE_PREFIX + jim.id
 
     @Test
@@ -75,6 +77,8 @@ class CharactersSectionTest {
         compose.onNodeWithText("Unlocks at level 5").assertIsDisplayed()
         compose.onNodeWithTag(restoreTag).assertDoesNotExist()
         compose.onNodeWithTag(disableTag).assertDoesNotExist()
+        compose.onNodeWithTag(enableTag).assertDoesNotExist()
+        compose.onNodeWithTag(resetTag).assertDoesNotExist()
     }
 
     @Test
@@ -129,7 +133,7 @@ class CharactersSectionTest {
     }
 
     @Test
-    fun disablingAfterConfirmationDeletesCardsAndTasksAndShowsTheStateOnly() {
+    fun disablingAfterConfirmationHidesCharacterButKeepsItsItems() {
         runBlocking {
             characters.unlockAtLevel(jim, 5)
             characters.createTasks(jim.id, listOf(CoachTask.Add("Walk", Cadence(DayOfWeek.entries.toSet()))))
@@ -140,11 +144,52 @@ class CharactersSectionTest {
         assertNotNull(runBlocking { items.get("meet-jim") })
         compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_DISABLE_PREFIX + jim.id).performClick()
         compose.waitForIdle()
-        assertEquals(emptyList(), runBlocking { items.byCharacter(jim.id) })
+        assertEquals(2, runBlocking { items.byCharacter(jim.id) }.size)
         compose.onNode(hasText("Disabled")).assertIsDisplayed()
         compose.onNodeWithTag(disableTag).assertDoesNotExist()
         compose.onNodeWithTag(restoreTag).assertDoesNotExist()
+        compose.onNodeWithTag(enableTag).assertIsDisplayed()
         runBlocking { characters.unlockAtLevel(jim, 10) }
+        assertEquals(2, runBlocking { items.byCharacter(jim.id) }.size)
+    }
+
+    @Test
+    fun enablingADisabledCharacterShowsItAvailableAgain() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+            characters.disable(jim)
+        }
+        show()
+        compose.onNodeWithTag(enableTag).performClick()
+        compose.waitForIdle()
+        assertEquals(false, characters.state(jim.id).disabled)
+        compose.onNodeWithTag(enableTag).assertDoesNotExist()
+        compose.onNodeWithTag(disableTag).assertIsDisplayed()
+    }
+
+    @Test
+    fun resetAfterConfirmationDeletesItems() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+            characters.disable(jim)
+        }
+        show()
+        compose.onNodeWithTag(resetTag).performClick()
+        assertNotNull(runBlocking { items.get("meet-jim") })
+        compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + jim.id).performClick()
+        compose.waitForIdle()
         assertEquals(emptyList(), runBlocking { items.byCharacter(jim.id) })
+        assertEquals(false, characters.state(jim.id).disabled)
+    }
+
+    @Test
+    fun cancellingTheResetConfirmationChangesNothing() {
+        runBlocking { characters.unlockAtLevel(jim, 5) }
+        show()
+        compose.onNodeWithTag(resetTag).performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertNotNull(runBlocking { items.get("meet-jim") })
+        compose.onNodeWithTag(resetTag).assertIsDisplayed()
     }
 }
