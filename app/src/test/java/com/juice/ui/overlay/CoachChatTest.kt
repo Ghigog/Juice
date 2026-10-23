@@ -14,6 +14,9 @@ import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
 import com.juice.core.character.Characters
+import com.juice.core.character.Emotion
+import com.juice.feedback.Feedback
+import com.juice.feedback.FeedbackEvent
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
@@ -124,14 +127,10 @@ class CoachChatTest {
     private fun add(title: String) = """{"action":"add","title":"$title","cadence":{"days":"daily"}}"""
 
     @Test
-    fun completingTheMeetCardOpensTheChatWithTheOpeningQuestions() {
+    fun completingTheMeetCardOpensTheChatWithTheCoachsOpeningLine() {
         show(meet)
         compose.onNodeWithTag(TAG_COACH_CHAT).assertIsDisplayed()
-        waitForText("current activity")
-        waitForText("health problems")
-        waitForText("constraints")
-        waitForText("health professional")
-        waitForText("personal trainer")
+        waitForText(jim.openingLine)
     }
 
     @Test
@@ -200,6 +199,74 @@ class CoachChatTest {
             ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
         )
         return CoachChatState(jim, conversation, characters, scope, onFailed = onFailed)
+    }
+
+    private fun sendAndWait(chat: CoachChatState, content: String, text: String = "hi") {
+        reply(content)
+        chat.send(text)
+        waitFor { !chat.busy }
+    }
+
+    @Test
+    fun aTaggedReplySetsTheEmotionAndLosesTheTag() {
+        val chat = chat {}
+        assertEquals(Emotion.NEUTRAL, chat.emotion)
+        sendAndWait(chat, "[happy] Nice work")
+        assertEquals(Emotion.HAPPY, chat.emotion)
+        assertEquals("Nice work", chat.messages.last().content)
+    }
+
+    @Test
+    fun anUntaggedOrUnknownlyTaggedReplyFallsBackToNeutral() {
+        val chat = chat {}
+        sendAndWait(chat, "[stern] Again")
+        sendAndWait(chat, "Plain")
+        assertEquals(Emotion.NEUTRAL, chat.emotion)
+        sendAndWait(chat, "[stern] Again")
+        sendAndWait(chat, "[confused] Huh")
+        assertEquals(Emotion.NEUTRAL, chat.emotion)
+        assertEquals("Huh", chat.messages.last().content)
+    }
+
+    @Test
+    fun anErrorLeavesTheEmotionUnchanged() {
+        val chat = chat {}
+        sendAndWait(chat, "[happy] Nice")
+        server.enqueue(MockResponse().setResponseCode(500))
+        chat.send("again")
+        waitFor { !chat.busy }
+        assertEquals(Emotion.HAPPY, chat.emotion)
+    }
+
+    @Test
+    fun theNutritionistsChatOpensWithHerOwnLine() {
+        val nora = Characters.Nutritionist
+        val conversation = CoachConversation(
+            nora, CoachClient("key", server.url("/").toString().trimEnd('/')),
+            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+        )
+        val chat = CoachChatState(nora, conversation, characters, scope)
+        compose.setContent { CoachChat(chat, Hud()) }
+        waitForText(nora.openingLine)
+    }
+
+    @Test
+    fun aNewReplyTypesOutWithAMutterPerLetterAtTheCharactersPitch() {
+        val rates = mutableListOf<Float>()
+        val feedback = object : Feedback {
+            override fun play(event: FeedbackEvent, boosted: Boolean) {}
+            override fun mutter(rate: Float) { rates += rate }
+        }
+        val conversation = CoachConversation(
+            jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
+            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+        )
+        val chat = CoachChatState(jim, conversation, characters, scope, feedback = feedback)
+        compose.setContent { CoachChat(chat, Hud()) }
+        sendAndWait(chat, "Hey")
+        waitForText("Hey")
+        waitFor { rates.size == 3 }
+        assertEquals(listOf(jim.mutterPitch, jim.mutterPitch, jim.mutterPitch), rates)
     }
 
     @Test
