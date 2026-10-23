@@ -83,12 +83,45 @@ class OverlayShellTest {
         db.close()
     }
 
-    private fun show(vararg items: Item, hud: Hud = Hud()) {
+    private fun show(vararg items: Item, hud: Hud = Hud(), actions: OverlayActions = OverlayActions()) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, hud = hud, writingBack = writingBack) }
+        compose.setContent { OverlayShell(state, hud = hud, actions = actions, writingBack = writingBack) }
         idle()
+    }
+
+    @Test
+    fun tappingAndDraggingTheCentreCardReportsLiquidTouches() {
+        val touches = mutableListOf<LiquidTouch>()
+        show(Item("a", ItemType.Task, "Call Sam"), actions = OverlayActions(onLiquidTouch = { touches += it }))
+        compose.onNodeWithTag(TAG_CENTRE_CARD).performTouchInput {
+            down(Offset(width * 0.2f, height * 0.5f))
+            moveTo(Offset(width * 0.8f, height * 0.5f))
+            up()
+        }
+        idle()
+        assertEquals(listOf(LiquidTouchPhase.DOWN, LiquidTouchPhase.MOVE, LiquidTouchPhase.UP), touches.map { it.phase }.distinct())
+        assertEquals(touches.first().size.width * 0.2f, touches.first().position.x, 1f)
+        assertTrue(touches.first { it.phase == LiquidTouchPhase.MOVE }.position.x > touches.first().position.x)
+    }
+
+    @Test
+    fun drawingStillCompletesAndDismissesWhileLiquidTouchesAreReported() {
+        val item = Item("a", ItemType.Task, "Call Sam")
+        runBlocking { repository.save(item) }
+        show(item, actions = OverlayActions(onLiquidTouch = {}))
+        drawCheckmark()
+        assertEquals(ItemStatus.Completed, statusOf("a"))
+    }
+
+    @Test
+    fun aCrossStillDismissesWhileLiquidTouchesAreReported() {
+        val item = Item("a", ItemType.Task, "Call Sam")
+        runBlocking { repository.save(item) }
+        show(item, actions = OverlayActions(onLiquidTouch = {}))
+        drawCross()
+        assertEquals(ItemStatus.Archived, statusOf("a"))
     }
 
     @Test

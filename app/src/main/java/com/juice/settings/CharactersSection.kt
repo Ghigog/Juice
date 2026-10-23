@@ -46,24 +46,24 @@ data class CharacterRow(val character: Character, val status: CharacterStatus)
 
 /** One [CharacterRow] per registered character, read from [characters]; [refresh] after anything that changes them. */
 class CharacterSettings(private val characters: CharacterRepository, private val scope: CoroutineScope) {
-    var rows by mutableStateOf(read())
+    var rows by mutableStateOf<List<CharacterRow>>(emptyList())
         private set
 
     fun refresh() {
-        rows = read()
+        scope.launch { rows = read() }
     }
 
     fun restore(character: Character) {
         scope.launch {
             characters.restore(character)
-            refresh()
+            rows = read()
         }
     }
 
     fun disable(character: Character) {
         scope.launch {
             characters.disable(character)
-            refresh()
+            rows = read()
         }
     }
 
@@ -81,13 +81,13 @@ class CharacterSettings(private val characters: CharacterRepository, private val
         }
     }
 
-    private fun read() = Characters.all.map { character ->
+    private suspend fun read() = Characters.all.map { character ->
         val state = characters.state(character.id)
         CharacterRow(
             character,
             when {
                 state.disabled -> CharacterStatus.Disabled
-                state.dismissed -> CharacterStatus.Dismissed
+                state.dismissed || characters.canRestore(character) -> CharacterStatus.Dismissed
                 state.availability == Availability.Locked -> CharacterStatus.Locked(character.unlockLevel)
                 else -> CharacterStatus.Active
             },

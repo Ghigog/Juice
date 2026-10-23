@@ -38,10 +38,19 @@ class CharacterRepository(
         items.delete(meetCardId(character))
     }
 
-    /** Brings a dismissed, unlocked character back with a fresh meet card. */
+    /** Whether [character] can be restored: dismissed, or lost (unlocked with no card and no conversation). */
+    suspend fun canRestore(character: Character): Boolean = state(character.id).let { it.dismissed || isLost(character, it) }
+
+    /** Brings a dismissed or lost character back with a fresh meet card. */
     suspend fun restore(character: Character) {
         val before = state(character.id)
-        if (!before.dismissed) return
+        if (!before.dismissed) {
+            if (isLost(character, before)) {
+                store.save(character.id, before.copy(availability = Availability.MetPending))
+                items.save(meetCard(character))
+            }
+            return
+        }
         val restored = CharacterTransitions.restore(before)
         if (restored.availability == Availability.Locked) {
             store.save(character.id, restored)
@@ -108,6 +117,10 @@ class CharacterRepository(
         item.id.startsWith("checkin-") -> CoachCardKind.CheckIn
         else -> null
     }
+
+    private suspend fun isLost(character: Character, state: CharacterState) =
+        state.availability != Availability.Locked && !state.disabled && state.lastConversationAt == null &&
+            items.get(meetCardId(character)) == null && items.get(checkInCardId(character)) == null
 
     private fun meetCard(character: Character) =
         Item(meetCardId(character), ItemType.Task, "Meet ${character.name}", characterId = character.id)

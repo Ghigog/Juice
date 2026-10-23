@@ -1,5 +1,7 @@
 package com.juice.ui.overlay
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +68,11 @@ fun ItemType.toEconomy() = when (this) {
     ItemType.Routine -> EconomyItemType.ROUTINE
 }
 
+enum class LiquidTouchPhase { DOWN, MOVE, UP }
+
+/** A finger on the centre card at [position] (card-local px) of a card [size] px wide and high. */
+data class LiquidTouch(val phase: LiquidTouchPhase, val position: Offset, val size: Size)
+
 /** What the overlay asks of its host: feedback, settings changes, closing, and the meter's clock. */
 class OverlayActions(
     val feedback: (FeedbackEvent) -> Unit = {},
@@ -73,6 +80,8 @@ class OverlayActions(
     val onClose: () -> Unit = {},
     /** The carousel moved by [steps] cards; sloshes the reservoir. */
     val onScroll: (steps: Int) -> Unit = {},
+    /** A finger touched the centre card; sloshes the reservoir under it. */
+    val onLiquidTouch: (LiquidTouch) -> Unit = {},
     /** Called about once a second while the overlay is open. */
     val onTick: () -> Unit = {},
     /** Items for the Recap: active ones and those completed at or after the given instant. */

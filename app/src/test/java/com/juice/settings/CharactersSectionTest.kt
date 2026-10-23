@@ -97,6 +97,42 @@ class CharactersSectionTest {
     }
 
     @Test
+    fun aLostCharacterCanBeRestoredButOneWithACardOrConversationCannot() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+            items.delete("meet-jim")
+        }
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithTag(restoreTag).performClick()
+        compose.waitForIdle()
+        assertNotNull(runBlocking { items.get("meet-jim") })
+        compose.onNodeWithTag(restoreTag).assertDoesNotExist()
+    }
+
+    @Test
+    fun noRestoreForAnUnlockedCharacterWithAConversationOrACard() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+        }
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithTag(restoreTag).assertDoesNotExist()
+    }
+
+    @Test
+    fun noRestoreForAConversedCharacterWithoutCards() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+            items.delete("meet-jim")
+            characters.recordConversation(jim.id)
+        }
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithTag(restoreTag).assertDoesNotExist()
+    }
+
+    @Test
     fun disablingAfterConfirmationHidesCharacterButKeepsItsItems() {
         runBlocking {
             characters.unlockAtLevel(jim, 5)

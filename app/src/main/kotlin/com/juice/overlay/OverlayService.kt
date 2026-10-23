@@ -38,6 +38,8 @@ import java.io.File
 import kotlinx.coroutines.runBlocking
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.Tier
+import androidx.compose.ui.geometry.Offset
+import com.juice.ui.overlay.LiquidTouchPhase
 import com.juice.ui.overlay.OverlayActions
 import com.juice.ui.overlay.OverlayEffects
 import com.juice.ui.overlay.hud
@@ -286,11 +288,22 @@ class OverlayService : Service() {
             enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
             cloudAvailable = { IntakeWorker.cloudAvailable },
         )
+        var lastTouch = Offset.Zero
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
             onSettingsChange = { change -> scope.launch { settingsRepository.update(change) } },
             onClose = ::closeOverlay,
             onScroll = { steps -> reservoir.kick(steps * 2.2f) },
+            onLiquidTouch = { touch ->
+                val x = touch.position.x / touch.size.width
+                val y = touch.position.y / touch.size.height
+                when (touch.phase) {
+                    LiquidTouchPhase.DOWN -> reservoir.disturb(x, y, TAP_STRENGTH)
+                    LiquidTouchPhase.MOVE -> reservoir.wake(lastTouch.x, lastTouch.y, x, y)
+                    LiquidTouchPhase.UP -> Unit
+                }
+                lastTouch = Offset(x, y)
+            },
             onTick = session::tick,
             recapItems = repository::recapItems,
         )
@@ -412,6 +425,9 @@ class OverlayService : Service() {
         }
     }
 }
+
+/** How hard a tap pushes the juice. */
+private const val TAP_STRENGTH = 1f
 
 private const val TAG = "OverlayService"
 
