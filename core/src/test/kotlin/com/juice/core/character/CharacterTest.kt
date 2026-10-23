@@ -75,4 +75,38 @@ class CharacterTest {
         val many = (1..11).joinToString(",") { """{"action":"remove","id":"t1"}""" }
         assertIs<CoachProposalResult.Rejected>(CoachProposal.validate("""{"tasks":[$many]}""", known))
     }
+
+    @Test fun parsesEachLeadingEmotionTag() {
+        assertEquals(ParsedReply(Emotion.HAPPY, "Well howdy!"), CoachReplyText.parse("[happy] Well howdy!"))
+        assertEquals(ParsedReply(Emotion.STERN, "Drop and give me ten."), CoachReplyText.parse("[stern] Drop and give me ten."))
+        assertEquals(ParsedReply(Emotion.THINKING, "Hmm."), CoachReplyText.parse("[thinking] Hmm."))
+        assertEquals(ParsedReply(Emotion.NEUTRAL, "Okay."), CoachReplyText.parse("[neutral] Okay."))
+    }
+
+    @Test fun tagIsCaseInsensitive() {
+        assertEquals(ParsedReply(Emotion.HAPPY, "Hi"), CoachReplyText.parse("[HAPPY]   Hi"))
+    }
+
+    @Test fun missingOrUnknownTagIsNeutral() {
+        assertEquals(ParsedReply(Emotion.NEUTRAL, "Plain reply"), CoachReplyText.parse("Plain reply"))
+        assertEquals(ParsedReply(Emotion.NEUTRAL, "Huh?"), CoachReplyText.parse("[confused] Huh?"))
+    }
+
+    @Test fun tagInTheMiddleIsLeftAlone() {
+        assertEquals(ParsedReply(Emotion.NEUTRAL, "Well [happy] howdy"), CoachReplyText.parse("Well [happy] howdy"))
+    }
+
+    @Test fun jimPromptNamesJimothyKeepsGuardrailAndContract() {
+        val prompt = jim.personaPrompt
+        assertTrue("Jimothy" in prompt)
+        assertTrue("not a doctor" in prompt)
+        listOf("[neutral]", "[happy]", "[stern]", "[thinking]").forEach { assertTrue(it in prompt, it) }
+        assertTrue("""{"tasks":[""" in prompt)
+        assertTrue("no emotion tag" in prompt)
+    }
+
+    @Test fun jimHasOpeningLineAndPitchInRange() {
+        assertTrue(jim.openingLine.isNotBlank())
+        assertTrue(jim.mutterPitch in 0.5f..2.0f)
+    }
 }
