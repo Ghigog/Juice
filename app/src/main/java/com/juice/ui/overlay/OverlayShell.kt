@@ -290,6 +290,16 @@ fun OverlayShell(
                         .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
                 )
             }
+            state.creator?.let { creator ->
+                CreatorFlow(
+                    creator, hud, onConfirm = state::createCharacter, onCancel = state::cancelCreator,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(overlayTint(blurred))
+                        .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
+                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                )
+            }
             val needsCloud = stringResource(R.string.coach_needs_cloud)
             val unreachable = stringResource(R.string.coach_unreachable)
             LaunchedEffect(chat?.notice) {

@@ -35,7 +35,11 @@ import com.juice.coach.ConversationStore
 import com.juice.core.economy.EconomyConfig
 import com.juice.memory.MemoryStore
 import com.juice.ui.overlay.CoachChatState
+import com.juice.data.CreatedCharacterStore
+import com.juice.intake.CharacterGenerator
+import com.juice.intake.GroqClient
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.Tier
@@ -46,7 +50,6 @@ import com.juice.ui.overlay.OverlayEffects
 import com.juice.ui.overlay.hud
 import com.juice.ui.overlay.multiplierLabel
 import com.juice.ui.overlay.toEconomy
-import com.juice.core.character.Characters
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.EconomyStore
@@ -97,7 +100,18 @@ class OverlayService : Service() {
     private val repository by lazy {
         ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
     }
-    private val characters by lazy { CharacterRepository(characterStore, repository, conversationStore, memoryStore) }
+    private val createdStore by lazy { CreatedCharacterStore(this) }
+    private val characters by lazy {
+        CharacterRepository(
+            characterStore, repository, conversationStore, memoryStore, createdStore,
+            CharacterGenerator(llm = { hobby ->
+                if (BuildConfig.GROQ_API_KEY.isBlank() || runBlocking { settingsRepository.current().onDeviceOnly }) {
+                    throw IOException("Needs cloud access: turn off On-device only")
+                }
+                GroqClient(BuildConfig.GROQ_API_KEY).generatePersona(hobby)
+            }),
+        )
+    }
     private val characterSettings by lazy { CharacterSettings(characters, scope) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
@@ -257,7 +271,7 @@ class OverlayService : Service() {
         session.open()
         scope.launch {
             unlockCharacters(session.level)
-            Characters.all.forEach { characters.createCheckInIfDue(it) }
+            characters.registry().all().forEach { characters.createCheckInIfDue(it) }
         }
         feedback.play(FeedbackEvent.OPEN)
         val bars = systemBarsPadding()
@@ -327,8 +341,9 @@ class OverlayService : Service() {
                 onCompletionUndone = { session.undo() },
                 onCaptured = intake::submit,
                 characters = characters,
+                registry = characters.registry(),
                 coachChatFor = { characterId, onFailed ->
-                    Characters.byId(characterId)?.takeUnless { characterId in characterStore.disabledIds() }?.let { character ->
+                    characters.registry().byId(characterId)?.takeUnless { characterId in characterStore.disabledIds() }?.let { character ->
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
                             character,
@@ -374,7 +389,10 @@ class OverlayService : Service() {
     }
 
     /** Unlocks every character whose level [level] has reached; each adds its meet card once. */
-    private suspend fun unlockCharacters(level: Int) = Characters.all.forEach { characters.unlockAtLevel(it, level) }
+    private suspend fun unlockCharacters(level: Int) {
+        characters.registry().all().forEach { characters.unlockAtLevel(it, level) }
+        characters.createCreatorCardIfDue(level)
+    }
 
     /** The system turns cross-window blur off and on (power saving, heat, some transitions); follow it. */
     private val blurListener = java.util.function.Consumer<Boolean> { applyBackdrop() }
