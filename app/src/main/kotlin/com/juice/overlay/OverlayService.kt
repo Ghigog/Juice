@@ -51,6 +51,7 @@ import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
+import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.feedback.FeedbackPlayer
@@ -89,6 +90,7 @@ class OverlayService : Service() {
     @Volatile private var settings = JuiceSettings()
     private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
     private val characters by lazy { CharacterRepository(CharacterStore(this), repository) }
+    private val characterSettings by lazy { CharacterSettings(characters, scope) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
 
@@ -337,6 +339,7 @@ class OverlayService : Service() {
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
                     systemBars = bars,
                     writingBack = writingBack,
+                    characters = characterSettings,
                 )
             }
         }

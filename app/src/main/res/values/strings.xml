@@ -56,6 +56,15 @@
     <string name="overlay_banner_satiated">Satiated. 8x Juice</string>
     <string name="overlay_banner_level">Level %1$d</string>
     <string name="overlay_banner_unlocked">Level %1$d: %2$s unlocked</string>
+    <string name="settings_characters">Characters</string>
+    <string name="settings_character_locked">Unlocks at level %1$d</string>
+    <string name="settings_character_dismissed">Dismissed</string>
+    <string name="settings_character_active">Available</string>
+    <string name="settings_character_disabled">Disabled</string>
+    <string name="settings_character_restore">Restore</string>
+    <string name="settings_character_disable">Disable</string>
+    <string name="settings_character_cancel">Cancel</string>
+    <string name="settings_character_disable_confirm">Disabling %1$s deletes their cards and regular tasks, and they won\'t come back. Disable?</string>
     <string name="coach_opening">Hi, I\'m %1$s. Tell me about your current activity, any health problems, and any constraints such as time, equipment or energy. I\'m not a doctor: for anything about your health please see a health professional, and for a training plan a personal trainer.</string>
     <string name="coach_input_hint">Message the coach…</string>
     <string name="coach_send">Send</string>

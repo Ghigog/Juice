@@ -17,7 +17,11 @@ import com.juice.R
 import com.juice.ui.overlay.label
 
 @Composable
-fun SettingsScreen(settings: JuiceSettings, onChange: ((JuiceSettings) -> JuiceSettings) -> Unit) {
+fun SettingsScreen(
+    settings: JuiceSettings,
+    onChange: ((JuiceSettings) -> JuiceSettings) -> Unit,
+    characters: CharacterSettings? = null,
+) {
     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.settings_title))
         SwitchRow(R.string.settings_sound, settings.sound) { v -> onChange { it.copy(sound = v) } }
@@ -35,6 +39,7 @@ fun SettingsScreen(settings: JuiceSettings, onChange: ((JuiceSettings) -> JuiceS
                 ) { Text(stringResource(distance.label())) }
             }
         }
+        if (characters != null) CharactersSection(characters)
     }
 }
 

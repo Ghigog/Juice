@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
+import com.juice.settings.CharacterSettings
+import com.juice.settings.CharactersSection
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SwipeDistance
 import com.juice.ui.theme.FlavourTheme
@@ -50,6 +52,7 @@ internal fun SettingsSheet(
     actions: OverlayActions,
     onDone: () -> Unit,
     onSwipeDistance: () -> Unit = {},
+    characters: CharacterSettings? = null,
     modifier: Modifier = Modifier,
 ) {
     val change = actions.onSettingsChange
@@ -125,6 +128,10 @@ internal fun SettingsSheet(
             color = JuiceColors.white(0.7f),
             modifier = Modifier.padding(top = 6.dp),
         )
+        if (characters != null) {
+            SectionLabel(R.string.settings_characters)
+            CharactersSection(characters)
+        }
     }
 }
 
