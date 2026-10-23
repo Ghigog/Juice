@@ -100,6 +100,7 @@ import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
+import java.time.Clock
 import kotlin.math.roundToInt
 import com.juice.ui.Tier
 import kotlin.math.abs
@@ -119,6 +120,7 @@ const val TAG_DISMISS = "dismiss_button"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
 const val TAG_CLOSE = "close_handle"
+const val TAG_RECAP = "recap_button"
 const val TAG_SETTINGS = "settings_button"
 const val TAG_SETTINGS_DONE = "settings_done"
 const val TAG_FLAVOUR_PREFIX = "flavour_"
@@ -162,12 +164,15 @@ fun OverlayShell(
     writingBack: WritingBack = remember { WritingBack() },
     /** The Characters section of the settings sheet; left out when null. */
     characters: CharacterSettings? = null,
+    /** Decides which day, week and month the Recap covers. */
+    clock: Clock = Clock.systemDefaultZone(),
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
     // The keyboard is the one inset still followed live; the content sits above whichever is taller.
     val contentBottom = maxOf(barBottom, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
     var settingsOpen by remember { mutableStateOf(false) }
+    var recapOpen by remember { mutableStateOf(false) }
     var centre by remember { mutableStateOf(0) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
@@ -180,6 +185,8 @@ fun OverlayShell(
     SideEffect {
         writingBack.isWriting = { writing }
         writingBack.leave = ::leaveWriting
+        writingBack.isRecapOpen = { recapOpen }
+        writingBack.closeRecap = { recapOpen = false }
     }
     // The keyboard swallows the first back press to hide itself, so the app only sees it close.
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -226,7 +233,7 @@ fun OverlayShell(
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 if (!writing) {
-                    Header(hud, onSettings = { settingsOpen = true })
+                    Header(hud, onRecap = { recapOpen = true }, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
                     val list = state.items
                     Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -318,6 +325,13 @@ fun OverlayShell(
                         .padding(bottom = barBottom),
                 )
             }
+            if (recapOpen) {
+                RecapScreen(
+                    hud, settings.reduceMotion, clock, actions,
+                    onClose = { recapOpen = false },
+                    systemBars = systemBars,
+                )
+            }
             // The same slice that opened Juice, where it was left; a tap closes.
             SliceButton(
                 settings, hud,
@@ -375,9 +389,9 @@ private fun SliceButton(settings: JuiceSettings, hud: Hud, slices: Int, active: 
 }
 
 @Composable
-private fun Header(hud: Hud, onSettings: () -> Unit) {
+private fun Header(hud: Hud, onRecap: () -> Unit, onSettings: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(170.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.width(140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
                 Text(stringResource(R.string.overlay_level, hud.level), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(Modifier.width(8.dp))
@@ -402,7 +416,27 @@ private fun Header(hud: Hud, onSettings: () -> Unit) {
             Text(String.format("%,d", hud.juice), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)
             Text(stringResource(R.string.overlay_juice_label), fontSize = 11.sp, letterSpacing = 1.sp, color = JuiceColors.white(0.75f))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
+        val recapLabel = stringResource(R.string.recap_open)
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(JuiceColors.white(0.14f))
+                .clickable(onClick = onRecap)
+                .semantics { contentDescription = recapLabel }
+                .testTag(TAG_RECAP),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Three bars stepping down, like a burndown.
+            Canvas(Modifier.size(20.dp)) {
+                val u = size.width / 24f
+                fun bar(x: Float, top: Float) =
+                    drawRoundRect(Color.White, Offset(x * u, top * u), androidx.compose.ui.geometry.Size(4f * u, (20f - top) * u), androidx.compose.ui.geometry.CornerRadius(u))
+                bar(3f, 4f); bar(10f, 10f); bar(17f, 15f)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
         val label = stringResource(R.string.settings_open)
         Box(
             Modifier
@@ -613,9 +647,15 @@ private fun MultiplierBadge(hud: Hud) {
 class WritingBack {
     internal var isWriting: () -> Boolean = { false }
     internal var leave: () -> Unit = {}
+    internal var isRecapOpen: () -> Boolean = { false }
+    internal var closeRecap: () -> Unit = {}
 
-    /** BACK ends writing mode (keeping the draft) while writing, and otherwise calls [close]. */
-    fun back(close: () -> Unit) = if (isWriting()) leave() else close()
+    /** BACK closes the Recap while it is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
+    fun back(close: () -> Unit) = when {
+        isRecapOpen() -> closeRecap()
+        isWriting() -> leave()
+        else -> close()
+    }
 }
 
 /** A still liquid, for previews and tests; the overlay passes the AGSL reservoir instead. */

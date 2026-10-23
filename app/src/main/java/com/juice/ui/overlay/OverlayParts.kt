@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import com.juice.R
+import com.juice.core.model.Item
 import com.juice.core.economy.EconomyConfig
 import com.juice.core.economy.ItemType as EconomyItemType
 import com.juice.core.intake.ItemType
@@ -74,6 +75,8 @@ class OverlayActions(
     val onScroll: (steps: Int) -> Unit = {},
     /** Called about once a second while the overlay is open. */
     val onTick: () -> Unit = {},
+    /** Items for the Recap: active ones and those completed at or after the given instant. */
+    val recapItems: suspend (since: Instant) -> List<Item> = { emptyList() },
 )
 
 /** A rising "+250 x2.4" over the card. */
