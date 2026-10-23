@@ -4,11 +4,12 @@ import com.juice.core.character.Character
 import com.juice.core.character.CoachProposal
 import com.juice.core.character.CoachProposalResult
 import com.juice.core.character.CoachTask
+import com.juice.core.character.Expression
 import com.juice.core.model.Item
 import java.io.IOException
 
 sealed interface CoachReply {
-    data class Reply(val text: String) : CoachReply
+    data class Reply(val text: String, val expression: Expression = Expression.NEUTRAL) : CoachReply
     /** On-device only is on, or there is no key: nothing was sent. */
     data object CloudRequired : CoachReply
     data class Error(val message: String) : CoachReply
@@ -36,17 +37,20 @@ class CoachConversation(
     private val earlier: List<ChatMessage> = store.load(character.id)
     private val messages = mutableListOf<ChatMessage>()
 
+    /** The expression of the coach's last message in the earlier history, neutral if there is none. */
+    val lastExpression: Expression = earlier.lastOrNull { it.role == "assistant" }?.expression ?: Expression.NEUTRAL
+
     val cloudRequired: Boolean get() = client == null || onDeviceOnly()
 
     fun send(userText: String): CoachReply {
         if (client == null || onDeviceOnly()) return CoachReply.CloudRequired
         val turn = messages + ChatMessage("user", userText)
         return try {
-            val text = client.chat(systemPrompt(), turn)
+            val (expression, text) = Expression.parse(client.chat(systemPrompt(), turn))
             messages += turn.last()
-            messages += ChatMessage("assistant", text)
+            messages += ChatMessage("assistant", text, expression)
             store.save(character.id, messages)
-            CoachReply.Reply(text)
+            CoachReply.Reply(text, expression)
         } catch (e: IOException) {
             CoachReply.Error(e.message ?: "Coach unreachable")
         }
