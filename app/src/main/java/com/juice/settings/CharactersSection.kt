@@ -23,6 +23,7 @@ import com.juice.R
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
 import com.juice.core.character.Characters
+import com.juice.core.memory.Memory
 import com.juice.data.CharacterRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -33,6 +34,8 @@ const val TAG_CHARACTER_CONFIRM_DISABLE_PREFIX = "character_confirm_disable_"
 const val TAG_CHARACTER_ENABLE_PREFIX = "character_enable_"
 const val TAG_CHARACTER_RESET_PREFIX = "character_reset_"
 const val TAG_CHARACTER_CONFIRM_RESET_PREFIX = "character_confirm_reset_"
+const val TAG_MEMORY_EMPTY = "memory_empty"
+const val TAG_MEMORY_CLEAR = "memory_clear"
 
 /** Where the player stands with a character, as Settings shows it. A [Disabled] character is only hidden; Enable brings it back. */
 sealed interface CharacterStatus {
@@ -49,8 +52,18 @@ class CharacterSettings(private val characters: CharacterRepository, private val
     var rows by mutableStateOf<List<CharacterRow>>(emptyList())
         private set
 
+    /** What the characters remember, as of the last [refresh] or [clearMemory]. */
+    var memory by mutableStateOf(Memory())
+        private set
+
     fun refresh() {
+        memory = characters.memory()
         scope.launch { rows = read() }
+    }
+
+    fun clearMemory() {
+        characters.clearMemory()
+        memory = characters.memory()
     }
 
     fun restore(character: Character) {
@@ -103,6 +116,32 @@ fun CharactersSection(settings: CharacterSettings, modifier: Modifier = Modifier
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.settings_characters))
         settings.rows.forEach { CharacterRowView(it, settings) }
+        MemoryView(settings)
+    }
+}
+
+@Composable
+private fun MemoryView(settings: CharacterSettings) {
+    val memory = settings.memory
+    val noteLists = buildList {
+        if (memory.shared.isNotEmpty()) add(stringResource(R.string.settings_memory_shared) to memory.shared)
+        memory.characters.forEach { (id, notes) ->
+            if (notes.isNotEmpty()) add((Characters.all.firstOrNull { it.id == id }?.name ?: id) to notes)
+        }
+    }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.settings_memory))
+        if (noteLists.isEmpty()) {
+            Text(stringResource(R.string.settings_memory_empty), fontSize = 12.sp, modifier = Modifier.testTag(TAG_MEMORY_EMPTY))
+        } else {
+            noteLists.forEach { (title, notes) ->
+                Text(title, fontSize = 12.sp)
+                notes.forEach { Text("• $it", fontSize = 12.sp) }
+            }
+            Button(onClick = { settings.clearMemory() }, modifier = Modifier.testTag(TAG_MEMORY_CLEAR)) {
+                Text(stringResource(R.string.settings_memory_clear))
+            }
+        }
     }
 }
 

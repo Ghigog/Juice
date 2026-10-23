@@ -1,9 +1,11 @@
 package com.juice.settings
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,6 +19,8 @@ import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.core.memory.Memory
+import com.juice.memory.MemoryStore
 import java.time.DayOfWeek
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,11 +34,14 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class CharactersSectionTest {
     private val compose = createComposeRule()
 
@@ -43,6 +50,7 @@ class CharactersSectionTest {
     private lateinit var db: JuiceDatabase
     private lateinit var items: ItemRepository
     private lateinit var characters: CharacterRepository
+    private lateinit var memoryStore: MemoryStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val jim = Characters.Jim
 
@@ -55,7 +63,12 @@ class CharactersSectionTest {
             .setTransactionExecutor { it.run() }
             .build()
         items = ItemRepository(db.itemDao())
-        characters = CharacterRepository(CharacterStore(context.getSharedPreferences("characters-section-test", Context.MODE_PRIVATE)), items)
+        memoryStore = MemoryStore(File.createTempFile("memory", ".json").also { it.delete() })
+        characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-section-test", Context.MODE_PRIVATE)),
+            items,
+            memory = memoryStore,
+        )
     }
 
     @After
@@ -191,5 +204,36 @@ class CharactersSectionTest {
         compose.waitForIdle()
         assertNotNull(runBlocking { items.get("meet-jim") })
         compose.onNodeWithTag(resetTag).assertIsDisplayed()
+    }
+
+    @Test
+    fun sharedAndCharacterNotesAreShown() {
+        memoryStore.save(Memory(shared = listOf("Likes mornings"), characters = mapOf(jim.id to listOf("Hates running"))))
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithText("• Likes mornings").assertIsDisplayed()
+        compose.onNodeWithText("• Hates running").assertIsDisplayed()
+        // Once as the character's row, once as the title of their notes.
+        compose.onAllNodesWithText(jim.name).assertCountEquals(2)
+        compose.onNodeWithTag(TAG_MEMORY_EMPTY).assertDoesNotExist()
+    }
+
+    @Test
+    fun clearMemoryRemovesTheNotesFromScreenAndStore() {
+        memoryStore.save(Memory(shared = listOf("Likes mornings"), characters = mapOf(jim.id to listOf("Hates running"))))
+        show()
+        compose.onNodeWithTag(TAG_MEMORY_CLEAR).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("• Likes mornings").assertDoesNotExist()
+        compose.onNodeWithText("• Hates running").assertDoesNotExist()
+        compose.onNodeWithTag(TAG_MEMORY_EMPTY).assertIsDisplayed()
+        assertEquals(Memory(), characters.memory())
+    }
+
+    @Test
+    fun withoutNotesItSaysNothingIsRemembered() {
+        show()
+        compose.onNodeWithTag(TAG_MEMORY_EMPTY).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_MEMORY_CLEAR).assertDoesNotExist()
     }
 }
