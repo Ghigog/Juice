@@ -33,6 +33,11 @@ class CharacterStore(private val prefs: SharedPreferences) {
             .apply()
     }
 
+    /** Forgets everything saved for [characterId]. */
+    fun clear(characterId: String) {
+        prefs.edit().apply { prefs.all.keys.filter { it.startsWith("$characterId.") }.forEach(::remove) }.apply()
+    }
+
     /** Ids of the characters currently disabled. */
     fun disabledIds(): Set<String> =
         prefs.all.keys.filter { it.endsWith(DISABLED_SUFFIX) && prefs.getBoolean(it, false) }.map { it.removeSuffix(DISABLED_SUFFIX) }.toSet()

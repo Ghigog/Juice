@@ -3,12 +3,16 @@ package com.juice.data
 import com.juice.coach.ConversationStore
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
+import com.juice.core.character.CharacterRegistry
 import com.juice.core.character.CharacterState
+import com.juice.core.character.Characters
 import com.juice.core.character.CharacterTransitions
 import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
 import com.juice.core.memory.Memory
 import com.juice.core.model.Item
+import com.juice.intake.CharacterGenerator
+import com.juice.intake.GenerationResult
 import com.juice.memory.MemoryStore
 import java.time.Instant
 import java.time.LocalDate
@@ -17,13 +21,49 @@ import java.util.UUID
 /** Which of a character's cards an item is. */
 enum class CoachCardKind { Meet, CheckIn }
 
+sealed interface CreateResult {
+    data class Created(val character: Character) : CreateResult
+    data class Failed(val message: String) : CreateResult
+    data object LimitReached : CreateResult
+}
+
 /** A character's saved state together with the cards that belong to it. */
 class CharacterRepository(
     private val store: CharacterStore,
     private val items: ItemRepository,
     private val conversations: ConversationStore? = null,
     private val memory: MemoryStore? = null,
+    private val created: CreatedCharacterStore? = null,
+    private val generator: CharacterGenerator? = null,
 ) {
+    /** Every built-in character plus the ones the player created. */
+    fun registry(): CharacterRegistry = CharacterRegistry { created?.list().orEmpty() }
+
+    /** Generates a character for [hobby], saves it and adds its meet card; saves nothing and returns the error when refused or failed. */
+    suspend fun createCharacter(hobby: String): CreateResult {
+        val store = created ?: return CreateResult.Failed("Creating characters is not available")
+        val gen = generator ?: return CreateResult.Failed("Creating characters is not available")
+        if (store.list().size >= Characters.MAX_CREATED_CHARACTERS) return CreateResult.LimitReached
+        return when (val result = gen.generate(hobby)) {
+            is GenerationResult.Failure -> CreateResult.Failed(result.message)
+            is GenerationResult.Success -> {
+                store.add(result.character)
+                this.store.save(result.character.id, CharacterState(availability = Availability.MetPending))
+                items.save(meetCard(result.character))
+                CreateResult.Created(result.character)
+            }
+        }
+    }
+
+    /** Removes a created character with its cards, routines, chat, notes and saved state. */
+    suspend fun deleteCharacter(id: String) {
+        items.deleteByCharacter(id)
+        conversations?.clear(id)
+        memory?.deleteCharacter(id)
+        store.clear(id)
+        created?.remove(id)
+    }
+
     fun state(characterId: String): CharacterState = store.load(characterId)
 
     /** Unlocks [character] once [level] is high enough and adds its meet card; asking again adds nothing. */
