@@ -55,7 +55,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -276,6 +278,21 @@ internal fun CentreCard(
         }
     }
 
+    // Only watches, on the Initial pass, so the drawing gesture above sees every event untouched.
+    val liquid = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val touch = { phase: LiquidTouchPhase, at: Offset -> actions.onLiquidTouch(LiquidTouch(phase, at, size.toSize())) }
+            touch(LiquidTouchPhase.DOWN, down.position)
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.first()
+                if (!change.pressed) break
+                touch(LiquidTouchPhase.MOVE, change.position)
+            }
+            touch(LiquidTouchPhase.UP, down.position)
+        }
+    }
+
     val strokeColor = when (tint) {
         Tint.OK -> JuiceColors.Ok
         Tint.X -> JuiceColors.No
@@ -291,6 +308,7 @@ internal fun CentreCard(
             .border(1.dp, JuiceColors.white(0.28f), RoundedCornerShape(30.dp))
             .testTag(TAG_CENTRE_CARD)
             .onGloballyPositioned { cardOrigin = it.positionInRoot() }
+            .then(liquid)
             .then(drawing),
     ) {
         // The juice sits behind the text, outside the Column that flies away.
