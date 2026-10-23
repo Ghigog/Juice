@@ -58,7 +58,7 @@ class SoundPoolOutput(context: Context) : SoundOutput {
 
     private companion object {
         /** Bump when the recipes in [Synth] change, so old renders are not reused. */
-        const val VERSION = 1
+        const val VERSION = 2
         const val VOLUME = 0.9f
     }
 }

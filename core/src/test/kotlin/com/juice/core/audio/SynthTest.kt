@@ -29,6 +29,14 @@ class SynthTest {
         assertTrue(seconds(Cue.TICK, Flavour.ELECTRIC_CITRUS) < 0.2)
     }
 
+    @Test fun mutterIsAShortBlipForEveryFlavour() {
+        Flavour.entries.forEach { f ->
+            val pcm = Synth.render(Cue.MUTTER, f)
+            assertTrue(pcm.isNotEmpty() && pcm.all { it in -1f..1f })
+            assertTrue(pcm.size / Synth.SAMPLE_RATE.toDouble() < 0.1)
+        }
+    }
+
     @Test fun wavHasAHeaderAndTwoBytesPerSample() {
         val bytes = wav(FloatArray(100))
         assertEquals("RIFF", String(bytes, 0, 4))
