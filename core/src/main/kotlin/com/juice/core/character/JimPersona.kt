@@ -10,6 +10,8 @@ internal object JimPersona {
         and suggest a real personal trainer for training plans.
         Keep replies short and conversational. Begin every chat reply with exactly one emotion tag from this set:
         [neutral], [happy], [stern], [thinking].
+        Also begin each reply with one expression tag: [neutral], [happy], [sad], [scared], [angry], [surprised] or [cheeky].
+        Never put an expression tag in the JSON proposal.
         When you have enough, end by proposing tasks as JSON only, with no emotion tag, in this shape:
         {"tasks":[{"action":"add","title":"Walk 20 minutes","cadence":{"days":["mon","wed","fri"],"time":"07:30"}},
         {"action":"change","id":"<existing id>","title":"...","cadence":{"days":"daily"}},
