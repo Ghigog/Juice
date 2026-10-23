@@ -1,5 +1,6 @@
 package com.juice.coach
 
+import com.juice.core.character.Expression
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -15,13 +16,18 @@ class ConversationStore(private val file: File) {
     fun load(characterId: String): List<ChatMessage> =
         readAll()[characterId]?.jsonArray?.map {
             val m = it.jsonObject
-            ChatMessage(m.getValue("role").jsonPrimitive.content, m.getValue("content").jsonPrimitive.content)
+            val saved = m["expression"]?.jsonPrimitive?.content
+            ChatMessage(
+                m.getValue("role").jsonPrimitive.content,
+                m.getValue("content").jsonPrimitive.content,
+                Expression.entries.firstOrNull { e -> e.name.equals(saved, ignoreCase = true) } ?: Expression.NEUTRAL,
+            )
         }.orEmpty()
 
     fun save(characterId: String, messages: List<ChatMessage>) {
         val all = readAll().toMutableMap()
         all[characterId] = buildJsonArray {
-            messages.forEach { m -> add(buildJsonObject { put("role", m.role); put("content", m.content) }) }
+            messages.forEach { m -> add(buildJsonObject { put("role", m.role); put("content", m.content); put("expression", m.expression.name.lowercase()) }) }
         }
         val tmp = File(file.path + ".tmp")
         tmp.writeText(JsonObject(all).toString())
