@@ -15,11 +15,21 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class ItemRepository(private val dao: ItemDao, private val clock: () -> Instant = Instant::now) {
+class ItemRepository(
+    private val dao: ItemDao,
+    /** Characters whose cards and tasks are left out of the lists (the disabled ones). */
+    private val hiddenCharacterIds: () -> Set<String> = { emptySet() },
+    /** Emits when [hiddenCharacterIds] may have changed, so observed lists are read again. */
+    private val hiddenChanges: Flow<Unit> = emptyFlow(),
+    private val clock: () -> Instant = Instant::now,
+) {
     /** Writes run one at a time, in the order they were asked for, so a quick complete then undo lands in order. */
     private val writes = Mutex()
 
@@ -63,18 +73,23 @@ class ItemRepository(private val dao: ItemDao, private val clock: () -> Instant 
 
     /** Items still to do: completed and archived ones are left out. */
     suspend fun active(today: LocalDate = LocalDate.now()): List<Item> =
-        dao.active(today.toEpochDay()).map { it.toItem() }
+        dao.active(today.toEpochDay()).map { it.toItem() }.visible()
 
     /** Active items, re-emitted whenever they change. */
     fun observeActive(today: LocalDate = LocalDate.now()): Flow<List<Item>> =
-        dao.observeActive(today.toEpochDay()).map { list -> list.map { it.toItem() } }
+        dao.observeActive(today.toEpochDay()).visible()
 
     /** Items for a Recap: not archived, and either still active or completed at or after [since]. */
     suspend fun recapItems(since: Instant): List<Item> =
-        dao.recapItems(since.toEpochMilli()).map { it.toItem() }
+        dao.recapItems(since.toEpochMilli()).map { it.toItem() }.visible()
 
     fun observeRecapItems(since: Instant): Flow<List<Item>> =
-        dao.observeRecapItems(since.toEpochMilli()).map { list -> list.map { it.toItem() } }
+        dao.observeRecapItems(since.toEpochMilli()).visible()
+
+    private fun List<Item>.visible(): List<Item> = hiddenCharacterIds().let { hidden -> filter { it.characterId !in hidden } }
+
+    private fun Flow<List<ItemEntity>>.visible(): Flow<List<Item>> =
+        combine(hiddenChanges.onStart { emit(Unit) }) { list, _ -> list.map { it.toItem() }.visible() }
 
     /** Marks [field] as changed by the user, so a later parse leaves it alone. */
     suspend fun markEdited(id: String, field: IntakeField) {

@@ -18,6 +18,15 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -95,6 +104,27 @@ class ItemRepositoryTest {
         val steps = db.query("SELECT steps FROM items WHERE id = 'p'").use { it.moveToFirst(); it.getString(0).decodeSteps() }
         assertEquals(listOf(Step("a", "Title a", false), Step("b", "Title b", true)), steps)
         helper.close()
+    }
+
+    @Test
+    fun itemsOfHiddenCharactersAreLeftOutOfTheLists() = runBlocking {
+        var hidden = setOf("jim")
+        val changes = MutableSharedFlow<Unit>()
+        val filtered = ItemRepository(db.itemDao(), { hidden }, changes) { now }
+        filtered.save(item("a"))
+        filtered.save(item("b").copy(characterId = "jim"))
+        assertEquals(listOf("a"), filtered.active().map { it.id })
+        assertEquals(listOf("a"), filtered.recapItems(now.minusSeconds(60)).map { it.id })
+        assertEquals(listOf("a"), filtered.observeRecapItems(now.minusSeconds(60)).first().map { it.id })
+
+        val seen = java.util.concurrent.CopyOnWriteArrayList<List<String>>()
+        val emissions = async(Dispatchers.Default) { filtered.observeActive().map { list -> list.map { it.id }.sorted() }.take(2).toList(seen) }
+        withTimeout(10_000) { while (seen.isEmpty()) delay(10) }
+        changes.subscriptionCount.first { it > 0 }
+        hidden = emptySet()
+        changes.emit(Unit)
+        withTimeout(10_000) { emissions.await() }
+        assertEquals(listOf(listOf("a"), listOf("a", "b")), seen.toList())
     }
 
     @Test
