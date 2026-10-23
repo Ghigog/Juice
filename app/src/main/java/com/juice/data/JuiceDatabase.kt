@@ -44,6 +44,9 @@ abstract class JuiceDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN createdAtMillis INTEGER")
                 db.execSQL("ALTER TABLE items ADD COLUMN completedAtMillis INTEGER")
+                // Completed rows have no recorded time; stamp them now so the Recap (which filters on it) keeps them.
+                val now = System.currentTimeMillis()
+                db.execSQL("UPDATE items SET completedAtMillis = ?, createdAtMillis = ? WHERE status = 'Completed'", arrayOf<Any>(now, now))
             }
         }
 
@@ -100,10 +103,13 @@ abstract class JuiceDatabase : RoomDatabase() {
 
         /** One shared instance, so the overlay's observers see writes made by the intake worker. */
         fun open(context: Context): JuiceDatabase = instance ?: synchronized(this) {
-            instance ?: Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, "juice.db")
+            instance ?: build(context, "juice.db").also { instance = it }
+        }
+
+        /** A database file called [name] with every registered migration; never falls back to wiping data. */
+        internal fun build(context: Context, name: String): JuiceDatabase =
+            Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, name)
                 .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimesAndCharacterId)
                 .build()
-                .also { instance = it }
-        }
     }
 }

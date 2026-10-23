@@ -23,6 +23,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
@@ -118,6 +119,40 @@ class CharacterRepositoryTest {
         characters.restore(jim)
         assertEquals(listOf("Meet Coach Humble Jumble Jim"), items.byCharacter(jim.id).map { it.title })
         assertFalse(characters.state(jim.id).dismissed)
+    }
+
+    @Test
+    fun aLostCharacterIsRestorableAndGetsAMeetCard() = runBlocking {
+        characters.unlockAtLevel(jim, 5)
+        items.delete("meet-jim")
+        assertTrue(characters.canRestore(jim))
+        characters.restore(jim)
+        assertEquals(listOf("Meet Coach Humble Jumble Jim"), items.byCharacter(jim.id).map { it.title })
+        assertFalse(characters.canRestore(jim))
+    }
+
+    @Test
+    fun aCharacterWithACardAConversationOrLockedOrDisabledIsNotRestorable() = runBlocking {
+        assertFalse(characters.canRestore(jim)) // locked
+        characters.unlockAtLevel(jim, 5)
+        assertFalse(characters.canRestore(jim)) // meet card
+        items.delete("meet-jim")
+        items.save(Item("checkin-jim", ItemType.Task, "Check in", characterId = jim.id))
+        assertFalse(characters.canRestore(jim)) // check-in card
+        items.delete("checkin-jim")
+        characters.recordConversation(jim.id)
+        assertFalse(characters.canRestore(jim)) // conversation
+        characters.restore(jim)
+        assertEquals(emptyList(), items.byCharacter(jim.id))
+    }
+
+    @Test
+    fun aDisabledCharacterIsNotRestorable() = runBlocking {
+        characters.unlockAtLevel(jim, 5)
+        characters.disable(jim)
+        assertFalse(characters.canRestore(jim))
+        characters.restore(jim)
+        assertEquals(emptyList(), items.byCharacter(jim.id))
     }
 
     @Test
