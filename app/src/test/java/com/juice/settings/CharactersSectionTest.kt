@@ -17,6 +17,10 @@ import com.juice.core.character.Characters
 import com.juice.core.routine.Cadence
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
+import com.juice.data.CreatedCharacterStore
+import com.juice.core.character.Character
+import com.juice.core.character.Face
+import com.juice.core.character.Shape
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.core.memory.Memory
@@ -53,6 +57,13 @@ class CharactersSectionTest {
     private lateinit var memoryStore: MemoryStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val jim = Characters.Jim
+    private val createdStore = CreatedCharacterStore(
+        ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("created-section-test", Context.MODE_PRIVATE),
+    )
+    private val pete = Character(
+        id = "pete", name = "Pottery Pete", personaPrompt = "p", unlockLevel = 0, checkInIntervalDays = 14,
+        openingLine = "Hi", mutterPitch = 1f, face = Face(eye = Shape.CIRCLE, mouth = Shape.SQUARE), hobby = "pottery",
+    )
 
     @Before
     fun setUp() {
@@ -68,6 +79,7 @@ class CharactersSectionTest {
             CharacterStore(context.getSharedPreferences("characters-section-test", Context.MODE_PRIVATE)),
             items,
             memory = memoryStore,
+            created = createdStore,
         )
     }
 
@@ -235,5 +247,50 @@ class CharactersSectionTest {
         show()
         compose.onNodeWithTag(TAG_MEMORY_EMPTY).assertIsDisplayed()
         compose.onNodeWithTag(TAG_MEMORY_CLEAR).assertDoesNotExist()
+    }
+
+    private fun addCreated() = runBlocking {
+        createdStore.add(pete)
+        items.save(com.juice.core.model.Item("meet-pete", com.juice.core.intake.ItemType.Task, "Meet Pottery Pete", characterId = pete.id))
+    }
+
+    @Test
+    fun aCreatedCharacterIsListedWithMonogramAndStateButJimHasNoDelete() {
+        createdStore.remove(pete.id)
+        addCreated()
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithText("Pottery Pete").assertIsDisplayed()
+        compose.onNodeWithText("PP").assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CHARACTER_DELETE_PREFIX + pete.id).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CHARACTER_DELETE_PREFIX + jim.id).assertDoesNotExist()
+    }
+
+    @Test
+    fun deletingACreatedCharacterAfterConfirmationRemovesIt() {
+        createdStore.remove(pete.id)
+        addCreated()
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_CHARACTER_DELETE_PREFIX + pete.id).performClick()
+        assertNotNull(runBlocking { items.get("meet-pete") })
+        compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_DELETE_PREFIX + pete.id).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Pottery Pete").assertDoesNotExist()
+        assertNull(runBlocking { items.get("meet-pete") })
+        assertEquals(emptyList(), createdStore.list())
+    }
+
+    @Test
+    fun cancellingTheDeleteConfirmationKeepsTheCharacter() {
+        createdStore.remove(pete.id)
+        addCreated()
+        show()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_CHARACTER_DELETE_PREFIX + pete.id).performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Pottery Pete").assertIsDisplayed()
+        assertNotNull(runBlocking { items.get("meet-pete") })
     }
 }
