@@ -9,8 +9,6 @@ import com.juice.coach.CoachFinish
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
 import com.juice.core.character.CoachTask
-import com.juice.core.character.Emotion
-import com.juice.core.character.Expression
 import com.juice.core.model.Item
 import com.juice.data.CharacterRepository
 import com.juice.feedback.Feedback
@@ -45,8 +43,8 @@ class CoachChatState(
     var messages by mutableStateOf(emptyList<ChatMessage>())
         private set
 
-    /** The coach's mood in its latest reply; it stays put across rejected proposals and errors. */
-    var emotion by mutableStateOf(Emotion.NEUTRAL)
+    /** The coach's expression: the saved conversation's last one at first, then each reply's; it stays put across proposals and errors. */
+    var expression by mutableStateOf(conversation.lastExpression)
         private set
 
     /** Index in [messages] of the newest assistant reply, the only one that types out; -1 before any. */
@@ -85,7 +83,7 @@ class CoachChatState(
         scope.launch {
             when (val reply = withContext(io) { conversation.send(said) }) {
                 is CoachReply.Reply -> {
-                    emotion = reply.expression.toEmotion()
+                    expression = reply.expression
                     messages = messages + ChatMessage("assistant", reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                 }
@@ -140,13 +138,6 @@ class CoachChatState(
         open = false
         onFailed()
     }
-}
-
-/** The portrait art covers fewer moods than [Expression]; the ones without a portrait show the neutral one. */
-private fun Expression.toEmotion(): Emotion = when (this) {
-    Expression.HAPPY -> Emotion.HAPPY
-    Expression.ANGRY -> Emotion.STERN
-    else -> Emotion.NEUTRAL
 }
 
 private object SilentFeedback : Feedback {
