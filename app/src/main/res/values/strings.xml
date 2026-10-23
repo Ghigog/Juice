@@ -77,12 +77,14 @@
     <string name="settings_character_disable">Disable</string>
     <string name="settings_character_cancel">Cancel</string>
     <string name="settings_character_enable">Enable</string>
+    <string name="settings_character_delete">Delete</string>
     <string name="settings_character_reset">Reset</string>
     <string name="settings_memory">What characters remember</string>
     <string name="settings_memory_shared">Shared notes</string>
     <string name="settings_memory_empty">Nothing is remembered yet.</string>
     <string name="settings_memory_clear">Clear memory</string>
     <string name="settings_character_disable_confirm">Disabling %1$s hides their cards, tasks and chat. Nothing is deleted, and you can enable them again. Disable?</string>
+    <string name="settings_character_delete_confirm">Deleting %1$s removes them for good, with their cards, tasks, conversation and notes. Delete?</string>
     <string name="settings_character_reset_confirm">Resetting %1$s deletes their cards, tasks and conversation, and starts them over as new. Reset?</string>
     <string name="coach_input_hint">Message the coach…</string>
     <string name="coach_send">Send</string>

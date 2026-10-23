@@ -1,9 +1,14 @@
 package com.juice.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -15,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -22,9 +29,11 @@ import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
-import com.juice.core.character.Characters
+import com.juice.core.character.Expression
+import com.juice.core.character.Monogram
 import com.juice.core.memory.Memory
 import com.juice.data.CharacterRepository
+import com.juice.ui.face.CharacterFace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -34,6 +43,8 @@ const val TAG_CHARACTER_CONFIRM_DISABLE_PREFIX = "character_confirm_disable_"
 const val TAG_CHARACTER_ENABLE_PREFIX = "character_enable_"
 const val TAG_CHARACTER_RESET_PREFIX = "character_reset_"
 const val TAG_CHARACTER_CONFIRM_RESET_PREFIX = "character_confirm_reset_"
+const val TAG_CHARACTER_DELETE_PREFIX = "character_delete_"
+const val TAG_CHARACTER_CONFIRM_DELETE_PREFIX = "character_confirm_delete_"
 const val TAG_MEMORY_EMPTY = "memory_empty"
 const val TAG_MEMORY_CLEAR = "memory_clear"
 
@@ -94,7 +105,18 @@ class CharacterSettings(private val characters: CharacterRepository, private val
         }
     }
 
-    private suspend fun read() = Characters.all.map { character ->
+    /** Removes a created character and everything of it, then reads the rows again. */
+    fun delete(character: Character) {
+        scope.launch {
+            characters.deleteCharacter(character.id)
+            refresh()
+        }
+    }
+
+    /** The name [id] shows under, or [id] itself when no character has it. */
+    fun nameOf(id: String): String = characters.registry().byId(id)?.name ?: id
+
+    private suspend fun read() = characters.registry().all().map { character ->
         val state = characters.state(character.id)
         CharacterRow(
             character,
@@ -108,7 +130,22 @@ class CharacterSettings(private val characters: CharacterRepository, private val
     }
 }
 
-/** The Characters section: Restore for a dismissed character, Disable and Reset (each after a confirmation) for an active one, Enable and Reset for a disabled one, only the state otherwise. */
+/** A character's picture: its face for a built-in, its monogram for a created one. */
+@Composable
+fun CharacterAvatar(character: Character, modifier: Modifier = Modifier) {
+    Box(modifier.size(40.dp).clip(CircleShape).background(Color.DarkGray), contentAlignment = Alignment.Center) {
+        if (character.hobby == null) {
+            CharacterFace(character.face, Expression.NEUTRAL, Modifier.size(32.dp))
+        } else {
+            val monogram = Monogram(character)
+            Box(Modifier.size(40.dp).background(Color.hsv(monogram.hue.toFloat(), 0.5f, 0.6f)), contentAlignment = Alignment.Center) {
+                Text(monogram.initials, color = Color.White)
+            }
+        }
+    }
+}
+
+/** The Characters section: Restore for a dismissed character, Disable and Reset (each after a confirmation) for an active one, Enable and Reset for a disabled one, Delete (after a confirmation) for a created one, only the state otherwise. */
 @Composable
 fun CharactersSection(settings: CharacterSettings, modifier: Modifier = Modifier) {
     // Cards can be dismissed in the carousel while this is closed, so read afresh each time it opens.
@@ -126,7 +163,7 @@ private fun MemoryView(settings: CharacterSettings) {
     val noteLists = buildList {
         if (memory.shared.isNotEmpty()) add(stringResource(R.string.settings_memory_shared) to memory.shared)
         memory.characters.forEach { (id, notes) ->
-            if (notes.isNotEmpty()) add((Characters.all.firstOrNull { it.id == id }?.name ?: id) to notes)
+            if (notes.isNotEmpty()) add(settings.nameOf(id) to notes)
         }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -150,10 +187,13 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
     val id = row.character.id
     var confirming by remember { mutableStateOf(false) }
     var confirmingReset by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+    val created = row.character.hobby != null
     val canReset = row.status == CharacterStatus.Active || row.status == CharacterStatus.Disabled
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
+            CharacterAvatar(row.character)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(row.character.name)
                 Text(
                     when (val status = row.status) {
@@ -177,15 +217,22 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
                 else -> Unit
             }
         }
-        if (canReset && !confirming && !confirmingReset) {
+        if ((canReset || created) && !confirming && !confirmingReset && !confirmingDelete) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (row.status == CharacterStatus.Active) {
                     Button(onClick = { confirming = true }, modifier = Modifier.testTag(TAG_CHARACTER_DISABLE_PREFIX + id)) {
                         Text(stringResource(R.string.settings_character_disable))
                     }
                 }
-                Button(onClick = { confirmingReset = true }, modifier = Modifier.testTag(TAG_CHARACTER_RESET_PREFIX + id)) {
-                    Text(stringResource(R.string.settings_character_reset))
+                if (canReset) {
+                    Button(onClick = { confirmingReset = true }, modifier = Modifier.testTag(TAG_CHARACTER_RESET_PREFIX + id)) {
+                        Text(stringResource(R.string.settings_character_reset))
+                    }
+                }
+                if (created) {
+                    Button(onClick = { confirmingDelete = true }, modifier = Modifier.testTag(TAG_CHARACTER_DELETE_PREFIX + id)) {
+                        Text(stringResource(R.string.settings_character_delete))
+                    }
                 }
             }
         }
@@ -197,6 +244,16 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
                     modifier = Modifier.testTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + id),
                 ) { Text(stringResource(R.string.settings_character_reset)) }
                 TextButton(onClick = { confirmingReset = false }) { Text(stringResource(R.string.settings_character_cancel)) }
+            }
+        }
+        if (confirmingDelete && created) {
+            Text(stringResource(R.string.settings_character_delete_confirm, row.character.name), fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { confirmingDelete = false; settings.delete(row.character) },
+                    modifier = Modifier.testTag(TAG_CHARACTER_CONFIRM_DELETE_PREFIX + id),
+                ) { Text(stringResource(R.string.settings_character_delete)) }
+                TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.settings_character_cancel)) }
             }
         }
         if (confirming && row.status == CharacterStatus.Active) {
