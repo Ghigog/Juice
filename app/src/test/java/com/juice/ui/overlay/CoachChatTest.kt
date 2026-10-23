@@ -252,6 +252,7 @@ class CoachChatTest {
         val chat = chat {}
         sendAndWait(chat, "[happy] Nice")
         reply("""{"tasks":[${add("Walk")}]}""")
+        reply("""{"shared":[],"characters":{}}""")
         chat.finish()
         waitFor { chat.proposal != null }
         assertEquals(Expression.HAPPY, chat.expression)
