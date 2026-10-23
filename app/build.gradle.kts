@@ -38,6 +38,27 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Release key comes from the environment (see docs/releasing.md). Without it the release
+        // build falls back to the debug key so it still builds; the release workflow warns about that.
+        create("release") {
+            val keystorePath = System.getenv("JUICE_KEYSTORE_FILE")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("JUICE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("JUICE_KEY_ALIAS")
+                keyPassword = System.getenv("JUICE_KEY_PASSWORD")
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            // Not minified: Room and serialization would need keep rules, unverified.
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
