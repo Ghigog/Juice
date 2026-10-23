@@ -7,7 +7,9 @@ import com.juice.core.character.CharacterState
 import com.juice.core.character.CharacterTransitions
 import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
+import com.juice.core.memory.Memory
 import com.juice.core.model.Item
+import com.juice.memory.MemoryStore
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -20,6 +22,7 @@ class CharacterRepository(
     private val store: CharacterStore,
     private val items: ItemRepository,
     private val conversations: ConversationStore? = null,
+    private val memory: MemoryStore? = null,
 ) {
     fun state(characterId: String): CharacterState = store.load(characterId)
 
@@ -60,9 +63,18 @@ class CharacterRepository(
         items.save(meetCard(character))
     }
 
-    /** Hides [character]: its cards, tasks and chat go from the lists and no new card is made, but all it has stays stored. */
+    /** Hides [character]: its cards, tasks and chat go from the lists and no new card is made, but all it has stays stored, except its notes. */
     suspend fun disable(character: Character) {
         store.save(character.id, CharacterTransitions.disable(state(character.id)))
+        memory?.deleteCharacter(character.id)
+    }
+
+    /** Everything the characters remember about the player. */
+    fun memory(): Memory = memory?.load() ?: Memory()
+
+    /** Forgets every note, shared and per character. */
+    fun clearMemory() {
+        memory?.clearAll()
     }
 
     /** Shows a disabled [character] again, with everything it had. */

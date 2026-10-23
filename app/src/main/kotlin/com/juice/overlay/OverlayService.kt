@@ -97,7 +97,7 @@ class OverlayService : Service() {
     private val repository by lazy {
         ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
     }
-    private val characters by lazy { CharacterRepository(characterStore, repository, conversationStore) }
+    private val characters by lazy { CharacterRepository(characterStore, repository, conversationStore, memoryStore) }
     private val characterSettings by lazy { CharacterSettings(characters, scope) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
