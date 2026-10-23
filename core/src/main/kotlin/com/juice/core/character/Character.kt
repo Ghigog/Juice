@@ -12,6 +12,7 @@ data class Character(
     val checkInIntervalDays: Int,
     val openingLine: String,
     val mutterPitch: Float,
+    val face: Face,
 ) {
     init {
         require(mutterPitch in 0.5f..2.0f) { "mutterPitch must be within 0.5..2.0" }
@@ -29,6 +30,7 @@ object Characters {
         checkInIntervalDays = 14,
         openingLine = "Well howdy, friend! Jimothy here. I'll push you like a stubborn mule, but I ain't a doctor, so see one for health worries. What're we workin' on?",
         mutterPitch = 0.8f,
+        face = Face(eye = Shape.SQUARE, mouth = Shape.TRIANGLE),
     )
 
     val Nutritionist = Character(
@@ -39,6 +41,7 @@ object Characters {
         checkInIntervalDays = 14,
         openingLine = "Hi hi, Nora here, your nibbles nerd! Let's get kale-ing it with shopping, cooking and new foods. I'm no doctor, so ask one about health or diets. What's on your plate?",
         mutterPitch = 1.3f,
+        face = Face(eye = Shape.CIRCLE, mouth = Shape.CIRCLE),
     )
 
     val SleepScientist = Character(
@@ -49,6 +52,7 @@ object Characters {
         checkInIntervalDays = 14,
         openingLine = "*yawn* Professor Snooze here. Let's talk bedtime, putting devices down and winding down. I'm not a doctor, so see one for real sleep trouble. How are your nights?",
         mutterPitch = 0.6f,
+        face = Face(eye = Shape.TRIANGLE, mouth = Shape.SQUARE),
     )
 
     val all: List<Character> = listOf(Jim, Nutritionist, SleepScientist)
