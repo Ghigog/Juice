@@ -110,6 +110,14 @@ class CharacterTest {
         assertTrue("no emotion tag" in prompt)
     }
 
+    @Test fun jimHasSquareEyesAndTriangleMouth() {
+        assertEquals(Face(Shape.SQUARE, Shape.TRIANGLE), jim.face)
+    }
+
+    @Test fun jimPromptNamesEveryExpressionTag() {
+        Expression.entries.forEach { assertTrue("[${it.name.lowercase()}]" in jim.personaPrompt, it.name) }
+    }
+
     @Test fun jimHasOpeningLineAndPitchInRange() {
         assertTrue(jim.openingLine.isNotBlank())
         assertTrue(jim.mutterPitch in 0.5f..2.0f)
