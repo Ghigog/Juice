@@ -103,6 +103,8 @@ class CoachConversation(
             if (result is MemoryUpdateResult.Valid) memoryStore.save(result.memory)
         } catch (e: IOException) {
             // Notes stay unchanged.
+        } catch (e: IllegalStateException) {
+            // MemoryStore.save could not replace the file; notes stay unchanged.
         }
     }
 }
