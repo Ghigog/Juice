@@ -1,9 +1,11 @@
 package com.juice.settings
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -32,12 +34,14 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class CharactersSectionTest {
     private val compose = createComposeRule()
 
@@ -209,7 +213,8 @@ class CharactersSectionTest {
         compose.waitForIdle()
         compose.onNodeWithText("• Likes mornings").assertIsDisplayed()
         compose.onNodeWithText("• Hates running").assertIsDisplayed()
-        compose.onNodeWithText(jim.name).assertIsDisplayed()
+        // Once as the character's row, once as the title of their notes.
+        compose.onAllNodesWithText(jim.name).assertCountEquals(2)
         compose.onNodeWithTag(TAG_MEMORY_EMPTY).assertDoesNotExist()
     }
 
