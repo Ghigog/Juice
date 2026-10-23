@@ -31,7 +31,27 @@ object Characters {
         mutterPitch = 0.8f,
     )
 
-    val all: List<Character> = listOf(Jim)
+    val Nutritionist = Character(
+        id = "nutritionist",
+        name = "Nurse-free Nibbles Nora",
+        personaPrompt = NutritionistPersona.PROMPT,
+        unlockLevel = 10,
+        checkInIntervalDays = 14,
+        openingLine = "Hi hi, Nora here, your nibbles nerd! Let's get kale-ing it with shopping, cooking and new foods. I'm no doctor, so ask one about health or diets. What's on your plate?",
+        mutterPitch = 1.3f,
+    )
+
+    val SleepScientist = Character(
+        id = "sleep-scientist",
+        name = "Professor Snooze McDrowsy",
+        personaPrompt = SleepScientistPersona.PROMPT,
+        unlockLevel = 15,
+        checkInIntervalDays = 14,
+        openingLine = "*yawn* Professor Snooze here. Let's talk bedtime, putting devices down and winding down. I'm not a doctor, so see one for real sleep trouble. How are your nights?",
+        mutterPitch = 0.6f,
+    )
+
+    val all: List<Character> = listOf(Jim, Nutritionist, SleepScientist)
 
     fun byId(id: String): Character? = all.firstOrNull { it.id == id }
 }
