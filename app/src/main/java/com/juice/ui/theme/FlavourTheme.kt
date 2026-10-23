@@ -12,9 +12,10 @@ enum class SoundSet(val flavour: Flavour) {
 
 /**
  * Colours (ARGB) and sound set used while a flavour is active: [accent] is the liquid and the
- * overlay's highlight, [deep] the bottom of the liquid. Golden Honey is [viscous]: slower slosh.
+ * overlay's highlight, [deep] the bottom of the liquid. Golden Honey is [viscous]: slower slosh. The carbonated
+ * flavours [fizz]: bubbles keep rising.
  */
-data class FlavourTheme(val accent: Int, val deep: Int, val soundSet: SoundSet, val viscous: Boolean = false) {
+data class FlavourTheme(val accent: Int, val deep: Int, val soundSet: SoundSet, val viscous: Boolean = false, val fizz: Boolean = true) {
     val reservoirColor: Int get() = accent
 
     companion object {
@@ -22,7 +23,7 @@ data class FlavourTheme(val accent: Int, val deep: Int, val soundSet: SoundSet, 
             Flavour.ELECTRIC_CITRUS -> FlavourTheme(0xFFFFB020.toInt(), 0xFFE8590C.toInt(), SoundSet.BRIGHT_CLICKS_AND_POPS)
             Flavour.BERRY_SURGE -> FlavourTheme(0xFFF0489E.toInt(), 0xFF6B0F5A.toInt(), SoundSet.SUB_BASS_AND_FIZZ)
             Flavour.DRAGONFRUIT_OBSIDIAN -> FlavourTheme(0xFFA78BFA.toInt(), 0xFF2A1250.toInt(), SoundSet.METALLIC_CHIMES)
-            Flavour.GOLDEN_HONEY -> FlavourTheme(0xFFF5C542.toInt(), 0xFFB7791F.toInt(), SoundSet.BELLS_AND_SPLASHES, viscous = true)
+            Flavour.GOLDEN_HONEY -> FlavourTheme(0xFFF5C542.toInt(), 0xFFB7791F.toInt(), SoundSet.BELLS_AND_SPLASHES, viscous = true, fizz = false)
         }
     }
 }

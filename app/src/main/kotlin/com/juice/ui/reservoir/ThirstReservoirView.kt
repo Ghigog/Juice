@@ -98,6 +98,9 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         }
     var particlesEnabled = true
 
+    /** Carbonated flavours: a constant trickle of rising bubbles, and a burst when the liquid is touched. */
+    var fizz = false
+
     private val rippleBitmap = Bitmap.createBitmap(RippleField.WIDTH, RippleField.HEIGHT, Bitmap.Config.ARGB_8888)
     private val shader = RuntimeShader(AGSL).apply {
         setColorUniform("u_color", color)
@@ -126,6 +129,7 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
         stepSimulation(dt)
         // Satiated: the drink keeps fizzing.
         if (particlesEnabled && fill > SATIATED_FILL && Random.nextFloat() < dt * 14f) emitBubble()
+        else if (particlesEnabled && fizz && fill > 0f && Random.nextFloat() < dt * FIZZ_RATE) emitBubble()
         particles.removeAll { it.life <= 0f }
         particles.forEach { it.x += it.vx * dt; it.y += it.vy * dt; it.life -= dt }
         invalidate()
@@ -136,11 +140,12 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
 
     private val particles = mutableListOf<Particle>()
     private val particlePaint = Paint().apply { color = Color.rgb(255, 220, 120); isAntiAlias = true }
+    internal val particleCount get() = particles.size
 
     /** Bursts particles up from the liquid surface, for reaching Satiated. */
     fun emitParticles(count: Int = 40) {
         if (!particlesEnabled) return
-        repeat(count) {
+        repeat(minOf(count, MAX_PARTICLES - particles.size)) {
             particles += Particle(
                 Random.nextFloat() * width, height * (1f - fill),
                 (Random.nextFloat() - 0.5f) * 400f, -Random.nextFloat() * 700f - 100f, 1f,
@@ -150,6 +155,7 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     }
 
     private fun emitBubble() {
+        if (particles.size >= MAX_PARTICLES) return
         particles += Particle(
             Random.nextFloat() * width, height.toFloat(),
             0f, -(50f + Random.nextFloat() * 70f) * resources.displayMetrics.density, 1.4f + Random.nextFloat(),
@@ -168,6 +174,7 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
 
     /** A touch at ([x], [y]), both 0..1 across the view: a local wave on the surface and a ripple under it. */
     fun disturb(x: Float, y: Float, strength: Float) {
+        if (fizz && particlesEnabled && fill > 0f) repeat(minOf(FIZZ_BURST, MAX_PARTICLES - particles.size)) { emitBubble() }
         if (!sloshEnabled) return
         waves.disturb(x, strength)
         ripples.disturb(x, y, strength)
@@ -266,6 +273,9 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
 
     private companion object {
         const val SATIATED_FILL = 0.75f
+        const val MAX_PARTICLES = 120
+        const val FIZZ_RATE = 8f
+        const val FIZZ_BURST = 12
         const val TIME_WRAP = 1000f
         const val GRAVITY_EARTH = 9.81f
         const val GRAVITY_ALPHA = 0.9f
