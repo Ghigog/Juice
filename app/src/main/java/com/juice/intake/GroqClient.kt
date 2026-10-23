@@ -22,14 +22,19 @@ class GroqClient(
     private val model: String = "llama-3.3-70b-versatile",
 ) {
     /** Returns the model's JSON text for [rawText], with [now] injected into the system prompt. */
-    fun parse(rawText: String, now: ZonedDateTime): String {
+    fun parse(rawText: String, now: ZonedDateTime): String = complete(systemPrompt(now), rawText)
+
+    /** Returns the model's JSON persona (`name`, `personality`, `personaPrompt`) for a coach about [hobby]. */
+    fun generatePersona(hobby: String): String = complete(PERSONA_PROMPT, hobby)
+
+    private fun complete(system: String, user: String): String {
         val body = buildJsonObject {
             put("model", model)
             put("temperature", 0)
             put("response_format", buildJsonObject { put("type", "json_object") })
             put("messages", buildJsonArray {
-                add(message("system", systemPrompt(now)))
-                add(message("user", rawText))
+                add(message("system", system))
+                add(message("user", user))
             })
         }
         val conn = URL("$baseUrl/chat/completions").openConnection() as HttpURLConnection
@@ -59,6 +64,15 @@ class GroqClient(
 
     companion object {
         private const val TIMEOUT_MS = 10_000
+
+        /** Asks for the persona of a coach about the hobby in the user message. */
+        val PERSONA_PROMPT = """
+            You create a coach character for the Juice app. The user message is a hobby or skill the player wants to get better at.
+            Output only JSON: {"name": "string", "personality": "string", "personaPrompt": "string"}.
+            - "name": a short, memorable character name, at most 60 characters.
+            - "personality": one or two sentences describing how the coach comes across, at most 300 characters.
+            - "personaPrompt": a system prompt, in the second person, telling the coach who it is, how it talks, and to ask about the player's routine and constraints before proposing tasks. Do not describe any output format.
+        """.trimIndent()
 
         /** The design doc §7.4 prompt, with date, time and timezone injected. */
         fun systemPrompt(now: ZonedDateTime): String = """
