@@ -1,5 +1,6 @@
 package com.juice.coach
 
+import com.juice.core.character.Expression
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,7 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /** One turn of a coach conversation; [role] is "user" or "assistant". */
-data class ChatMessage(val role: String, val content: String)
+data class ChatMessage(val role: String, val content: String, val expression: Expression = Expression.NEUTRAL)
 
 /** Multi-turn Groq chat completions for the coach. Throws [IOException] on any transport or HTTP failure. */
 class CoachClient(

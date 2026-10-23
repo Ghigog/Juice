@@ -8,9 +8,9 @@ import com.juice.coach.CoachConversation
 import com.juice.coach.CoachFinish
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
-import com.juice.core.character.CoachReplyText
 import com.juice.core.character.CoachTask
 import com.juice.core.character.Emotion
+import com.juice.core.character.Expression
 import com.juice.core.model.Item
 import com.juice.data.CharacterRepository
 import com.juice.feedback.Feedback
@@ -85,9 +85,8 @@ class CoachChatState(
         scope.launch {
             when (val reply = withContext(io) { conversation.send(said) }) {
                 is CoachReply.Reply -> {
-                    val parsed = CoachReplyText.parse(reply.text)
-                    emotion = parsed.emotion
-                    messages = messages + ChatMessage("assistant", parsed.text)
+                    emotion = reply.expression.toEmotion()
+                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                 }
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
@@ -141,6 +140,13 @@ class CoachChatState(
         open = false
         onFailed()
     }
+}
+
+/** The portrait art covers fewer moods than [Expression]; the ones without a portrait show the neutral one. */
+private fun Expression.toEmotion(): Emotion = when (this) {
+    Expression.HAPPY -> Emotion.HAPPY
+    Expression.ANGRY -> Emotion.STERN
+    else -> Emotion.NEUTRAL
 }
 
 private object SilentFeedback : Feedback {

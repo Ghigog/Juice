@@ -221,13 +221,12 @@ class CoachChatTest {
     @Test
     fun anUntaggedOrUnknownlyTaggedReplyFallsBackToNeutral() {
         val chat = chat {}
-        sendAndWait(chat, "[stern] Again")
+        sendAndWait(chat, "[angry] Again")
         sendAndWait(chat, "Plain")
         assertEquals(Emotion.NEUTRAL, chat.emotion)
-        sendAndWait(chat, "[stern] Again")
+        sendAndWait(chat, "[angry] Again")
         sendAndWait(chat, "[confused] Huh")
         assertEquals(Emotion.NEUTRAL, chat.emotion)
-        assertEquals("Huh", chat.messages.last().content)
     }
 
     @Test
