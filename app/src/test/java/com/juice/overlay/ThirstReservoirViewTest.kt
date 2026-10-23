@@ -68,4 +68,15 @@ class ThirstReservoirViewTest {
         v.wake(0f, 0f, 1f, 1f)
         assertTrue(v.ripples.heights.count { it != 0f } > 2)
     }
+
+    @Test
+    fun touchBurstsBubblesOnlyWhenFizzyAndParticlesAreOn() {
+        fun touched(fizz: Boolean, particles: Boolean) = view().apply {
+            this.fizz = fizz; particlesEnabled = particles; fill = 0.4f
+            disturb(0.5f, 0.5f, 0.5f)
+        }.particleCount
+        assertTrue(touched(fizz = true, particles = true) > 0)
+        assertEquals(0, touched(fizz = false, particles = true))
+        assertEquals(0, touched(fizz = true, particles = false))
+    }
 }

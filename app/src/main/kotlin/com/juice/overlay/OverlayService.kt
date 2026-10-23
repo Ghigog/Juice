@@ -241,6 +241,7 @@ class OverlayService : Service() {
             onFlavourChanged = {
                 reservoir.color = it.reservoirColor
                 reservoir.viscous = it.viscous
+                reservoir.fizz = it.fizz
             },
             onLevelUp = { level, unlocked ->
                 scope.launch { unlockCharacters(level) }
