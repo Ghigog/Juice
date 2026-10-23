@@ -28,6 +28,15 @@ class ConversationStore(private val file: File) {
         check(tmp.renameTo(file)) { "Could not write ${file.name}" }
     }
 
+    /** Forgets the saved conversation with [characterId]. */
+    fun clear(characterId: String) {
+        val all = readAll().toMutableMap()
+        if (all.remove(characterId) == null) return
+        val tmp = File(file.path + ".tmp")
+        tmp.writeText(JsonObject(all).toString())
+        check(tmp.renameTo(file)) { "Could not write ${file.name}" }
+    }
+
     // A missing or corrupt file reads as no history.
     private fun readAll(): Map<String, kotlinx.serialization.json.JsonElement> =
         try {

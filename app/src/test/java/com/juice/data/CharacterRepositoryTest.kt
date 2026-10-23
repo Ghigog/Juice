@@ -6,7 +6,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.juice.coach.ChatMessage
+import com.juice.coach.ConversationStore
 import com.juice.core.character.Availability
+import com.juice.core.character.CharacterState
+import java.io.File
 import com.juice.core.character.Characters
 import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
@@ -92,7 +96,7 @@ class CharacterRepositoryTest {
     }
 
     @Test
-    fun disablingRemovesAllTheCharactersCardsAndLeavesOthersAlone() = runBlocking {
+    fun disablingKeepsTheCharactersItemsAndStopsNewCards() = runBlocking {
         val other = Item("mine", ItemType.Task, "Mine")
         items.save(other)
         characters.unlockAtLevel(jim, 5)
@@ -105,9 +109,48 @@ class CharacterRepositoryTest {
         characters.disable(jim)
         characters.unlockAtLevel(jim, 9)
 
-        assertEquals(emptyList(), items.byCharacter(jim.id))
+        assertEquals(4, items.byCharacter(jim.id).size)
         assertEquals(other.copy(createdAt = items.get("mine")?.createdAt), items.get("mine"))
         assertEquals(true, characters.state(jim.id).disabled)
+    }
+
+    @Test
+    fun enablingBringsBackADisabledCharacterWithItsItemsAndConversation() = runBlocking {
+        val conversations = ConversationStore(File.createTempFile("conv", ".json").also { it.delete() })
+        val withChat = CharacterRepository(CharacterStore(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("enable-test", Context.MODE_PRIVATE)), items, conversations)
+        withChat.unlockAtLevel(jim, 5)
+        conversations.save(jim.id, listOf(ChatMessage("user", "hi")))
+        withChat.disable(jim)
+        withChat.enable(jim)
+        assertFalse(withChat.state(jim.id).disabled)
+        assertEquals(1, items.byCharacter(jim.id).size)
+        assertEquals(listOf(ChatMessage("user", "hi")), conversations.load(jim.id))
+    }
+
+    @Test
+    fun resetDeletesItemsAndConversationAndSavesAFreshState() = runBlocking {
+        val conversations = ConversationStore(File.createTempFile("conv", ".json").also { it.delete() })
+        val withChat = CharacterRepository(CharacterStore(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("reset-test", Context.MODE_PRIVATE)), items, conversations)
+        withChat.unlockAtLevel(jim, 5)
+        withChat.createTasks(jim.id, listOf(CoachTask.Add("Walk", daily)), today)
+        withChat.recordConversation(jim.id)
+        conversations.save(jim.id, listOf(ChatMessage("user", "hi")))
+        withChat.disable(jim)
+
+        withChat.reset(jim)
+
+        assertEquals(emptyList(), items.byCharacter(jim.id))
+        assertEquals(emptyList(), conversations.load(jim.id))
+        assertEquals(CharacterState(), withChat.state(jim.id))
+        withChat.unlockAtLevel(jim, 5)
+        assertEquals(listOf("Meet Coach Humble Jumble Jim"), items.byCharacter(jim.id).map { it.title })
+    }
+
+    @Test
+    fun resetDoesNothingWhileLocked() = runBlocking {
+        items.save(Item("checkin-jim", ItemType.Task, "x", characterId = jim.id))
+        characters.reset(jim)
+        assertEquals(1, items.byCharacter(jim.id).size)
     }
 
     @Test
