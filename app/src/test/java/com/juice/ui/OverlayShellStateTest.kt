@@ -17,6 +17,7 @@ import com.juice.data.JuiceDatabase
 import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
+import com.juice.memory.MemoryStore
 import com.juice.ui.overlay.CoachChatState
 import com.juice.ui.overlay.OverlayShellState
 import java.io.File
@@ -373,7 +374,7 @@ class OverlayShellStateTest {
             coachChatFor = { _, onFailed ->
                 val conversation = CoachConversation(
                     Characters.Jim, CoachClient("key", "http://localhost"),
-                    ConversationStore(File.createTempFile("conversations", ".json")), { false }, { emptyList() },
+                    ConversationStore(File.createTempFile("conversations", ".json")), MemoryStore(File.createTempFile("memory", ".json")), { false }, { emptyList() },
                 )
                 CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, io = Dispatchers.Unconfined)
             },

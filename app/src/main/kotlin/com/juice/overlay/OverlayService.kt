@@ -33,6 +33,7 @@ import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
 import com.juice.core.economy.EconomyConfig
+import com.juice.memory.MemoryStore
 import com.juice.ui.overlay.CoachChatState
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -91,6 +92,7 @@ class OverlayService : Service() {
     private val settingsRepository by lazy { SettingsRepository(this) }
     @Volatile private var settings = JuiceSettings()
     private val characterStore by lazy { CharacterStore(this) }
+    private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
     private val conversationStore by lazy { ConversationStore(File(filesDir, "conversations.json")) }
     private val repository by lazy {
         ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
@@ -332,6 +334,7 @@ class OverlayService : Service() {
                             character,
                             BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
                             conversationStore,
+                            memoryStore,
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
                             coachTasks = coachTasks,
                         )

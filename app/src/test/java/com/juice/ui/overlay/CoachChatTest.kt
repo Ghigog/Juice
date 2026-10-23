@@ -13,6 +13,7 @@ import com.juice.RegisterComposeActivity
 import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
+import com.juice.memory.MemoryStore
 import com.juice.core.character.Characters
 import com.juice.core.character.Emotion
 import com.juice.feedback.Feedback
@@ -99,7 +100,7 @@ class CoachChatTest {
             coachChatFor = { id, onFailed ->
                 val conversation = CoachConversation(
                     jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
-                    ConversationStore(File(dir, "conversations.json")), { onDeviceOnly }, coachTasks,
+                    ConversationStore(File(dir, "conversations.json")), MemoryStore(File(dir, "memory.json")), { onDeviceOnly }, coachTasks,
                 )
                 CoachChatState(jim, conversation, characters, scope, coachTasks, onFailed)
             },
@@ -120,6 +121,7 @@ class CoachChatTest {
 
     private fun propose(vararg tasks: String) {
         reply("""{"tasks":[${tasks.joinToString(",")}]}""")
+        reply("""{"shared":[],"characters":{}}""")
         compose.onNodeWithTag(TAG_COACH_FINISH).performClick()
         waitForText("Proposed regular tasks")
     }
@@ -196,7 +198,7 @@ class CoachChatTest {
     private fun chat(onFailed: () -> Unit): CoachChatState {
         val conversation = CoachConversation(
             jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
-            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+            ConversationStore(File(dir, "conversations.json")), MemoryStore(File(dir, "memory.json")), { false }, { emptyList() },
         )
         return CoachChatState(jim, conversation, characters, scope, onFailed = onFailed)
     }
@@ -243,7 +245,7 @@ class CoachChatTest {
         val nora = Characters.Nutritionist
         val conversation = CoachConversation(
             nora, CoachClient("key", server.url("/").toString().trimEnd('/')),
-            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+            ConversationStore(File(dir, "conversations.json")), MemoryStore(File(dir, "memory.json")), { false }, { emptyList() },
         )
         val chat = CoachChatState(nora, conversation, characters, scope)
         compose.setContent { CoachChat(chat, Hud()) }
@@ -259,7 +261,7 @@ class CoachChatTest {
         }
         val conversation = CoachConversation(
             jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
-            ConversationStore(File(dir, "conversations.json")), { false }, { emptyList() },
+            ConversationStore(File(dir, "conversations.json")), MemoryStore(File(dir, "memory.json")), { false }, { emptyList() },
         )
         val chat = CoachChatState(jim, conversation, characters, scope, feedback = feedback)
         compose.setContent { CoachChat(chat, Hud()) }
