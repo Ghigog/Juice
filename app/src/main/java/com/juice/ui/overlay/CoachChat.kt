@@ -36,12 +36,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
-import com.juice.ui.portrait.CoachPortrait
+import com.juice.ui.face.CharacterFace
 import com.juice.ui.typing.TypewriterText
 import com.juice.coach.ChatMessage
 import com.juice.core.character.CoachTask
 
 const val TAG_COACH_CHAT = "coach_chat"
+const val TAG_COACH_FACE = "coach_face"
 const val TAG_COACH_INPUT = "coach_input"
 const val TAG_COACH_SEND = "coach_send"
 const val TAG_COACH_FINISH = "coach_finish"
@@ -60,7 +61,7 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
     val proposal = chat.proposal
     Column(modifier.testTag(TAG_COACH_CHAT)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            CoachPortrait(chat.character.id, chat.emotion, Modifier.size(56.dp))
+            CharacterFace(chat.character.face, chat.expression, Modifier.size(56.dp).testTag(TAG_COACH_FACE))
             Text(chat.character.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         }
         Spacer(Modifier.height(12.dp))

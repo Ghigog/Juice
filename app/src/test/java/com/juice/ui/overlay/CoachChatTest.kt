@@ -15,7 +15,8 @@ import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
 import com.juice.memory.MemoryStore
 import com.juice.core.character.Characters
-import com.juice.core.character.Emotion
+import com.juice.coach.ChatMessage
+import com.juice.core.character.Expression
 import com.juice.feedback.Feedback
 import com.juice.feedback.FeedbackEvent
 import com.juice.core.intake.ItemType
@@ -210,34 +211,59 @@ class CoachChatTest {
     }
 
     @Test
-    fun aTaggedReplySetsTheEmotionAndLosesTheTag() {
+    fun aTaggedReplySetsTheExpressionAndLosesTheTag() {
         val chat = chat {}
-        assertEquals(Emotion.NEUTRAL, chat.emotion)
+        assertEquals(Expression.NEUTRAL, chat.expression)
         sendAndWait(chat, "[happy] Nice work")
-        assertEquals(Emotion.HAPPY, chat.emotion)
+        assertEquals(Expression.HAPPY, chat.expression)
         assertEquals("Nice work", chat.messages.last().content)
+        assertEquals(Expression.HAPPY, chat.messages.last().expression)
     }
 
     @Test
-    fun anUntaggedOrUnknownlyTaggedReplyFallsBackToNeutral() {
+    fun anUnknownTagFallsBackToNeutralAndKeepsTheFullText() {
         val chat = chat {}
-        sendAndWait(chat, "[stern] Again")
-        sendAndWait(chat, "Plain")
-        assertEquals(Emotion.NEUTRAL, chat.emotion)
-        sendAndWait(chat, "[stern] Again")
+        sendAndWait(chat, "[happy] Nice")
         sendAndWait(chat, "[confused] Huh")
-        assertEquals(Emotion.NEUTRAL, chat.emotion)
-        assertEquals("Huh", chat.messages.last().content)
+        assertEquals(Expression.NEUTRAL, chat.expression)
+        assertEquals("[confused] Huh", chat.messages.last().content)
     }
 
     @Test
-    fun anErrorLeavesTheEmotionUnchanged() {
+    fun anErrorLeavesTheExpressionUnchanged() {
         val chat = chat {}
         sendAndWait(chat, "[happy] Nice")
         server.enqueue(MockResponse().setResponseCode(500))
         chat.send("again")
         waitFor { !chat.busy }
-        assertEquals(Emotion.HAPPY, chat.emotion)
+        assertEquals(Expression.HAPPY, chat.expression)
+    }
+
+    @Test
+    fun aReopenedChatStartsWithTheSavedExpression() {
+        ConversationStore(File(dir, "conversations.json")).save(
+            jim.id, listOf(ChatMessage("user", "hi"), ChatMessage("assistant", "Grr", Expression.ANGRY)),
+        )
+        assertEquals(Expression.ANGRY, chat {}.expression)
+    }
+
+    @Test
+    fun theProposalLeavesTheExpressionUnchanged() {
+        val chat = chat {}
+        sendAndWait(chat, "[happy] Nice")
+        reply("""{"tasks":[${add("Walk")}]}""")
+        reply("""{"shared":[],"characters":{}}""")
+        chat.finish()
+        waitFor { chat.proposal != null }
+        assertEquals(Expression.HAPPY, chat.expression)
+    }
+
+    @Test
+    fun theHeaderShowsTheCoachsFaceAndName() {
+        val chat = chat {}
+        compose.setContent { CoachChat(chat, Hud()) }
+        compose.onNodeWithTag(TAG_COACH_FACE).assertIsDisplayed()
+        waitForText(jim.name)
     }
 
     @Test

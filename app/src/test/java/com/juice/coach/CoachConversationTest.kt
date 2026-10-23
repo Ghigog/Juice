@@ -2,6 +2,7 @@ package com.juice.coach
 
 import com.juice.core.character.Characters
 import com.juice.core.character.CoachTask
+import com.juice.core.character.Expression
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.routine.Cadence
@@ -150,5 +151,30 @@ class CoachConversationTest {
         assertEquals(CoachFinish.CloudRequired, conversation(onDeviceOnly = true).finish())
         assertEquals(0, server.requestCount)
         assertEquals(notes, memoryStore.load())
+    }
+
+    @Test fun taggedReplyIsStrippedAndSavedWithItsExpression() {
+        reply("[sad] Tough week")
+        assertEquals(CoachReply.Reply("Tough week", Expression.SAD), conversation().send("hi"))
+        assertEquals(
+            listOf(ChatMessage("user", "hi"), ChatMessage("assistant", "Tough week", Expression.SAD)),
+            ConversationStore(storeFile).load(Characters.JIM_ID),
+        )
+    }
+
+    @Test fun untaggedReplyIsNeutralWithFullText() {
+        reply("Plain answer")
+        assertEquals(CoachReply.Reply("Plain answer", Expression.NEUTRAL), conversation().send("hi"))
+    }
+
+    @Test fun legacyHistoryWithoutExpressionLoadsAsNeutral() {
+        storeFile.writeText("""{"jim":[{"role":"user","content":"hi"},{"role":"assistant","content":"yo","expression":"bogus"}]}""")
+        assertEquals(Expression.NEUTRAL, conversation().lastExpression)
+        assertEquals(ChatMessage("assistant", "yo"), store.load("jim").last())
+    }
+
+    @Test fun lastExpressionIsTheLastCoachMessagesSavedExpression() {
+        store.save("jim", listOf(ChatMessage("assistant", "grr", Expression.ANGRY), ChatMessage("user", "sorry")))
+        assertEquals(Expression.ANGRY, conversation().lastExpression)
     }
 }
