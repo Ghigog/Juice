@@ -26,6 +26,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.core.Juice
 import com.juice.onboarding.OnboardingScreen
+import com.juice.data.CharacterRepository
+import com.juice.data.CharacterStore
+import com.juice.data.ItemRepository
+import com.juice.data.JuiceDatabase
+import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.settings.SettingsScreen
@@ -48,6 +53,9 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val repository = remember { SettingsRepository(this@MainActivity) }
                 val scope = rememberCoroutineScope()
+                val characterSettings = remember {
+                    CharacterSettings(CharacterRepository(CharacterStore(this@MainActivity), ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao())), scope)
+                }
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())
                 if (onboardingSeen == false) {
@@ -63,7 +71,7 @@ class MainActivity : ComponentActivity() {
                             Text(stringResource(R.string.overlay_permission_open_settings))
                         }
                     }
-                    SettingsScreen(settings, onChange = { t -> scope.launch { repository.update(t) } })
+                    SettingsScreen(settings, onChange = { t -> scope.launch { repository.update(t) } }, characters = characterSettings)
                 }
             }
         }

@@ -96,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.model.Item
 import com.juice.feedback.FeedbackEvent
+import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
@@ -161,6 +162,8 @@ fun OverlayShell(
     systemBars: PaddingValues = PaddingValues(0.dp),
     /** Lets the host's BACK key leave writing mode instead of closing the overlay. */
     writingBack: WritingBack = remember { WritingBack() },
+    /** The Characters section of the settings sheet; left out when null. */
+    characters: CharacterSettings? = null,
     /** Decides which day, week and month the Recap covers. */
     clock: Clock = Clock.systemDefaultZone(),
 ) {
@@ -315,6 +318,7 @@ fun OverlayShell(
                     settings, hud, actions,
                     onDone = { settingsOpen = false },
                     onSwipeDistance = { ringPreview++ },
+                    characters = characters,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = barTop + 120.dp)
