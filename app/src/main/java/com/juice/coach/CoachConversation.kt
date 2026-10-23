@@ -104,7 +104,7 @@ class CoachConversation(
                 listOf(ChatMessage("user", MemoryPrompt.updatePrompt(current, conversation))),
                 jsonMode = true,
             )
-            val result = MemoryUpdate.validate(json, Characters.all.map { it.id }.toSet())
+            val result = MemoryUpdate.validate(json, Characters.all.map { it.id }.toSet() + character.id)
             if (result is MemoryUpdateResult.Valid) memoryStore.save(result.memory)
         } catch (e: IOException) {
             // Notes stay unchanged.

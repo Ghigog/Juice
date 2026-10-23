@@ -12,6 +12,11 @@ import com.juice.core.character.Characters
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.CoachCardKind
+import com.juice.data.CREATOR_CARD_ID
+import com.juice.data.CreatedCharacterStore
+import com.juice.intake.CharacterGenerator
+import com.juice.core.character.CoachTask
+import java.io.IOException
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.coach.CoachClient
@@ -389,6 +394,79 @@ class OverlayShellStateTest {
 
         assertEquals(listOf("meet-jim"), state.items.map { it.id })
         assertNull(state.coachChat!!.notice)
+    }
+
+    private fun creatorState(llm: (String) -> String): Pair<OverlayShellState, CharacterRepository> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-shell-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            repository,
+            created = CreatedCharacterStore(context.getSharedPreferences("created-shell-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            generator = CharacterGenerator(llm = llm),
+        )
+        val state = OverlayShellState(
+            repository, CoroutineScope(Dispatchers.Unconfined), emptyList(), today = sunday, characters = characters,
+            registry = characters.registry(), io = Dispatchers.Unconfined,
+        )
+        return state to characters
+    }
+
+    @Test
+    fun noCreatorCardBelowLevelTenAndOneAtTenThatDoesNotDuplicate() = runBlocking {
+        val (state, characters) = creatorState { "{}" }
+        characters.createCreatorCardIfDue(9)
+        state.observe()
+        assertEquals(emptyList(), state.items)
+
+        characters.createCreatorCardIfDue(10)
+        characters.createCreatorCardIfDue(11)
+        state.observe()
+
+        assertEquals(listOf(CREATOR_CARD_ID), state.items.map { it.id })
+    }
+
+    @Test
+    fun confirmingAHobbyAddsTheNewCharactersMeetCard() = runBlocking {
+        val (state, characters) = creatorState { "{}" }
+        characters.createCreatorCardIfDue(10)
+        state.observe()
+
+        state.complete(state.items.single())
+        assertEquals(emptyList(), state.items)
+        state.createCharacter("plumbing")
+
+        val created = characters.registry().all().single { it.hobby == "plumbing" }
+        assertEquals(listOf("meet-${created.id}"), state.items.map { it.id })
+        assertNull(state.creator)
+        // The creator card is used up and does not come back.
+        characters.createCreatorCardIfDue(10)
+        assertEquals(ItemStatus.Archived, repository.get(CREATOR_CARD_ID)?.status)
+    }
+
+    @Test
+    fun aFailedGenerationShowsTheErrorAndAddsNoCard() = runBlocking {
+        val (state, characters) = creatorState { throw IOException("offline") }
+        characters.createCreatorCardIfDue(10)
+        state.observe()
+        state.complete(state.items.single())
+
+        state.createCharacter("plumbing")
+
+        assertEquals("offline", state.creator?.error)
+        assertEquals(emptyList(), state.items)
+        assertEquals(emptyList(), characters.registry().all().filter { it.hobby != null })
+    }
+
+    @Test
+    fun confirmedTasksOfACreatedCharacterAreRoutinesLinkedToIt() = runBlocking {
+        val (_, characters) = creatorState { "{}" }
+        val created = (characters.createCharacter("plumbing") as com.juice.data.CreateResult.Created).character
+
+        characters.createTasks(created.id, listOf(CoachTask.Add("Check taps", Cadence(DayOfWeek.entries.toSet()))))
+
+        val routine = repository.byCharacter(created.id).single { it.type == ItemType.Routine }
+        assertEquals(ItemType.Routine, routine.type)
+        assertEquals(created.id, routine.characterId)
     }
 
     private fun stroke(vararg p: Pair<Double, Double>) = p.map { GesturePoint(it.first, it.second) }

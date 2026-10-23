@@ -20,7 +20,7 @@ import kotlin.random.Random
 import com.juice.core.physics.RippleField
 import com.juice.core.physics.SurfaceWaves
 
-private const val AGSL = """
+internal const val AGSL ="""
 uniform float2 u_resolution;
 uniform float  u_time;
 uniform float  u_fill;
@@ -38,7 +38,11 @@ half4 main(float2 fragCoord) {
 
     float f = clamp(st.x, 0.0, 1.0) * 47.0;
     int i0 = int(min(floor(f), 46.0));
-    float h = mix(u_heights[i0], u_heights[i0 + 1], f - float(i0));
+    // AGSL only allows constant-index-expressions on uniform arrays, so select the segment with a loop.
+    float h = 0.0;
+    for (int i = 0; i < 47; i++) {
+        if (i == i0) h = mix(u_heights[i], u_heights[i + 1], f - float(i0));
+    }
     float surface = u_fill + h * 0.06;
 
     if (st.y > surface) return half4(0.0);
