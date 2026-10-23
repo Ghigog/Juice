@@ -30,6 +30,7 @@ import com.juice.data.CharacterRepository
 import com.juice.coach.ConversationStore
 import java.io.File
 import com.juice.data.CharacterStore
+import com.juice.memory.MemoryStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.settings.CharacterSettings
@@ -59,7 +60,7 @@ class MainActivity : ComponentActivity() {
                     val store = CharacterStore(this@MainActivity)
                     val items = ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao(), hiddenCharacterIds = store::disabledIds, hiddenChanges = store.changes())
                     val conversations = ConversationStore(File(filesDir, "conversations.json"))
-                    CharacterSettings(CharacterRepository(store, items, conversations), scope)
+                    CharacterSettings(CharacterRepository(store, items, conversations, MemoryStore(File(filesDir, "memory.json"))), scope)
                 }
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())

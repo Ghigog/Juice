@@ -14,7 +14,9 @@ import java.io.File
 import com.juice.core.character.Characters
 import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
+import com.juice.core.memory.Memory
 import com.juice.core.model.Item
+import com.juice.memory.MemoryStore
 import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
 import java.time.Instant
@@ -126,6 +128,26 @@ class CharacterRepositoryTest {
         assertFalse(withChat.state(jim.id).disabled)
         assertEquals(1, items.byCharacter(jim.id).size)
         assertEquals(listOf(ChatMessage("user", "hi")), conversations.load(jim.id))
+    }
+
+    @Test
+    fun disablingDeletesTheCharactersNotesButKeepsSharedOnes() = runBlocking {
+        val withMemory = withMemory(Memory(shared = listOf("likes tea"), characters = mapOf(jim.id to listOf("skips lunch"))))
+        withMemory.disable(jim)
+        assertEquals(Memory(shared = listOf("likes tea")), withMemory.memory())
+    }
+
+    @Test
+    fun clearMemoryForgetsAllNotes() {
+        val withMemory = withMemory(Memory(shared = listOf("likes tea"), characters = mapOf(jim.id to listOf("skips lunch"))))
+        withMemory.clearMemory()
+        assertEquals(Memory(), withMemory.memory())
+    }
+
+    private fun withMemory(memory: Memory): CharacterRepository {
+        val store = MemoryStore(File.createTempFile("memory", ".json").also { it.delete() }).also { it.save(memory) }
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("memory-test", Context.MODE_PRIVATE)
+        return CharacterRepository(CharacterStore(prefs), items, null, store)
     }
 
     @Test
