@@ -71,6 +71,11 @@ class CharacterRepository(private val store: CharacterStore, private val items: 
         }
     }
 
+    /** Notes that the player finished a conversation with [characterId] at [at]; the next check-in counts from here. */
+    suspend fun recordConversation(characterId: String, at: Instant = Instant.now()) {
+        store.save(characterId, CharacterTransitions.conversationFinished(state(characterId), at))
+    }
+
     /** Adds the check-in card when one is due and not already there; returns whether it was added. */
     suspend fun createCheckInIfDue(character: Character, now: Instant = Instant.now()): Boolean {
         if (!CharacterTransitions.checkInDue(state(character.id), character, now)) return false

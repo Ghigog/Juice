@@ -68,4 +68,18 @@
     <string name="overlay_banner_satiated">Satiated. 8x Juice</string>
     <string name="overlay_banner_level">Level %1$d</string>
     <string name="overlay_banner_unlocked">Level %1$d: %2$s unlocked</string>
+    <string name="coach_opening">Hi, I\'m %1$s. Tell me about your current activity, any health problems, and any constraints such as time, equipment or energy. I\'m not a doctor: for anything about your health please see a health professional, and for a training plan a personal trainer.</string>
+    <string name="coach_input_hint">Message the coach…</string>
+    <string name="coach_send">Send</string>
+    <string name="coach_finish">Finish</string>
+    <string name="coach_thinking">…</string>
+    <string name="coach_proposal_title">Proposed regular tasks</string>
+    <string name="coach_proposal_add">Add: %1$s (%2$s)</string>
+    <string name="coach_proposal_change">Change: %1$s (%2$s)</string>
+    <string name="coach_proposal_remove">Remove: %1$s</string>
+    <string name="coach_proposal_rejected">I couldn\'t make a usable list of tasks. Tell me more and press Finish again.</string>
+    <string name="coach_confirm">Confirm</string>
+    <string name="coach_cancel">Cancel</string>
+    <string name="coach_needs_cloud">The coach needs cloud access. Turn off On-device only and try again.</string>
+    <string name="coach_unreachable">The coach could not be reached. Try again later.</string>
 </resources>

@@ -276,6 +276,26 @@ fun OverlayShell(
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
             }
+            val chat = state.coachChat
+            if (chat != null && chat.open) {
+                CoachChat(
+                    chat, hud,
+                    Modifier
+                        .fillMaxSize()
+                        .background(overlayTint(blurred))
+                        .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
+                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                )
+            }
+            val needsCloud = stringResource(R.string.coach_needs_cloud)
+            val unreachable = stringResource(R.string.coach_unreachable)
+            LaunchedEffect(chat?.notice) {
+                when (chat?.notice) {
+                    CoachNotice.CloudRequired -> effects.banner(needsCloud)
+                    CoachNotice.Unreachable -> effects.banner(unreachable)
+                    null -> {}
+                }
+            }
             Banner(effects, hud, Modifier.align(Alignment.TopCenter).padding(top = barTop + 92.dp))
             AnimatedVisibility(settingsOpen, enter = fadeIn(), exit = fadeOut()) {
                 Box(
