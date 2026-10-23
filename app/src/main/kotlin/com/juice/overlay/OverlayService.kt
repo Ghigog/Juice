@@ -35,6 +35,9 @@ import com.juice.ui.overlay.OverlayEffects
 import com.juice.ui.overlay.hud
 import com.juice.ui.overlay.multiplierLabel
 import com.juice.ui.overlay.toEconomy
+import com.juice.core.character.Characters
+import com.juice.data.CharacterRepository
+import com.juice.data.CharacterStore
 import com.juice.data.EconomyStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
@@ -77,6 +80,7 @@ class OverlayService : Service() {
     private val settingsRepository by lazy { SettingsRepository(this) }
     @Volatile private var settings = JuiceSettings()
     private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
+    private val characters by lazy { CharacterRepository(CharacterStore(this), repository) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
 
@@ -223,6 +227,7 @@ class OverlayService : Service() {
                 reservoir.viscous = it.viscous
             },
             onLevelUp = { level, unlocked ->
+                scope.launch { unlockCharacters(level) }
                 effects.banner(
                     if (unlocked == null) getString(R.string.overlay_banner_level, level)
                     else getString(R.string.overlay_banner_unlocked, level, unlocked.displayName),
@@ -231,6 +236,10 @@ class OverlayService : Service() {
             chosenFlavour = { settings.flavour },
         )
         session.open()
+        scope.launch {
+            unlockCharacters(session.level)
+            Characters.all.forEach { characters.createCheckInIfDue(it) }
+        }
         feedback.play(FeedbackEvent.OPEN)
         val bars = systemBarsPadding()
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
@@ -287,6 +296,7 @@ class OverlayService : Service() {
                 },
                 onCompletionUndone = { session.undo() },
                 onCaptured = intake::submit,
+                characters = characters,
             )
             state.observe()
             composeView.setContent {
@@ -317,6 +327,9 @@ class OverlayService : Service() {
         overlay = root
         windowManager.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
     }
+
+    /** Unlocks every character whose level [level] has reached; each adds its meet card once. */
+    private suspend fun unlockCharacters(level: Int) = Characters.all.forEach { characters.unlockAtLevel(it, level) }
 
     /** The system turns cross-window blur off and on (power saving, heat, some transitions); follow it. */
     private val blurListener = java.util.function.Consumer<Boolean> { applyBackdrop() }

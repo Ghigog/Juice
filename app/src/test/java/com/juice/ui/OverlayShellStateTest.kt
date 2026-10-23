@@ -8,6 +8,10 @@ import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import com.juice.core.character.Characters
+import com.juice.data.CharacterRepository
+import com.juice.data.CharacterStore
+import com.juice.data.CoachCardKind
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.ui.overlay.OverlayShellState
@@ -290,6 +294,65 @@ class OverlayShellStateTest {
         assertNull(s.held)
         assertEquals(false, s.drop())
         assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
+    }
+
+    private fun coachState(coachDone: MutableList<Pair<String, CoachCardKind>>): Pair<OverlayShellState, CharacterRepository> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-shell-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            repository,
+        )
+        val state = OverlayShellState(
+            repository,
+            CoroutineScope(Dispatchers.Unconfined),
+            emptyList(),
+            onCompleted = { completed += it },
+            today = sunday,
+            characters = characters,
+            onCoachCardCompleted = { id, kind -> coachDone += id to kind },
+        )
+        return state to characters
+    }
+
+    @Test
+    fun dismissingTheMeetCardDismissesJimAndNoCoachCardsReturn() = runBlocking {
+        val jim = Characters.Jim
+        val (state, characters) = coachState(mutableListOf())
+        characters.unlockAtLevel(jim, 5)
+        val meet = repository.get("meet-jim")!!
+        state.observe()
+        assertEquals(listOf("meet-jim"), state.items.map { it.id })
+
+        state.dismiss(meet)
+
+        assertEquals(emptyList(), state.items)
+        assertNull(repository.get("meet-jim"))
+        assertEquals(true, characters.state(jim.id).dismissed)
+        characters.unlockAtLevel(jim, 6)
+        assertNull(repository.get("meet-jim"))
+    }
+
+    @Test
+    fun dismissingACoachCheckInCardArchivesItLikeAnyOther() = runBlocking {
+        val (state, characters) = coachState(mutableListOf())
+        val checkIn = Item("checkin-jim", ItemType.Task, "Check in", characterId = Characters.JIM_ID)
+        repository.save(checkIn)
+        state.dismiss(checkIn)
+        assertEquals(ItemStatus.Archived, repository.get("checkin-jim")?.status)
+        assertEquals(false, characters.state(Characters.JIM_ID).dismissed)
+    }
+
+    @Test
+    fun completingTheMeetCardAwardsJuiceAndFiresTheCoachHook() = runBlocking {
+        val coachDone = mutableListOf<Pair<String, CoachCardKind>>()
+        val (state, characters) = coachState(coachDone)
+        characters.unlockAtLevel(Characters.Jim, 5)
+        val meet = repository.get("meet-jim")!!
+
+        state.complete(meet)
+
+        assertEquals(listOf(meet), completed)
+        assertEquals(listOf(Characters.JIM_ID to CoachCardKind.Meet), coachDone)
     }
 
     private fun stroke(vararg p: Pair<Double, Double>) = p.map { GesturePoint(it.first, it.second) }
