@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.ui.portrait.CoachPortrait
+import com.juice.ui.typing.TypewriterText
 import com.juice.coach.ChatMessage
 import com.juice.core.character.CoachTask
 
@@ -48,7 +51,7 @@ const val TAG_COACH_CANCEL = "coach_cancel"
 /** The chat with a coach: a scrolling message list, the input with Send and Finish, then the proposal with Confirm and Cancel. */
 @Composable
 internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modifier) {
-    val opening = ChatMessage("assistant", stringResource(R.string.coach_opening, chat.character.name))
+    val opening = ChatMessage("assistant", chat.character.openingLine)
     val shown = listOf(opening) + chat.messages
     val list = rememberLazyListState()
     LaunchedEffect(shown.size, chat.proposal, chat.busy, chat.proposalRejected) {
@@ -56,10 +59,16 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
     }
     val proposal = chat.proposal
     Column(modifier.testTag(TAG_COACH_CHAT)) {
-        Text(chat.character.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CoachPortrait(chat.character.id, chat.emotion, Modifier.size(56.dp))
+            Text(chat.character.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
         Spacer(Modifier.height(12.dp))
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(shown) { _, m -> Bubble(m, hud) }
+            itemsIndexed(shown) { i, m ->
+                val typed = i > 0 && i - 1 == chat.typingIndex
+                Bubble(m, hud, if (typed) { letter -> chat.feedback.mutter(chat.character.mutterPitch) } else null)
+            }
             if (proposal != null) item { Proposal(chat, proposal, hud) }
             if (chat.proposalRejected) item { Bubble(ChatMessage("assistant", stringResource(R.string.coach_proposal_rejected)), hud) }
             if (chat.busy) item { Bubble(ChatMessage("assistant", stringResource(R.string.coach_thinking)), hud) }
@@ -116,19 +125,17 @@ private fun Input(chat: CoachChatState, hud: Hud) {
 }
 
 @Composable
-private fun Bubble(message: ChatMessage, hud: Hud) {
+private fun Bubble(message: ChatMessage, hud: Hud, onLetter: ((Char) -> Unit)? = null) {
     val mine = message.role == "user"
+    val color = if (mine) JuiceColors.Ink else Color.White
+    val look = Modifier
+        .widthIn(max = 300.dp)
+        .clip(RoundedCornerShape(16.dp))
+        .background(if (mine) hud.accent else JuiceColors.white(0.14f))
+        .padding(horizontal = 14.dp, vertical = 10.dp)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
-        Text(
-            message.content,
-            fontSize = 15.sp,
-            color = if (mine) JuiceColors.Ink else Color.White,
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(if (mine) hud.accent else JuiceColors.white(0.14f))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-        )
+        if (onLetter != null) TypewriterText(message.content, onLetter, look, color = color, fontSize = 15.sp)
+        else Text(message.content, fontSize = 15.sp, color = color, modifier = look)
     }
 }
 

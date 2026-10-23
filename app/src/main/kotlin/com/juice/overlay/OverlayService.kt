@@ -335,7 +335,7 @@ class OverlayService : Service() {
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
                             coachTasks = coachTasks,
                         )
-                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed)
+                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed, feedback = feedback)
                     }
                 },
             )

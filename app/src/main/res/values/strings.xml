@@ -80,7 +80,6 @@
     <string name="settings_character_reset">Reset</string>
     <string name="settings_character_disable_confirm">Disabling %1$s hides their cards, tasks and chat. Nothing is deleted, and you can enable them again. Disable?</string>
     <string name="settings_character_reset_confirm">Resetting %1$s deletes their cards, tasks and conversation, and starts them over as new. Reset?</string>
-    <string name="coach_opening">Hi, I\'m %1$s. Tell me about your current activity, any health problems, and any constraints such as time, equipment or energy. I\'m not a doctor: for anything about your health please see a health professional, and for a training plan a personal trainer.</string>
     <string name="coach_input_hint">Message the coach…</string>
     <string name="coach_send">Send</string>
     <string name="coach_finish">Finish</string>
