@@ -64,6 +64,25 @@ class FeedbackPlayerTest {
         assertEquals(listOf(Haptic.SELECTION_TICK), haptics)
     }
 
+    @Test fun mutterPlaysAtItsRateWithoutVibrating() {
+        player(FeedbackSettings()).mutter(1.3f)
+        assertEquals(listOf(Cue.MUTTER to 1.3f), sounds)
+        assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun mutterIsSilentWithSoundOff() {
+        player(FeedbackSettings(soundEnabled = false)).mutter(1.3f)
+        assertTrue(sounds.isEmpty())
+        assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun mutterClampsTheRate() {
+        val p = player(FeedbackSettings())
+        p.mutter(0.1f)
+        p.mutter(5f)
+        assertEquals(listOf(Cue.MUTTER to 0.5f, Cue.MUTTER to 2f), sounds)
+    }
+
     @Test fun recapOpenWithHapticsOffOnlySounds() {
         player(FeedbackSettings(hapticsEnabled = false)).play(FeedbackEvent.RECAP_OPEN)
         assertEquals(listOf(Cue.RECAP_OPEN to 1f), sounds)
