@@ -14,19 +14,24 @@ import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
-import com.juice.core.character.Characters
+import com.juice.core.character.CharacterRegistry
 import com.juice.data.CharacterRepository
+import com.juice.data.CREATOR_CARD_ID
 import com.juice.data.CoachCardKind
+import com.juice.data.CreateResult
 import com.juice.data.ItemRepository
 import com.juice.data.advance
 import com.juice.data.toItems
 import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.abs
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The last ✓/✗, kept for [OverlayShellState.UNDO_WINDOW_MILLIS] so it can be taken back. */
 data class Undo(val item: Item, val dismissed: Boolean)
@@ -49,6 +54,10 @@ class OverlayShellState(
     private val onCoachCardCompleted: (characterId: String, cardKind: CoachCardKind) -> Unit = { _, _ -> },
     /** Opens a chat with the character when its card is completed; [onFailed] is for the chat to call when the card should stay. */
     private val coachChatFor: (characterId: String, onFailed: () -> Unit) -> CoachChatState? = { _, _ -> null },
+    /** Every character, built-in and created, for finding the one a coach card belongs to. */
+    private val registry: CharacterRegistry = CharacterRegistry { emptyList() },
+    /** Where the character is generated, which calls the network. */
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     var items by mutableStateOf(initial)
         private set
@@ -57,6 +66,10 @@ class OverlayShellState(
 
     /** The coach chat shown over the carousel, if one is open. */
     var coachChat by mutableStateOf<CoachChatState?>(null)
+        private set
+
+    /** The creator flow shown over the carousel, if the creator card is open. */
+    var creator by mutableStateOf<CreatorState?>(null)
         private set
 
     /** Id of the card picked up to be moved, if any. */
@@ -92,7 +105,8 @@ class OverlayShellState(
     fun observe() {
         scope.launch {
             repository.observeActive(today).collect { saved ->
-                val byId = saved.associateBy { it.id }
+                val flowOpen = creator != null
+                val byId = saved.filterNot { flowOpen && it.id == CREATOR_CARD_ID }.associateBy { it.id }
                 val landed = parsing.filter { id ->
                     val before = items.firstOrNull { it.id == id }
                     val after = byId[id]
@@ -100,7 +114,7 @@ class OverlayShellState(
                 }
                 if (landed.isNotEmpty()) parsing = parsing - landed.toSet()
                 val known = items.mapNotNull { byId[it.id] }
-                val added = saved.filter { s -> items.none { it.id == s.id } }
+                val added = byId.values.filter { s -> items.none { it.id == s.id } }
                 items = known + added
             }
         }
@@ -179,6 +193,11 @@ class OverlayShellState(
     /** Completing a Project's card. False when [canComplete] is not met. */
     fun complete(item: Item): Boolean {
         if (!canComplete(item)) return false
+        if (item.id == CREATOR_CARD_ID) {
+            items = items.filterNot { it.id == item.id }
+            creator = CreatorState()
+            return true
+        }
         finish(item, ItemStatus.Completed, dismissed = false)
         onCompleted(item)
         coachCard(item)?.let { (id, kind) ->
@@ -186,6 +205,35 @@ class OverlayShellState(
             coachChat = coachChatFor(id) { putBack(item, completed = true) }?.also { it.start() }
         }
         return true
+    }
+
+    /** Generates a coach for [hobby]; its meet card joins the carousel and the creator card is used up. On failure the error shows and nothing is saved. */
+    fun createCharacter(hobby: String) {
+        val flow = creator ?: return
+        val repo = characters ?: return
+        if (flow.busy || hobby.isBlank()) return
+        flow.busy = true
+        flow.error = null
+        scope.launch {
+            val result = withContext(io) { repo.createCharacter(hobby.trim()) }
+            flow.busy = false
+            when (result) {
+                is CreateResult.Created -> {
+                    repo.consumeCreatorCard()
+                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = items + card }
+                    creator = null
+                }
+                is CreateResult.Failed -> flow.error = result.message
+                CreateResult.LimitReached -> flow.error = "You have as many coaches as you can keep"
+            }
+        }
+    }
+
+    /** Closes the creator; the creator card comes back to the carousel. */
+    fun cancelCreator() {
+        if (creator == null) return
+        creator = null
+        scope.launch { repository.get(CREATOR_CARD_ID)?.let { putBack(it, completed = false) } }
     }
 
     /** Ticks a step of [project]; ticking the last open one completes the Project. */
@@ -217,7 +265,7 @@ class OverlayShellState(
     fun dismiss(item: Item) {
         val coach = coachCard(item)
         if (coach?.second != CoachCardKind.Meet) return finish(item, ItemStatus.Archived, dismissed = true)
-        val character = Characters.byId(coach.first)
+        val character = registry.byId(coach.first)
         if (character == null) return finish(item, ItemStatus.Archived, dismissed = true)
         items = items.filterNot { it.id == item.id }
         scope.launch { characters?.dismiss(character) }
@@ -275,4 +323,10 @@ fun swipeOf(stroke: List<GesturePoint>, minDistance: Double): Swipe? {
     val height = stroke.maxOf { it.y } - stroke.minOf { it.y }
     if (abs(dx) < minDistance || height > abs(dx) * 0.35) return null
     return if (dx > 0) Swipe.RIGHT else Swipe.LEFT
+}
+
+/** The creator card opened: [busy] while a coach is being made, [error] when that failed. */
+class CreatorState {
+    var busy by mutableStateOf(false)
+    var error by mutableStateOf<String?>(null)
 }

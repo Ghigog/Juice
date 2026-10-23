@@ -27,6 +27,8 @@ sealed interface CreateResult {
     data object LimitReached : CreateResult
 }
 
+const val CREATOR_CARD_ID = "creator"
+
 /** A character's saved state together with the cards that belong to it. */
 class CharacterRepository(
     private val store: CharacterStore,
@@ -54,6 +56,23 @@ class CharacterRepository(
             }
         }
     }
+
+    /**
+     * Adds the one creator card once [level] reaches [Characters.CREATOR_UNLOCK_LEVEL] and the cap is not reached.
+     * It is made once: after it is used or dismissed it stays archived or completed and is never made again.
+     */
+    suspend fun createCreatorCardIfDue(level: Int) {
+        if (level < Characters.CREATOR_UNLOCK_LEVEL) return
+        if ((created?.list()?.size ?: return) >= Characters.MAX_CREATED_CHARACTERS) return
+        if (items.get(CREATOR_CARD_ID) != null) return
+        items.save(Item(CREATOR_CARD_ID, ItemType.Task, "Summon a new coach"))
+    }
+
+    /** The creator card is used up: it leaves the deck for good. */
+    suspend fun consumeCreatorCard() = items.archive(CREATOR_CARD_ID)
+
+    /** The meet card of [characterId], if it is still there. */
+    suspend fun meetCard(characterId: String): Item? = items.get("meet-$characterId")
 
     /** Removes a created character with its cards, routines, chat, notes and saved state. */
     suspend fun deleteCharacter(id: String) {
