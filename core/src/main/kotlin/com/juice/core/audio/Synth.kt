@@ -9,8 +9,8 @@ import kotlin.math.max
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** Short feedback sounds. [TICK] and [DONE] change character with the flavour; the rest are shared. */
-enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, RECAP_REVEAL }
+/** Short feedback sounds. [TICK] and [DONE] change character with the flavour; the rest are shared; [MUTTER] is a coach letter's blip, pitched by playback rate. */
+enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, RECAP_REVEAL, MUTTER }
 
 /**
  * Renders every cue as mono PCM (-1..1) from oscillators and filtered noise, so each flavour has its
@@ -79,6 +79,10 @@ object Synth {
                 mix.tone(587.0, 587.0, 0.22, Wave.SINE, 0.1, 0.08)
             }
             Cue.RECAP_REVEAL -> mix.tone(880.0, 1100.0, 0.08, Wave.TRIANGLE, 0.1)
+            Cue.MUTTER -> {
+                mix.tone(520.0, 400.0, 0.04, Wave.TRIANGLE, 0.16)
+                mix.noise(0.03, 1800.0, 1200.0, 2.0, 0.06, Filter.BANDPASS)
+            }
             Cue.LEVEL -> LEVEL_NOTES.forEachIndexed { i, f -> mix.tone(f, f, 0.35, Wave.TRIANGLE, 0.13, i * 0.09) }
         }
         return mix.samples()
