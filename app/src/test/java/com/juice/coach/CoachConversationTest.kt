@@ -85,6 +85,14 @@ class CoachConversationTest {
         assertTrue(conversation(tasks = listOf(walk)).finish() is CoachFinish.Rejected)
     }
 
+    @Test fun clearForgetsOnlyThatCharactersConversation() {
+        store.save("jim", listOf(ChatMessage("user", "hi")))
+        store.save("other", listOf(ChatMessage("user", "yo")))
+        store.clear("jim")
+        assertEquals(emptyList(), ConversationStore(storeFile).load("jim"))
+        assertEquals(listOf(ChatMessage("user", "yo")), ConversationStore(storeFile).load("other"))
+    }
+
     @Test fun checkInRequestIncludesEarlierHistoryAndCurrentCoachTasks() {
         reply("Let's start")
         conversation().send("I will walk on Mondays")

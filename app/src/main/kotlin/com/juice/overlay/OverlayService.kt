@@ -90,8 +90,12 @@ class OverlayService : Service() {
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
     @Volatile private var settings = JuiceSettings()
-    private val repository by lazy { ItemRepository(JuiceDatabase.open(this).itemDao()) }
-    private val characters by lazy { CharacterRepository(CharacterStore(this), repository) }
+    private val characterStore by lazy { CharacterStore(this) }
+    private val conversationStore by lazy { ConversationStore(File(filesDir, "conversations.json")) }
+    private val repository by lazy {
+        ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
+    }
+    private val characters by lazy { CharacterRepository(characterStore, repository, conversationStore) }
     private val characterSettings by lazy { CharacterSettings(characters, scope) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
@@ -322,12 +326,12 @@ class OverlayService : Service() {
                 onCaptured = intake::submit,
                 characters = characters,
                 coachChatFor = { characterId, onFailed ->
-                    Characters.byId(characterId)?.let { character ->
+                    Characters.byId(characterId)?.takeUnless { characterId in characterStore.disabledIds() }?.let { character ->
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
                             character,
                             BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
-                            ConversationStore(File(filesDir, "conversations.json")),
+                            conversationStore,
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
                             coachTasks = coachTasks,
                         )

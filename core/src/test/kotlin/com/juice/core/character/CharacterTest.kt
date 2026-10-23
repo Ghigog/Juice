@@ -39,6 +39,11 @@ class CharacterTest {
         assertFalse(CharacterTransitions.checkInDue(metAt(13), jim, now))
     }
 
+    @Test fun enablingADisabledCharacterKeepsEverythingElse() {
+        val disabled = CharacterTransitions.disable(metAt(30))
+        assertEquals(metAt(30), CharacterTransitions.enable(disabled))
+    }
+
     @Test fun checkInNeverDueWhenDismissedOrDisabled() {
         assertFalse(CharacterTransitions.checkInDue(CharacterTransitions.dismiss(metAt(30)), jim, now))
         assertFalse(CharacterTransitions.checkInDue(CharacterTransitions.disable(metAt(30)), jim, now))

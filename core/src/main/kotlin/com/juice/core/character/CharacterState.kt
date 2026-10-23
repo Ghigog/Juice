@@ -30,6 +30,8 @@ object CharacterTransitions {
 
     fun disable(state: CharacterState): CharacterState = state.copy(disabled = true)
 
+    fun enable(state: CharacterState): CharacterState = state.copy(disabled = false)
+
     fun conversationFinished(state: CharacterState, at: Instant): CharacterState =
         state.copy(availability = Availability.Unlocked, lastConversationAt = at)
 
