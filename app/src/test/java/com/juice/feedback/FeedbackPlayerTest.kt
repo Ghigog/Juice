@@ -7,10 +7,14 @@ import kotlin.test.assertTrue
 
 class FeedbackPlayerTest {
     private val sounds = mutableListOf<Pair<Cue, Float>>()
+    private val greetings = mutableListOf<Int>()
     private val haptics = mutableListOf<Haptic>()
 
     private fun player(settings: FeedbackSettings) = FeedbackPlayer(
-        sounds = object : SoundOutput { override fun play(cue: Cue, rate: Float) { sounds += cue to rate } },
+        sounds = object : SoundOutput { override fun play(cue: Cue, rate: Float) { sounds += cue to rate }
+
+            override fun playGreeting(seed: Int) { greetings += seed }
+        },
         haptics = object : HapticOutput { override fun vibrate(haptic: Haptic) { haptics += haptic } },
         settings = { settings },
     )
@@ -87,5 +91,17 @@ class FeedbackPlayerTest {
         player(FeedbackSettings(hapticsEnabled = false)).play(FeedbackEvent.RECAP_OPEN)
         assertEquals(listOf(Cue.RECAP_OPEN to 1f), sounds)
         assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun greetingReachesTheSoundOutputWithItsSeedAndNoHaptic() {
+        player(FeedbackSettings()).playGreeting(42)
+        assertEquals(listOf(42), greetings)
+        assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun greetingIsSilentWithSoundOff() {
+        player(FeedbackSettings(soundEnabled = false)).playGreeting(42)
+        assertTrue(greetings.isEmpty())
+        assertTrue(sounds.isEmpty())
     }
 }

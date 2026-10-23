@@ -6,11 +6,12 @@ import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** Short feedback sounds. [TICK] and [DONE] change character with the flavour; the rest are shared; [MUTTER] is a coach letter's blip, pitched by playback rate. */
-enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, RECAP_REVEAL, MUTTER }
+/** Short feedback sounds. [TICK] and [DONE] change character with the flavour; the rest are shared; [MUTTER] is a coach letter's blip, pitched by playback rate; [GREETING] is a character's hello, which varies with a seed (see [Synth.renderGreeting]). */
+enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, RECAP_REVEAL, MUTTER, GREETING }
 
 /**
  * Renders every cue as mono PCM (-1..1) from oscillators and filtered noise, so each flavour has its
@@ -19,9 +20,31 @@ enum class Cue { TICK, DONE, X, FIZZ, POP, BAD, UNDO, OPEN, LEVEL, RECAP_OPEN, R
 object Synth {
     const val SAMPLE_RATE = 44_100
 
+    /**
+     * A two-note hello whose root, interval and waveform come from [seed], so each character has its own
+     * greeting and the same seed always renders the same samples. The flavour shifts the register.
+     */
+    fun renderGreeting(seed: Int, flavour: Flavour): FloatArray {
+        val random = Random(seed)
+        val register = when (flavour) {
+            Flavour.BERRY_SURGE -> 0.8
+            Flavour.GOLDEN_HONEY -> 0.9
+            Flavour.DRAGONFRUIT_OBSIDIAN -> 1.0
+            Flavour.ELECTRIC_CITRUS -> 1.1
+        }
+        val root = 330.0 * register * 2.0.pow(random.nextInt(12) / 12.0)
+        val upper = root * 2.0.pow(GREETING_INTERVALS[random.nextInt(GREETING_INTERVALS.size)] / 12.0)
+        val wave = Wave.entries[random.nextInt(Wave.entries.size)]
+        val mix = Mix()
+        mix.tone(root, root, 0.12, wave, 0.14)
+        mix.tone(upper, upper * 1.02, 0.24, wave, 0.14, 0.09)
+        return mix.samples()
+    }
+
     fun render(cue: Cue, flavour: Flavour): FloatArray {
         val mix = Mix()
         when (cue) {
+            Cue.GREETING -> return renderGreeting(0, flavour)
             Cue.TICK -> {
                 mix.tone(900.0, 200.0, 0.05, Wave.TRIANGLE, 0.18)
                 when (flavour) {
@@ -89,6 +112,7 @@ object Synth {
     }
 
     private val CHORD = doubleArrayOf(523.25, 659.25, 783.99, 1046.5)
+    private val GREETING_INTERVALS = intArrayOf(3, 4, 5, 7, 9, 12)
     private val LEVEL_NOTES = doubleArrayOf(523.0, 659.0, 784.0, 1047.0, 1319.0)
 
     private enum class Wave { SINE, TRIANGLE, SQUARE }

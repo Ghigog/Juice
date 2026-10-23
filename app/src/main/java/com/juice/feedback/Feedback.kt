@@ -15,6 +15,9 @@ interface Feedback {
 
     /** A coach letter's blip; [rate] is its pitch, clamped to 0.5..2. Sound only, never a haptic. */
     fun mutter(rate: Float) {}
+
+    /** A character's greeting; [seed] picks its sound, so each character is recognisable by ear. Sound only, never a haptic. */
+    fun playGreeting(seed: Int) {}
 }
 
 /** Satiated completions and the peak play +4 semitones up. */
@@ -29,6 +32,8 @@ interface SoundOutput {
     fun play(cue: Cue, rate: Float = 1f)
 
     fun useSoundSet(soundSet: SoundSet) {}
+
+    fun playGreeting(seed: Int) {}
 }
 
 interface HapticOutput { fun vibrate(haptic: Haptic) }
@@ -43,6 +48,10 @@ class FeedbackPlayer(
 
     override fun mutter(rate: Float) {
         if (settings().soundEnabled) sounds.play(Cue.MUTTER, rate.coerceIn(0.5f, 2f))
+    }
+
+    override fun playGreeting(seed: Int) {
+        if (settings().soundEnabled) sounds.playGreeting(seed)
     }
 
     override fun play(event: FeedbackEvent, boosted: Boolean) {
