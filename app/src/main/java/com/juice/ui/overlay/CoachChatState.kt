@@ -23,7 +23,8 @@ enum class CoachNotice { CloudRequired, Unreachable }
 /**
  * An open chat with [character]. Messages go through [conversation] off the main thread; Finish asks for the
  * proposal, which Confirm applies through [characters] and Cancel drops. When the coach needs the cloud or fails,
- * the chat closes with a [notice] and calls [onFailed] so the coach card the player completed can stay.
+ * the chat closes with a [notice] and calls [onFailed] so the coach card the player completed can stay. Cancel
+ * calls [onFailed] too, without a notice.
  */
 class CoachChatState(
     val character: Character,
@@ -107,10 +108,12 @@ class CoachChatState(
         }
     }
 
-    /** Drops the proposal; nothing is created. */
+    /** Drops the proposal; nothing is created. The coach card comes back, with no notice. */
     fun cancel() {
+        if (!open) return
         proposal = null
         open = false
+        onFailed()
     }
 
     private fun fail(reason: CoachNotice) {
