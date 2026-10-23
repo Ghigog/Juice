@@ -6,7 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.juice.RegisterComposeActivity
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.Test
@@ -14,7 +16,9 @@ import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 class TypewriterTextTest {
-    @get:Rule val compose = createComposeRule()
+    val compose = createComposeRule()
+
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(RegisterComposeActivity()).around(compose)
 
     private val letters = mutableListOf<Char>()
 
