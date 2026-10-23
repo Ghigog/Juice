@@ -27,7 +27,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.juice.BuildConfig
+import com.juice.core.intake.ItemType
+import com.juice.coach.CoachClient
+import com.juice.coach.CoachConversation
+import com.juice.coach.ConversationStore
 import com.juice.core.economy.EconomyConfig
+import com.juice.ui.overlay.CoachChatState
+import java.io.File
+import kotlinx.coroutines.runBlocking
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.Tier
 import com.juice.ui.overlay.OverlayActions
@@ -296,6 +304,19 @@ class OverlayService : Service() {
                 onCompletionUndone = { session.undo() },
                 onCaptured = intake::submit,
                 characters = characters,
+                coachChatFor = { characterId, onFailed ->
+                    Characters.byId(characterId)?.let { character ->
+                        val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
+                        val conversation = CoachConversation(
+                            character,
+                            BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
+                            ConversationStore(File(filesDir, "conversations.json")),
+                            onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
+                            coachTasks = coachTasks,
+                        )
+                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed)
+                    }
+                },
             )
             state.observe()
             composeView.setContent {

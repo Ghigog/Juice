@@ -47,10 +47,16 @@ class OverlayShellState(
     private val characters: CharacterRepository? = null,
     /** Fires when a coach card is completed; the chat opens from here in a later ticket. */
     private val onCoachCardCompleted: (characterId: String, cardKind: CoachCardKind) -> Unit = { _, _ -> },
+    /** Opens a chat with the character when its card is completed; [onFailed] is for the chat to call when the card should stay. */
+    private val coachChatFor: (characterId: String, onFailed: () -> Unit) -> CoachChatState? = { _, _ -> null },
 ) {
     var items by mutableStateOf(initial)
         private set
     var undo by mutableStateOf<Undo?>(null)
+        private set
+
+    /** The coach chat shown over the carousel, if one is open. */
+    var coachChat by mutableStateOf<CoachChatState?>(null)
         private set
 
     /** Id of the card picked up to be moved, if any. */
@@ -175,7 +181,10 @@ class OverlayShellState(
         if (!canComplete(item)) return false
         finish(item, ItemStatus.Completed, dismissed = false)
         onCompleted(item)
-        coachCard(item)?.let { (id, kind) -> onCoachCardCompleted(id, kind) }
+        coachCard(item)?.let { (id, kind) ->
+            onCoachCardCompleted(id, kind)
+            coachChat = coachChatFor(id) { putBack(item, completed = true) }?.also { it.start() }
+        }
         return true
     }
 
@@ -217,11 +226,16 @@ class OverlayShellState(
     /** Puts the undone item back where it was in the carousel. */
     fun undoLast() {
         val pending = undo ?: return
-        undo = null
-        if (!pending.dismissed) onCompletionUndone()
-        items = (items + pending.item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
+        putBack(pending.item, completed = !pending.dismissed)
+    }
+
+    /** Returns [item] to the carousel and the repository, taking back the Juice it earned if it was [completed]. */
+    private fun putBack(item: Item, completed: Boolean) {
+        if (undo?.item?.id == item.id) undo = null
+        if (completed) onCompletionUndone()
+        items = (items.filterNot { it.id == item.id } + item).sortedBy { order[it.id] ?: Int.MAX_VALUE }
         // Undispatched, so it queues for the write lock right after the save it undoes.
-        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(pending.item) }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(item) }
     }
 
     fun expireUndo(expired: Undo) {
