@@ -6,6 +6,8 @@ import com.juice.core.character.Expression
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.routine.Cadence
+import com.juice.core.memory.Memory
+import com.juice.memory.MemoryStore
 import java.io.File
 import java.time.DayOfWeek
 import kotlin.test.AfterTest
@@ -20,6 +22,7 @@ class CoachConversationTest {
     private val dir = File(System.getProperty("java.io.tmpdir"), "coach-test-${System.nanoTime()}").apply { mkdirs() }
     private val storeFile = File(dir, "conversations.json")
     private val store = ConversationStore(storeFile)
+    private val memoryStore = MemoryStore(File(dir, "memory.json"))
     private val walk = Item("t1", ItemType.Routine, "Walk 20 minutes", cadence = Cadence(setOf(DayOfWeek.MONDAY)))
 
     @AfterTest fun stop() {
@@ -36,7 +39,7 @@ class CoachConversationTest {
         onDeviceOnly: Boolean = false,
         client: CoachClient? = CoachClient("key-1", server.url("/").toString().trimEnd('/')),
         tasks: List<Item> = emptyList(),
-    ) = CoachConversation(Characters.Jim, client, store, { onDeviceOnly }, { tasks })
+    ) = CoachConversation(Characters.Jim, client, store, memoryStore, { onDeviceOnly }, { tasks })
 
     @Test fun sendPostsPersonaAndMessagesWithoutJsonMode() {
         reply("Hi, what do you do now?")
@@ -94,17 +97,60 @@ class CoachConversationTest {
         assertEquals(listOf(ChatMessage("user", "yo")), ConversationStore(storeFile).load("other"))
     }
 
-    @Test fun checkInRequestIncludesEarlierHistoryAndCurrentCoachTasks() {
-        reply("Let's start")
-        conversation().send("I will walk on Mondays")
-        server.takeRequest()
+    private val validProposal = """{"tasks":[]}"""
+    private val url get() = server.url("/").toString().trimEnd('/')
+
+    @Test fun checkInPromptIncludesCurrentCoachTasksButNotTheRawTranscript() {
+        store.save("jim", listOf(ChatMessage("user", "I will walk on Mondays")))
         reply("Welcome back")
-        val fresh = ConversationStore(storeFile)
-        CoachConversation(Characters.Jim, CoachClient("key-1", server.url("/").toString().trimEnd('/')), fresh, { false }, { listOf(walk) })
-            .send("how am I doing")
+        conversation(tasks = listOf(walk)).send("how am I doing")
         val body = server.takeRequest().body.readUtf8()
-        assertTrue("I will walk on Mondays" in body)
+        assertTrue("I will walk on Mondays" !in body)
         assertTrue("Walk 20 minutes" in body && "t1" in body)
+    }
+
+    @Test fun aFactFromAFinishedConversationIsInALaterPromptForAnyCharacter() {
+        reply("Nice")
+        val chat = conversation()
+        chat.send("I am vegetarian")
+        reply(validProposal)
+        reply("""{"shared":["Player is vegetarian"],"characters":{}}""")
+        assertTrue(chat.finish() is CoachFinish.Proposal)
+        repeat(3) { server.takeRequest() }
+        reply("Hello")
+        CoachConversation(Characters.Nutritionist, CoachClient("key-1", url), store, memoryStore, { false }, { emptyList() }).send("hi")
+        assertTrue("Player is vegetarian" in server.takeRequest().body.readUtf8())
+    }
+
+    @Test fun aCharactersNoteIsAbsentFromAnotherCharactersPrompt() {
+        memoryStore.save(Memory(characters = mapOf("jim" to listOf("Jim-only secret"))))
+        reply("Hello")
+        CoachConversation(Characters.Nutritionist, CoachClient("key-1", url), store, memoryStore, { false }, { emptyList() }).send("hi")
+        assertTrue("Jim-only secret" !in server.takeRequest().body.readUtf8())
+        reply("Hello")
+        conversation().send("hi")
+        assertTrue("Jim-only secret" in server.takeRequest().body.readUtf8())
+    }
+
+    @Test fun invalidOrFailingMemoryUpdateLeavesNotesAndProposalAlone() {
+        val notes = Memory(shared = listOf("old"))
+        memoryStore.save(notes)
+        reply(validProposal)
+        reply("not json")
+        assertTrue(conversation().finish() is CoachFinish.Proposal)
+        assertEquals(notes, memoryStore.load())
+        reply(validProposal)
+        reply("", status = 503)
+        assertTrue(conversation().finish() is CoachFinish.Proposal)
+        assertEquals(notes, memoryStore.load())
+    }
+
+    @Test fun onDeviceOnlySendsNoMemoryCall() {
+        val notes = Memory(shared = listOf("old"))
+        memoryStore.save(notes)
+        assertEquals(CoachFinish.CloudRequired, conversation(onDeviceOnly = true).finish())
+        assertEquals(0, server.requestCount)
+        assertEquals(notes, memoryStore.load())
     }
 
     @Test fun taggedReplyIsStrippedAndSavedWithItsExpression() {
