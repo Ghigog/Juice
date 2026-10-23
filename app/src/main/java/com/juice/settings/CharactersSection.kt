@@ -30,8 +30,11 @@ import kotlinx.coroutines.launch
 const val TAG_CHARACTER_RESTORE_PREFIX = "character_restore_"
 const val TAG_CHARACTER_DISABLE_PREFIX = "character_disable_"
 const val TAG_CHARACTER_CONFIRM_DISABLE_PREFIX = "character_confirm_disable_"
+const val TAG_CHARACTER_ENABLE_PREFIX = "character_enable_"
+const val TAG_CHARACTER_RESET_PREFIX = "character_reset_"
+const val TAG_CHARACTER_CONFIRM_RESET_PREFIX = "character_confirm_reset_"
 
-/** Where the player stands with a character, as Settings shows it. Disabling is permanent, so [Disabled] has no way back. */
+/** Where the player stands with a character, as Settings shows it. A [Disabled] character is only hidden; Enable brings it back. */
 sealed interface CharacterStatus {
     data class Locked(val unlockLevel: Int) : CharacterStatus
     data object Dismissed : CharacterStatus
@@ -64,6 +67,20 @@ class CharacterSettings(private val characters: CharacterRepository, private val
         }
     }
 
+    fun enable(character: Character) {
+        scope.launch {
+            characters.enable(character)
+            refresh()
+        }
+    }
+
+    fun reset(character: Character) {
+        scope.launch {
+            characters.reset(character)
+            refresh()
+        }
+    }
+
     private suspend fun read() = Characters.all.map { character ->
         val state = characters.state(character.id)
         CharacterRow(
@@ -78,7 +95,7 @@ class CharacterSettings(private val characters: CharacterRepository, private val
     }
 }
 
-/** The Characters section: Restore for a dismissed character, Disable (after a confirmation) for an active one, only the state otherwise. */
+/** The Characters section: Restore for a dismissed character, Disable and Reset (each after a confirmation) for an active one, Enable and Reset for a disabled one, only the state otherwise. */
 @Composable
 fun CharactersSection(settings: CharacterSettings, modifier: Modifier = Modifier) {
     // Cards can be dismissed in the carousel while this is closed, so read afresh each time it opens.
@@ -93,6 +110,8 @@ fun CharactersSection(settings: CharacterSettings, modifier: Modifier = Modifier
 private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
     val id = row.character.id
     var confirming by remember { mutableStateOf(false) }
+    var confirmingReset by remember { mutableStateOf(false) }
+    val canReset = row.status == CharacterStatus.Active || row.status == CharacterStatus.Disabled
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
@@ -112,13 +131,33 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
                     Button(onClick = { settings.restore(row.character) }, modifier = Modifier.testTag(TAG_CHARACTER_RESTORE_PREFIX + id)) {
                         Text(stringResource(R.string.settings_character_restore))
                     }
-                CharacterStatus.Active ->
-                    if (!confirming) {
-                        Button(onClick = { confirming = true }, modifier = Modifier.testTag(TAG_CHARACTER_DISABLE_PREFIX + id)) {
-                            Text(stringResource(R.string.settings_character_disable))
-                        }
+                CharacterStatus.Disabled ->
+                    Button(onClick = { settings.enable(row.character) }, modifier = Modifier.testTag(TAG_CHARACTER_ENABLE_PREFIX + id)) {
+                        Text(stringResource(R.string.settings_character_enable))
                     }
                 else -> Unit
+            }
+        }
+        if (canReset && !confirming && !confirmingReset) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (row.status == CharacterStatus.Active) {
+                    Button(onClick = { confirming = true }, modifier = Modifier.testTag(TAG_CHARACTER_DISABLE_PREFIX + id)) {
+                        Text(stringResource(R.string.settings_character_disable))
+                    }
+                }
+                Button(onClick = { confirmingReset = true }, modifier = Modifier.testTag(TAG_CHARACTER_RESET_PREFIX + id)) {
+                    Text(stringResource(R.string.settings_character_reset))
+                }
+            }
+        }
+        if (confirmingReset && canReset) {
+            Text(stringResource(R.string.settings_character_reset_confirm, row.character.name), fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { confirmingReset = false; settings.reset(row.character) },
+                    modifier = Modifier.testTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + id),
+                ) { Text(stringResource(R.string.settings_character_reset)) }
+                TextButton(onClick = { confirmingReset = false }) { Text(stringResource(R.string.settings_character_cancel)) }
             }
         }
         if (confirming && row.status == CharacterStatus.Active) {

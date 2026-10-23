@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import com.juice.core.character.Availability
 import com.juice.core.character.CharacterState
 import java.time.Instant
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 /** Each character's [CharacterState] as last saved, keyed by character id. */
 class CharacterStore(private val prefs: SharedPreferences) {
@@ -30,7 +33,19 @@ class CharacterStore(private val prefs: SharedPreferences) {
             .apply()
     }
 
+    /** Ids of the characters currently disabled. */
+    fun disabledIds(): Set<String> =
+        prefs.all.keys.filter { it.endsWith(DISABLED_SUFFIX) && prefs.getBoolean(it, false) }.map { it.removeSuffix(DISABLED_SUFFIX) }.toSet()
+
+    /** Emits whenever any saved state changes. */
+    fun changes(): Flow<Unit> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     private companion object {
         const val NONE = Long.MIN_VALUE
+        const val DISABLED_SUFFIX = ".disabled"
     }
 }
