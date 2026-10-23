@@ -286,6 +286,7 @@ class OverlayService : Service() {
             onClose = ::closeOverlay,
             onScroll = { steps -> reservoir.kick(steps * 2.2f) },
             onTick = session::tick,
+            recapItems = repository::recapItems,
         )
         // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
         run {
