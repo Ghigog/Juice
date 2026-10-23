@@ -12,6 +12,9 @@ interface Feedback {
 
     /** Switches to the sounds of the player's flavour. */
     fun useSoundSet(soundSet: SoundSet) {}
+
+    /** A coach letter's blip; [rate] is its pitch, clamped to 0.5..2. Sound only, never a haptic. */
+    fun mutter(rate: Float) {}
 }
 
 /** Satiated completions and the peak play +4 semitones up. */
@@ -37,6 +40,10 @@ class FeedbackPlayer(
     private val settings: () -> FeedbackSettings,
 ) : Feedback {
     override fun useSoundSet(soundSet: SoundSet) = sounds.useSoundSet(soundSet)
+
+    override fun mutter(rate: Float) {
+        if (settings().soundEnabled) sounds.play(Cue.MUTTER, rate.coerceIn(0.5f, 2f))
+    }
 
     override fun play(event: FeedbackEvent, boosted: Boolean) {
         val (cue, haptic) = when (event) {
