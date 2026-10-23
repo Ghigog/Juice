@@ -20,6 +20,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -116,11 +117,14 @@ class ItemRepositoryTest {
         assertEquals(listOf("a"), filtered.recapItems(now.minusSeconds(60)).map { it.id })
         assertEquals(listOf("a"), filtered.observeRecapItems(now.minusSeconds(60)).first().map { it.id })
 
-        val emissions = async(Dispatchers.Default) { filtered.observeActive().map { list -> list.map { it.id }.sorted() }.take(2).toList() }
+        val seen = java.util.concurrent.CopyOnWriteArrayList<List<String>>()
+        val emissions = async(Dispatchers.Default) { filtered.observeActive().map { list -> list.map { it.id }.sorted() }.take(2).toList(seen) }
+        withTimeout(10_000) { while (seen.isEmpty()) delay(10) }
         changes.subscriptionCount.first { it > 0 }
         hidden = emptySet()
         changes.emit(Unit)
-        assertEquals(listOf(listOf("a"), listOf("a", "b")), withTimeout(10_000) { emissions.await() })
+        withTimeout(10_000) { emissions.await() }
+        assertEquals(listOf(listOf("a"), listOf("a", "b")), seen.toList())
     }
 
     @Test

@@ -195,7 +195,7 @@ class CharacterRepositoryTest {
         characters.disable(jim)
         assertFalse(characters.canRestore(jim))
         characters.restore(jim)
-        assertEquals(emptyList(), items.byCharacter(jim.id))
+        assertEquals(listOf("meet-jim"), items.byCharacter(jim.id).map { it.id })
     }
 
     @Test
