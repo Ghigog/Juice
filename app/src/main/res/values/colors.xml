@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="juice_icon_background">#FFFFF1CF</color>
+    <color name="juice_slice">#FFF97316</color>
+    <color name="juice_selected_fill">#FFFFFFFF</color>
+    <color name="juice_selected_outline">#FFEA580C</color>
+</resources>
