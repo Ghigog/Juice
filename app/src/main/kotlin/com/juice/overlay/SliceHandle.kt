@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.logo.SliceLogoPainter
@@ -127,6 +128,9 @@ internal class SliceHandleView(
     /** True while the stage draws the slice and this window draws nothing. */
     private var handedOff = false
     private var springBack: ValueAnimator? = null
+    private var flight: ValueAnimator? = null
+    private var windowAttached = false
+    private var stageAttached = false
     private val params = WindowManager.LayoutParams(
         side, side,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -159,13 +163,65 @@ internal class SliceHandleView(
         place()
         windowManager.addView(stage, stage.params)
         windowManager.addView(this, params)
+        stageAttached = true
+        windowAttached = true
     }
 
-    /** Removes the handle's window and its stage. */
+    /** Removes the handle's window and its stage; safe to call again. */
     fun dismiss() {
         springBack?.cancel()
-        windowManager.removeView(this)
-        windowManager.removeView(stage)
+        cancelFlight()
+        if (windowAttached) windowManager.removeView(this)
+        windowAttached = false
+        dismissStage()
+    }
+
+    /** Removes the stage only; safe to call again. */
+    fun dismissStage() {
+        if (stageAttached) windowManager.removeView(stage)
+        stageAttached = false
+    }
+
+    private fun cancelFlight() {
+        val running = flight
+        flight = null
+        running?.cancel()
+    }
+
+    /**
+     * Takes the handle's touch window away but keeps the stage drawing, and flies the slice
+     * from where it is now to [target], then calls [onArrived]. Without [animate] it arrives at once.
+     */
+    fun flyTo(target: SliceSpot, animate: Boolean, onArrived: () -> Unit) {
+        springBack?.cancel()
+        springBack = null
+        removeCallbacks(hold)
+        if (windowAttached) windowManager.removeView(this)
+        windowAttached = false
+        stage.ring = null
+        if (!animate) {
+            onArrived()
+            return
+        }
+        val from = stage.slice?.let { SliceSpot(it.x, it.y, it.size) } ?: SliceSpot(centreX, centreY, logo)
+        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices)
+        stage.visibility = VISIBLE
+        flight = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = FLIGHT_MILLIS
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener {
+                val at = from.lerp(target, it.animatedValue as Float)
+                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (flight !== animation) return
+                    flight = null
+                    onArrived()
+                }
+            })
+            start()
+        }
     }
 
     /** Moves the handle to ([x], [y]) unless a press is under way. */
@@ -194,10 +250,7 @@ internal class SliceHandleView(
                 removeCallbacks(hold)
                 val (x, y) = slicePosition()
                 when (gesture.up()) {
-                    Release.OPEN -> {
-                        stage.slice = null
-                        performClick()
-                    }
+                    Release.OPEN -> performClick()
                     Release.MOVED -> {
                         feedback(FeedbackEvent.CAPTURE)
                         centreX = x
@@ -308,11 +361,6 @@ internal class SliceHandleView(
         if (isAttachedToWindow) windowManager.updateViewLayout(this, params)
     }
 
-    private fun View.whenDrawn(action: () -> Unit) {
-        viewTreeObserver.registerFrameCommitCallback { post(action) }
-        invalidate()
-    }
-
     companion object {
         const val LOGO_DP = 56f
         private const val PAD_DP = 12f
@@ -322,9 +370,16 @@ internal class SliceHandleView(
         private const val MOVE_SLOP_DP = 6f
         private const val HOLD_MILLIS = 420L
         private const val SPRING_MILLIS = 320L
+        private const val FLIGHT_MILLIS = 320L
         private const val PRESS_SCALE = 1.06f
         private const val MOVE_SCALE = 1.22f
     }
+}
+
+/** Runs [action] on the main thread once this view's next frame is on screen. */
+internal fun View.whenDrawn(action: () -> Unit) {
+    viewTreeObserver.registerFrameCommitCallback { post(action) }
+    invalidate()
 }
 
 /**
