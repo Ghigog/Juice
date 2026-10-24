@@ -33,6 +33,7 @@ import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
 import com.juice.core.economy.EconomyConfig
+import com.juice.data.PendingCoachCardStore
 import com.juice.memory.MemoryStore
 import com.juice.ui.overlay.CoachChatState
 import com.juice.data.CreatedCharacterStore
@@ -96,6 +97,7 @@ class OverlayService : Service() {
     @Volatile private var settings = JuiceSettings()
     private val characterStore by lazy { CharacterStore(this) }
     private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
+    private val pendingCards by lazy { PendingCoachCardStore(File(filesDir, "pending-coach-cards.txt")) }
     private val conversationStore by lazy { ConversationStore(File(filesDir, "conversations.json")) }
     private val repository by lazy {
         ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
@@ -342,7 +344,8 @@ class OverlayService : Service() {
                 onCaptured = intake::submit,
                 characters = characters,
                 registry = characters.registry(),
-                coachChatFor = { characterId, onFailed ->
+                pendingCards = pendingCards,
+                coachChatFor = { characterId, onFailed, onConfirmed ->
                     characters.registry().byId(characterId)?.takeUnless { characterId in characterStore.disabledIds() }?.let { character ->
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
@@ -353,11 +356,12 @@ class OverlayService : Service() {
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
                             coachTasks = coachTasks,
                         )
-                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed, feedback = feedback)
+                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed, onConfirmed, feedback = feedback)
                     }
                 },
             )
             state.observe()
+            state.restorePending()
             composeView.setContent {
                 val current by settingsRepository.settings.collectAsState(settings)
                 LaunchedEffect(current.flavour) { session.applyFlavour() }

@@ -35,6 +35,7 @@ class CoachChatState(
     /** The player's current coach tasks, for naming the ones a proposal changes or removes. */
     private val coachTasks: () -> List<Item> = { emptyList() },
     private val onFailed: () -> Unit = {},
+    private val onConfirmed: () -> Unit = {},
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** Plays the coach's mutter as a reply types out. */
     val feedback: Feedback = SilentFeedback,
@@ -110,6 +111,7 @@ class CoachChatState(
     fun confirm() {
         val tasks = proposal ?: return
         open = false
+        onConfirmed()
         scope.launch {
             characters.createTasks(character.id, tasks)
             characters.recordConversation(character.id)

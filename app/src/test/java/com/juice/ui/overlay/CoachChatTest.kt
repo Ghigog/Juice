@@ -98,12 +98,12 @@ class CoachChatTest {
         state = OverlayShellState(
             repository, scope, listOf(card),
             characters = characters,
-            coachChatFor = { id, onFailed ->
+            coachChatFor = { id, onFailed, onConfirmed ->
                 val conversation = CoachConversation(
                     jim, CoachClient("key", server.url("/").toString().trimEnd('/')),
                     ConversationStore(File(dir, "conversations.json")), MemoryStore(File(dir, "memory.json")), { onDeviceOnly }, coachTasks,
                 )
-                CoachChatState(jim, conversation, characters, scope, coachTasks, onFailed)
+                CoachChatState(jim, conversation, characters, scope, coachTasks, onFailed, onConfirmed)
             },
         )
         val effects = OverlayEffects()
