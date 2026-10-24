@@ -121,9 +121,11 @@ class CoachChatTest {
     private fun routines() = runBlocking { repository.byCharacter("jim").filter { it.type == ItemType.Routine } }
 
     private fun propose(vararg tasks: String) {
+        reply("Ready [ready]")
         reply("""{"tasks":[${tasks.joinToString(",")}]}""")
         reply("""{"shared":[],"characters":{}}""")
-        compose.onNodeWithTag(TAG_COACH_FINISH).performClick()
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("That sounds right")
+        compose.onNodeWithTag(TAG_COACH_SEND).performClick()
         waitForText("Proposed regular tasks")
     }
 
@@ -177,7 +179,8 @@ class CoachChatTest {
     fun anUnreachableCoachClosesTheChatAndKeepsTheCheckInCard() {
         show(checkIn)
         server.enqueue(MockResponse().setResponseCode(500))
-        compose.onNodeWithTag(TAG_COACH_FINISH).performClick()
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("hello")
+        compose.onNodeWithTag(TAG_COACH_SEND).performClick()
         waitForText("could not be reached")
         assertEquals(ItemStatus.Active, runBlocking { repository.get("checkin-jim")?.status })
         assertEquals(listOf("checkin-jim"), state.items.map { it.id })
@@ -251,11 +254,49 @@ class CoachChatTest {
     fun theProposalLeavesTheExpressionUnchanged() {
         val chat = chat {}
         sendAndWait(chat, "[happy] Nice")
+        reply("Ready [ready]")
         reply("""{"tasks":[${add("Walk")}]}""")
         reply("""{"shared":[],"characters":{}}""")
-        chat.finish()
+        chat.send("go")
         waitFor { chat.proposal != null }
         assertEquals(Expression.HAPPY, chat.expression)
+    }
+
+    @Test
+    fun theChatHasSendButNoFinish() {
+        compose.setContent { CoachChat(chat {}, Hud()) }
+        compose.onNodeWithTag(TAG_COACH_INPUT).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_COACH_SEND).assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithTagCount("coach_finish"))
+    }
+
+    @Test
+    fun aReadyReplyShowsTheProposalWithConfirmAndCancel() {
+        val chat = chat {}
+        compose.setContent { CoachChat(chat, Hud()) }
+        reply("Ready [ready]")
+        reply("""{"tasks":[${add("Walk")}]}""")
+        reply("""{"shared":[],"characters":{}}""")
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("go")
+        compose.onNodeWithTag(TAG_COACH_SEND).performClick()
+        waitFor { chat.proposal != null }
+        compose.onNodeWithTag(TAG_COACH_CONFIRM).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_COACH_CANCEL).assertIsDisplayed()
+    }
+
+    @Test
+    fun aRejectedProposalShowsTheNoticeAndKeepsTheInput() {
+        val chat = chat {}
+        compose.setContent { CoachChat(chat, Hud()) }
+        reply("Ready [ready]")
+        reply("""{"tasks":[]}""")
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("go")
+        compose.onNodeWithTag(TAG_COACH_SEND).performClick()
+        waitFor { chat.proposalRejected }
+        waitForText("Tell me more")
+        compose.onNodeWithTag(TAG_COACH_INPUT).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_COACH_SEND).assertIsDisplayed()
+        assertNull(chat.proposal)
     }
 
     @Test
@@ -323,7 +364,7 @@ class CoachChatTest {
         val chat = chat { failed++ }
         chat.start()
         server.enqueue(MockResponse().setResponseCode(500))
-        chat.finish()
+        chat.send("hi")
         waitFor { !chat.open }
         chat.cancel()
         assertEquals(1, failed)

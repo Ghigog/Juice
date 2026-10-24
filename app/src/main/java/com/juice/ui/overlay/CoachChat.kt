@@ -45,11 +45,10 @@ const val TAG_COACH_CHAT = "coach_chat"
 const val TAG_COACH_FACE = "coach_face"
 const val TAG_COACH_INPUT = "coach_input"
 const val TAG_COACH_SEND = "coach_send"
-const val TAG_COACH_FINISH = "coach_finish"
 const val TAG_COACH_CONFIRM = "coach_confirm"
 const val TAG_COACH_CANCEL = "coach_cancel"
 
-/** The chat with a coach: a scrolling message list, the input with Send and Finish, then the proposal with Confirm and Cancel. */
+/** The chat with a coach: a scrolling message list, the input with Send, then the proposal with Confirm and Cancel. */
 @Composable
 internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modifier) {
     val opening = ChatMessage("assistant", chat.character.openingLine)
@@ -119,8 +118,7 @@ private fun Input(chat: CoachChatState, hud: Hud) {
             },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PillButton(stringResource(R.string.coach_send), JuiceColors.white(0.14f), Color.White, Modifier.weight(1f).testTag(TAG_COACH_SEND)) { send() }
-            PillButton(stringResource(R.string.coach_finish), hud.accent, JuiceColors.Ink, Modifier.weight(1f).testTag(TAG_COACH_FINISH)) { chat.finish() }
+            PillButton(stringResource(R.string.coach_send), hud.accent, JuiceColors.Ink, Modifier.weight(1f).testTag(TAG_COACH_SEND)) { send() }
         }
     }
 }

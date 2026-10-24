@@ -92,13 +92,12 @@
     <string name="settings_character_reset_confirm">Resetting %1$s deletes their cards, tasks and conversation, and starts them over as new. Reset?</string>
     <string name="coach_input_hint">Message the coach…</string>
     <string name="coach_send">Send</string>
-    <string name="coach_finish">Finish</string>
     <string name="coach_thinking">…</string>
     <string name="coach_proposal_title">Proposed regular tasks</string>
     <string name="coach_proposal_add">Add: %1$s (%2$s)</string>
     <string name="coach_proposal_change">Change: %1$s (%2$s)</string>
     <string name="coach_proposal_remove">Remove: %1$s</string>
-    <string name="coach_proposal_rejected">I couldn\'t make a usable list of tasks. Tell me more and press Finish again.</string>
+    <string name="coach_proposal_rejected">I couldn\'t make a usable list of tasks yet. Tell me more.</string>
     <string name="coach_confirm">Confirm</string>
     <string name="coach_cancel">Cancel</string>
     <string name="creator_title">Summon a coach. What hobby do you want to get better at?</string>
