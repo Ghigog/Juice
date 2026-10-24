@@ -121,6 +121,7 @@ const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
 const val TAG_CLOSE = "close_handle"
 const val TAG_RECAP = "recap_button"
+const val TAG_ROUTINES = "routines_button"
 const val TAG_SETTINGS = "settings_button"
 const val TAG_SETTINGS_DONE = "settings_done"
 const val TAG_FLAVOUR_PREFIX = "flavour_"
@@ -173,6 +174,7 @@ fun OverlayShell(
     val contentBottom = maxOf(barBottom, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
     var settingsOpen by remember { mutableStateOf(false) }
     var recapOpen by remember { mutableStateOf(false) }
+    var routinesOpen by remember { mutableStateOf(false) }
     var centre by remember { mutableStateOf(0) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
@@ -187,6 +189,8 @@ fun OverlayShell(
         writingBack.leave = ::leaveWriting
         writingBack.isRecapOpen = { recapOpen }
         writingBack.closeRecap = { recapOpen = false }
+        writingBack.isRoutinesOpen = { routinesOpen }
+        writingBack.closeRoutines = { routinesOpen = false }
     }
     // The keyboard swallows the first back press to hide itself, so the app only sees it close.
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -233,33 +237,13 @@ fun OverlayShell(
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 if (!writing) {
-                    Header(hud, onRecap = { recapOpen = true }, onSettings = { settingsOpen = true })
+                    Header(hud, onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
                     val list = state.items
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                        if (list.isNotEmpty()) {
-                            Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = { centre = it }, modifier = Modifier.width(112.dp).fillMaxHeight())
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Column(Modifier.weight(1f).fillMaxHeight()) {
-                            HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
-                            Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
-                            CentreCard(
-                                state = state,
-                                item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
-                                hud = hud,
-                                tapButtons = settings.tapButtons,
-                                reduceMotion = settings.reduceMotion,
-                                onDeviceOnly = settings.onDeviceOnly,
-                                actions = actions,
-                                effects = effects,
-                                reservoir = reservoir,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                            Floats(effects, hud, Modifier.fillMaxSize())
-                            }
-                        }
-                    }
+                    CardRow(
+                        state, hud, settings, actions, effects, reservoir, centre,
+                        onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
+                    )
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(44.dp)) {
                         if (undo != null) UndoToast(undo, hud) {
@@ -335,6 +319,17 @@ fun OverlayShell(
                         .padding(bottom = barBottom),
                 )
             }
+            if (routinesOpen) {
+                RoutinesView(
+                    state.routines, hud, settings, actions, effects, reservoir,
+                    onClose = { routinesOpen = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(overlayTint(blurred))
+                        .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
+                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                )
+            }
             if (recapOpen) {
                 RecapScreen(
                     hud, settings.reduceMotion, clock, actions,
@@ -350,6 +345,46 @@ fun OverlayShell(
                 showRing = ringPreview > 0,
                 onClose = actions.onClose,
             )
+        }
+    }
+}
+
+/** The carousel beside the centre card for the items of [state]; shared by the main view and the Routines view. */
+@Composable
+internal fun CardRow(
+    state: OverlayShellState,
+    hud: Hud,
+    settings: JuiceSettings,
+    actions: OverlayActions,
+    effects: OverlayEffects,
+    reservoir: @Composable (Modifier) -> Unit,
+    centre: Int,
+    onCentre: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val list = state.items
+    Row(modifier) {
+        if (list.isNotEmpty()) {
+            Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = onCentre, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Spacer(Modifier.width(8.dp))
+        }
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
+            Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
+                CentreCard(
+                    state = state,
+                    item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
+                    hud = hud,
+                    tapButtons = settings.tapButtons,
+                    reduceMotion = settings.reduceMotion,
+                    onDeviceOnly = settings.onDeviceOnly,
+                    actions = actions,
+                    effects = effects,
+                    reservoir = reservoir,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Floats(effects, hud, Modifier.fillMaxSize())
+            }
         }
     }
 }
@@ -399,9 +434,10 @@ private fun SliceButton(settings: JuiceSettings, hud: Hud, slices: Int, active: 
 }
 
 @Composable
-private fun Header(hud: Hud, onRecap: () -> Unit, onSettings: () -> Unit) {
+private fun Header(hud: Hud, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.weight(1f)) {
+        Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
                 Text(stringResource(R.string.overlay_level, hud.level), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(Modifier.width(8.dp))
@@ -419,7 +455,7 @@ private fun Header(hud: Hud, onRecap: () -> Unit, onSettings: () -> Unit) {
                 Box(Modifier.fillMaxWidth(hud.levelProgress).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(hud.accent))
             }
         }
-        Spacer(Modifier.weight(1f))
+        }
         MultiplierBadge(hud)
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End) {
@@ -444,6 +480,28 @@ private fun Header(hud: Hud, onRecap: () -> Unit, onSettings: () -> Unit) {
                 fun bar(x: Float, top: Float) =
                     drawRoundRect(Color.White, Offset(x * u, top * u), androidx.compose.ui.geometry.Size(4f * u, (20f - top) * u), androidx.compose.ui.geometry.CornerRadius(u))
                 bar(3f, 4f); bar(10f, 10f); bar(17f, 15f)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        val routinesLabel = stringResource(R.string.routines_open)
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(JuiceColors.white(0.14f))
+                .clickable(onClick = onRoutines)
+                .semantics { contentDescription = routinesLabel }
+                .testTag(TAG_ROUTINES),
+            contentAlignment = Alignment.Center,
+        ) {
+            // A circling arrow: the Routine comes round again.
+            Canvas(Modifier.size(20.dp)) {
+                val u = size.width / 24f
+                drawArc(Color.White, 40f, 280f, false, Offset(4f * u, 4f * u), androidx.compose.ui.geometry.Size(16f * u, 16f * u), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                drawPath(
+                    Path().apply { moveTo(16f * u, 1f * u); lineTo(21f * u, 6f * u); lineTo(14f * u, 7f * u); close() },
+                    Color.White,
+                )
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -581,7 +639,7 @@ private fun Carousel(
 }
 
 @Composable
-private fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
+internal fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
     val left = remember(undo) { Animatable(1f) }
     LaunchedEffect(undo) { left.animateTo(0f, tween(OverlayShellState.UNDO_WINDOW_MILLIS.toInt(), easing = LinearEasing)) }
     Box(
@@ -659,10 +717,13 @@ class WritingBack {
     internal var leave: () -> Unit = {}
     internal var isRecapOpen: () -> Boolean = { false }
     internal var closeRecap: () -> Unit = {}
+    internal var isRoutinesOpen: () -> Boolean = { false }
+    internal var closeRoutines: () -> Unit = {}
 
-    /** BACK closes the Recap while it is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
+    /** BACK closes the Recap or the Routines view while one is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
     fun back(close: () -> Unit) = when {
         isRecapOpen() -> closeRecap()
+        isRoutinesOpen() -> closeRoutines()
         isWriting() -> leave()
         else -> close()
     }

@@ -13,6 +13,10 @@
     <string name="onboarding_title">Before you start</string>
     <string name="onboarding_cloud_disclosure">Text you enter is sent to a cloud parser (Groq) so Juice can work out what it is. Turn on \"On-device only\" in Settings to keep everything on this phone; Juice then uses simple built-in rules instead.</string>
     <string name="onboarding_continue">Got it</string>
+    <string name="routines_open">Open Routines</string>
+    <string name="routines_close">Close Routines</string>
+    <string name="routines_title">Routines</string>
+    <string name="routines_empty">No Routines yet.</string>
     <string name="recap_open">Open Recap</string>
     <string name="recap_close">Close Recap</string>
     <string name="recap_title">Recap</string>
