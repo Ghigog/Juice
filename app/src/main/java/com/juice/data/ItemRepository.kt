@@ -83,6 +83,9 @@ class ItemRepository(
     suspend fun recapItems(since: Instant): List<Item> =
         dao.recapItems(since.toEpochMilli()).map { it.toItem() }.visible()
 
+    /** Every Active Routine, whatever its next due day, re-emitted whenever they change. */
+    fun observeRoutines(): Flow<List<Item>> = dao.observeRoutines().visible()
+
     fun observeRecapItems(since: Instant): Flow<List<Item>> =
         dao.observeRecapItems(since.toEpochMilli()).visible()
 
