@@ -81,6 +81,12 @@ class CharacterTest {
         assertIs<CoachProposalResult.Rejected>(CoachProposal.validate("""{"tasks":[$many]}""", known))
     }
 
+    private fun assertAsksUntilReady(prompt: String) {
+        assertTrue("[ready]" in prompt)
+        assertTrue("never propose early" in prompt)
+        assertFalse("When you have enough" in prompt)
+    }
+
     @Test fun jimPromptNamesJimothyKeepsGuardrailAndContract() {
         val prompt = jim.personaPrompt
         assertTrue("Jimothy" in prompt)
@@ -88,6 +94,7 @@ class CharacterTest {
         listOf("[neutral]", "[happy]", "[stern]", "[thinking]").forEach { assertTrue(it in prompt, it) }
         assertTrue("""{"tasks":[""" in prompt)
         assertTrue("no emotion tag" in prompt)
+        assertAsksUntilReady(prompt)
     }
 
     @Test fun jimHasSquareEyesAndTriangleMouth() {
@@ -123,6 +130,7 @@ class CharacterTest {
             listOf("[neutral]", "[happy]", "[stern]", "[thinking]").forEach { assertTrue(it in prompt, it) }
             assertTrue("""{"tasks":[""" in prompt, character.id)
             assertTrue("no emotion tag" in prompt, character.id)
+            assertAsksUntilReady(prompt)
             words.forEach { assertTrue(it in prompt, it) }
         }
     }
