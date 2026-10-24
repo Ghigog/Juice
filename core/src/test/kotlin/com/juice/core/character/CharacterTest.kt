@@ -141,4 +141,22 @@ class CharacterTest {
             assertEquals(Availability.MetPending, CharacterTransitions.onLevel(CharacterState(), it, it.unlockLevel).availability)
         }
     }
+
+    @Test fun everyBuiltInPromptInterviewsAboutHealthAndWaitsForReady() {
+        Characters.all.forEach {
+            assertTrue("Ask one short question per reply" in it.personaPrompt, it.id)
+            assertTrue("Reply [ready] only once those are answered" in it.personaPrompt, it.id)
+            assertTrue("health" in it.personaPrompt, it.id)
+        }
+        assertTrue("Ask one short question per reply" in GeneratedPersona.PROPOSAL_CONTRACT)
+    }
+
+    @Test fun openingLinesAskAFirstQuestionInsteadOfWhatToDo() {
+        Characters.all.forEach {
+            assertTrue(it.openingLine.endsWith("?"), it.id)
+            assertTrue("ain't a doctor" in it.openingLine || "no doctor" in it.openingLine || "not a doctor" in it.openingLine, it.id)
+            assertFalse("workin'" in it.openingLine || "working on" in it.openingLine || "on your plate" in it.openingLine, it.id)
+        }
+        assertTrue("exercise" in jim.openingLine)
+    }
 }
