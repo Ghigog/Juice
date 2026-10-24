@@ -122,6 +122,7 @@ const val TAG_DISMISS = "dismiss_button"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
 const val TAG_CLOSE = "close_handle"
+const val TAG_CAROUSEL = "carousel"
 const val TAG_RECAP = "recap_button"
 const val TAG_ROUTINES = "routines_button"
 const val TAG_SETTINGS = "settings_button"
@@ -596,7 +597,12 @@ private fun Carousel(
     LaunchedEffect(firstId) {
         if (firstId != null && centreIndex != 0) listState.animateScrollToItem(0)
     }
-    BoxWithConstraints(modifier) {
+    // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
+    BoxWithConstraints(
+        modifier
+            .pointerInput(held) { if (held == null) detectTapGestures { actions.onClose() } }
+            .testTag(TAG_CAROUSEL),
+    ) {
         val pad = (maxHeight - CAROUSEL_ITEM_DP.dp) / 2
         LazyColumn(
             state = listState,

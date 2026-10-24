@@ -24,6 +24,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.room.Room
 import com.juice.core.intake.ItemType
@@ -307,6 +308,31 @@ class OverlayShellTest {
         compose.onNodeWithTag(TAG_CLOSE).performTouchInput { click(Offset(width * 0.5f, height - 2f)) }
         idle()
         assertEquals(1, closed)
+    }
+
+    private fun threeItems() = arrayOf(
+        Item("a", ItemType.Task, "Call Sam"), Item("b", ItemType.Task, "Buy milk"), Item("c", ItemType.Task, "Pay rent"),
+    )
+
+    @Test
+    fun tappingCarouselPaddingAboveAndBelowTheCardsCloses() {
+        var closed = 0
+        show(*threeItems(), actions = OverlayActions(onClose = { closed++ }))
+        compose.onNodeWithTag(TAG_CAROUSEL).performTouchInput { click(Offset(56.dp.toPx(), 4f)) }
+        idle()
+        assertEquals(1, closed)
+        compose.onNodeWithTag(TAG_CAROUSEL).performTouchInput { click(Offset(56.dp.toPx(), height - 4f)) }
+        idle()
+        assertEquals(2, closed)
+    }
+
+    @Test
+    fun tappingACarouselCardKeepsOverlayOpen() {
+        var closed = 0
+        show(*threeItems(), actions = OverlayActions(onClose = { closed++ }))
+        compose.onNodeWithTag(TAG_CAROUSEL).performTouchInput { click(Offset(56.dp.toPx(), height / 2f)) }
+        idle()
+        assertEquals(0, closed)
     }
 
     @Test
