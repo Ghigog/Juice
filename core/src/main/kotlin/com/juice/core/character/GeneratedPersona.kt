@@ -18,7 +18,9 @@ data class GeneratedPersona(val name: String, val personality: String, val perso
 
         /** The task-proposal instructions every character's prompt carries. */
         val PROPOSAL_CONTRACT = """
-            When you have enough, end by proposing tasks as JSON only, with no emotion tag, in this shape:
+            Keep asking questions until you can propose tasks; never propose early.
+            When you are ready, end your reply with the exact tag [ready] and nothing after it. Chat replies never contain JSON.
+            The proposal is requested separately; then reply with JSON only, with no emotion tag, in this shape:
             {"tasks":[{"action":"add","title":"Walk 20 minutes","cadence":{"days":["mon","wed","fri"],"time":"07:30"}},
             {"action":"change","id":"<existing id>","title":"...","cadence":{"days":"daily"}},
             {"action":"remove","id":"<existing id>"}]}
