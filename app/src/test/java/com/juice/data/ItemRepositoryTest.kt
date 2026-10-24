@@ -316,6 +316,27 @@ class ItemRepositoryTest {
     }
 
     @Test
+    fun observedRoutinesAreEveryActiveRoutineWhateverItsDueDay() = runBlocking {
+        val friday = LocalDate.of(2026, 10, 23)
+        val tueThuSat = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY))
+        repository.save(Item("r", ItemType.Routine, "Review", cadence = tueThuSat, nextDueOn = friday.plusDays(1)))
+        repository.save(Item("done", ItemType.Routine, "Done", cadence = sundays, nextDueOn = sunday, status = ItemStatus.Completed))
+        repository.save(Item("old", ItemType.Routine, "Old", cadence = sundays, nextDueOn = sunday, status = ItemStatus.Archived))
+        repository.save(item("t"))
+        assertEquals(listOf("r"), repository.observeRoutines().first().map { it.id })
+        assertEquals(emptyList(), repository.active(friday).map { it.id }.filter { it == "r" })
+    }
+
+    @Test
+    fun aRoutineArchivedWhileObservedLeavesTheList() = runBlocking {
+        repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
+        val seen = async { repository.observeRoutines().take(2).toList().map { list -> list.map { it.id } } }
+        delay(200)
+        repository.archive("r")
+        assertEquals(listOf(listOf("r"), emptyList()), withTimeout(5_000) { seen.await() })
+    }
+
+    @Test
     fun advancingAMissedRoutineSkipsToTheFirstDayAfterToday() {
         val missed = Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday.minusWeeks(2))
         assertEquals(sunday, missed.advance(wednesday).nextDueOn)
