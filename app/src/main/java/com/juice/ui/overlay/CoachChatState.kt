@@ -87,6 +87,19 @@ class CoachChatState(
                     messages = messages + ChatMessage("assistant", reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                 }
+                is CoachReply.Proposal -> {
+                    expression = reply.expression
+                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
+                    typingIndex = messages.lastIndex
+                    titles = coachTasks().associate { it.id to it.title }
+                    proposal = reply.tasks
+                }
+                is CoachReply.Rejected -> {
+                    expression = reply.expression
+                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
+                    typingIndex = messages.lastIndex
+                    proposalRejected = true
+                }
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
                 is CoachReply.Error -> fail(CoachNotice.Unreachable)
             }
