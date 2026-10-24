@@ -479,4 +479,68 @@ class OverlayShellStateTest {
         assertNull(swipeOf(stroke(0.0 to 50.0, 40.0 to 90.0, 100.0 to 0.0), 50.0))
         assertNull(swipeOf(stroke(0.0 to 0.0, 100.0 to 100.0), 50.0))
     }
+
+    // Due Tuesday, Thursday and Saturday; today (Sunday) none of them is due.
+    private val later = Item(
+        "l", ItemType.Routine, "Stretch",
+        cadence = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)), nextDueOn = sunday.plusDays(2),
+    )
+
+    private fun routinesState(): OverlayShellState = runBlocking {
+        repository.save(routine)
+        repository.save(later)
+        state(routine).also { it.observe() }.routines.also { it.observe() }
+    }
+
+    @Test
+    fun theRoutinesListHoldsEveryActiveRoutineWhileTheCarouselKeepsOnlyThoseDue() {
+        val main = runBlocking { repository.save(routine); repository.save(later); repository.save(task); state() }
+        main.observe()
+        main.routines.observe()
+        assertEquals(listOf("r", "t"), main.items.map { it.id }.sorted().filter { it != "l" })
+        assertEquals(false, main.items.any { it.id == "l" })
+        assertEquals(listOf("l", "r"), main.routines.items.map { it.id }.sorted())
+    }
+
+    @Test
+    fun completingARoutineInTheRoutinesViewEndsItWithoutAdvancing() {
+        val routines = routinesState()
+        routines.complete(later)
+        assertEquals(listOf("r"), routines.items.map { it.id })
+        val saved = repository.let { runBlocking { it.get("l")!! } }
+        assertEquals(ItemStatus.Completed, saved.status)
+        assertEquals(later.nextDueOn, saved.nextDueOn)
+    }
+
+    @Test
+    fun archivingARoutineInTheRoutinesViewArchivesItAndLeavesTheCarouselAlone() {
+        val main = state(routine)
+        val routines = routinesState()
+        routines.dismiss(routine)
+        assertEquals(listOf("l"), routines.items.map { it.id })
+        assertEquals(ItemStatus.Archived, runBlocking { repository.get("r")!!.status })
+        assertEquals(listOf("r"), main.items.map { it.id })
+    }
+
+    @Test
+    fun undoingInTheRoutinesViewBringsTheRoutineBackRecurring() {
+        val routines = routinesState()
+        routines.dismiss(later)
+        routines.undoLast()
+        assertEquals(listOf("l", "r"), routines.items.map { it.id }.sorted())
+        val saved = runBlocking { repository.get("l")!! }
+        assertEquals(ItemStatus.Active, saved.status)
+        assertEquals(later.cadence, saved.cadence)
+        assertEquals(later.nextDueOn, saved.nextDueOn)
+    }
+
+    @Test
+    fun aTitleEditedInTheRoutinesViewIsSavedAndShownInTheCarousel() {
+        val routines = routinesState()
+        routines.setTitle(later, "Stretch legs")
+        assertEquals("Stretch legs", runBlocking { repository.get("l")!!.title })
+        val dueDay = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), today = sunday.plusDays(2))
+        dueDay.observe()
+        assertEquals(listOf("Stretch legs"), dueDay.items.filter { it.id == "l" }.map { it.title })
+    }
 }

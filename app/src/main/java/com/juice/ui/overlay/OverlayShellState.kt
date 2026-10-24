@@ -58,6 +58,8 @@ class OverlayShellState(
     private val registry: CharacterRegistry = CharacterRegistry { emptyList() },
     /** Where the character is generated, which calls the network. */
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** True for the Routines view's list: every Active Routine, finished for good by ✓/✗ instead of moving on. */
+    private val listsRoutines: Boolean = false,
 ) {
     var items by mutableStateOf(initial)
         private set
@@ -101,10 +103,25 @@ class OverlayShellState(
         return note
     }
 
+    /** The Routines view's list, over the same repository; the carousel's own list is not touched by it. */
+    val routines: OverlayShellState by lazy {
+        OverlayShellState(
+            repository, scope, onCompleted = onCompleted, onCompletionUndone = onCompletionUndone,
+            today = today, io = io, listsRoutines = true,
+        )
+    }
+
+    private var observingRoutines = false
+
     /** Keeps the cards in step with the repository, so a parse landing later updates an open card. */
     fun observe() {
+        // The Routines view calls this each time it opens; one collector is enough.
+        if (listsRoutines) {
+            if (observingRoutines) return
+            observingRoutines = true
+        }
         scope.launch {
-            repository.observeActive(today).collect { saved ->
+            (if (listsRoutines) repository.observeRoutines() else repository.observeActive(today)).collect { saved ->
                 val flowOpen = creator != null
                 val byId = saved.filterNot { flowOpen && it.id == CREATOR_CARD_ID }.associateBy { it.id }
                 val landed = parsing.filter { id ->
@@ -296,8 +313,8 @@ class OverlayShellState(
         items.forEachIndexed { index, it -> order[it.id] = index }
         items = items.filterNot { it.id == item.id }
         undo = Undo(restore, dismissed)
-        // A Routine moves on to its next due day and stays Active instead of finishing.
-        val saved = if (item.type == ItemType.Routine && item.cadence != null) item.advance(today) else item.copy(status = status)
+        // A Routine moves on to its next due day and stays Active instead of finishing, except in the Routines view.
+        val saved = if (!listsRoutines && item.type == ItemType.Routine && item.cadence != null) item.advance(today) else item.copy(status = status)
         scope.launch(start = CoroutineStart.UNDISPATCHED) { repository.save(saved) }
     }
 

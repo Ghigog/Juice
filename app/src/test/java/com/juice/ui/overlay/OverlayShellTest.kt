@@ -32,6 +32,7 @@ import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
+import java.time.LocalDate
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.ui.Tier
@@ -131,6 +132,28 @@ class OverlayShellTest {
         show(Item("r", ItemType.Routine, "Water plants", cadence = Cadence(setOf(DayOfWeek.SUNDAY))))
         compose.onAllNodesWithText("Every Sun").onFirst().assertIsDisplayed()
         compose.onAllNodesWithText("Routine", ignoreCase = true).onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun theRoutinesButtonListsARoutineNotDueTodayAndBackReturns() {
+        val later = Item(
+            "l", ItemType.Routine, "Stretch",
+            cadence = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)), nextDueOn = LocalDate.now().plusDays(3),
+        )
+        runBlocking { repository.save(later) }
+        show()
+        compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        idle()
+        idle()
+        compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertIsDisplayed()
+        compose.onAllNodesWithText("Stretch").onFirst().assertIsDisplayed()
+
+        var closedOverlay = false
+        compose.runOnIdle { writingBack.back { closedOverlay = true } }
+        idle()
+        compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
+        assertEquals(false, closedOverlay)
     }
 
     private fun idle() {
