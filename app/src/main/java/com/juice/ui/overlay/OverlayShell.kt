@@ -63,7 +63,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -92,6 +91,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.withInfiniteAnimationFrameNanos
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -453,9 +453,9 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
     var turn by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(spin) {
         if (!spin.enabled) return@LaunchedEffect
-        var last = withFrameNanos { it }
+        var last = withInfiniteAnimationFrameNanos { it }
         while (true) {
-            val now = withFrameNanos { it }
+            val now = withInfiniteAnimationFrameNanos { it }
             turn = spin.step(now - last)
             last = now
         }
