@@ -251,15 +251,15 @@ class CoachChatTest {
     }
 
     @Test
-    fun theProposalLeavesTheExpressionUnchanged() {
+    fun theProposalReplyShowsItsExpression() {
         val chat = chat {}
         sendAndWait(chat, "[happy] Nice")
-        reply("Ready [ready]")
+        reply("[angry] Ready [ready]")
         reply("""{"tasks":[${add("Walk")}]}""")
         reply("""{"shared":[],"characters":{}}""")
         chat.send("go")
         waitFor { chat.proposal != null }
-        assertEquals(Expression.HAPPY, chat.expression)
+        assertEquals(Expression.ANGRY, chat.expression)
     }
 
     @Test
@@ -289,7 +289,7 @@ class CoachChatTest {
         val chat = chat {}
         compose.setContent { CoachChat(chat, Hud()) }
         reply("Ready [ready]")
-        reply("""{"tasks":[]}""")
+        reply("""{"nope":1}""")
         compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("go")
         compose.onNodeWithTag(TAG_COACH_SEND).performClick()
         waitFor { chat.proposalRejected }
