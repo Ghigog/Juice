@@ -59,7 +59,11 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -142,7 +146,6 @@ private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
 private val BACKDROP_DP = 280.dp
 private val BACKDROP_BLUR_DP = 3.dp
-private const val BACKDROP_TURN_MILLIS = 45_000
 private const val WIGGLE_MILLIS = 110
 private const val WIGGLE_DEGREES = 1.5f
 private const val WIGGLE_DP = 1.5f
@@ -208,6 +211,7 @@ fun OverlayShell(
         imeWasVisible = imeVisible
     }
     // The ground grows first, then the content rises in; both are fully shown on the first frame with reduced motion.
+    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion) }
     val reveal = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     val entrance = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
@@ -259,7 +263,7 @@ fun OverlayShell(
                 hud,
                 slices = SliceLogoPainter.sliceCount(state.items.size),
                 active = centre.coerceAtMost(state.items.lastIndex),
-                spin = !settings.reduceMotion,
+                spin = spin,
             )
             // Empty background: a tap closes. Cards, buttons and the field take their own taps first.
             val closeLabel = stringResource(R.string.overlay_close)
@@ -287,7 +291,7 @@ fun OverlayShell(
                     CardRow(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entrance = entranceProgress,
+                        entrance = entranceProgress, onSpin = { spin.kick(it) },
                     )
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
@@ -400,11 +404,12 @@ internal fun CardRow(
     onCentre: (Int) -> Unit,
     modifier: Modifier = Modifier,
     entrance: () -> Float = { 1f },
+    onSpin: (Float) -> Unit = {},
 ) {
     val list = state.items
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, onSpin = onSpin, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
@@ -442,22 +447,26 @@ private fun overlayTint(blurred: Boolean): Brush {
 
 /** The big, blurred slice in the top-right corner behind the content; it takes no touches. */
 @Composable
-private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: Boolean) {
+private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum) {
     val painter = remember { SliceLogoPainter() }
     val style = SliceStyle.of(hud.flavour)
-    val turn by rememberInfiniteTransition(label = "backdrop").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(BACKDROP_TURN_MILLIS, easing = LinearEasing)),
-        label = "backdropTurn",
-    )
+    var turn by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(spin) {
+        if (!spin.enabled) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            turn = spin.step(now - last)
+            last = now
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         Canvas(
             Modifier
                 .align(Alignment.TopEnd)
                 .offset(BACKDROP_DP / 4, -BACKDROP_DP / 4)
                 .size(BACKDROP_DP)
-                .graphicsLayer { rotationZ = if (spin) turn else 0f }
+                .graphicsLayer { rotationZ = turn }
                 .blur(BACKDROP_BLUR_DP, BlurredEdgeTreatment.Unbounded),
         ) {
             drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active) }
@@ -586,6 +595,7 @@ private fun Carousel(
     reduceMotion: Boolean,
     entrance: () -> Float,
     onCentre: (Int) -> Unit,
+    onSpin: (Float) -> Unit,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -599,6 +609,25 @@ private fun Carousel(
         }
     }
     var lastCentre by remember { mutableStateOf<Int?>(null) }
+    // Scroll speed in px/s, from the list's position between emissions, feeds the backdrop slice's spin.
+    val onSpinNow by rememberUpdatedState(onSpin)
+    val gapPx = with(density) { CAROUSEL_GAP_DP.dp.toPx() }
+    LaunchedEffect(listState) {
+        var lastPos = Float.NaN
+        var lastTime = 0L
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull()
+            if (first == null) Float.NaN else first.index * (first.size + gapPx) - first.offset.toFloat()
+        }.collect { pos ->
+            val now = System.nanoTime()
+            if (!lastPos.isNaN() && !pos.isNaN() && now > lastTime) {
+                onSpinNow(spinBoostFor((pos - lastPos) / ((now - lastTime) / 1e9f)))
+            }
+            lastPos = pos
+            lastTime = now
+        }
+    }
     val held = state.held
     val heldIndex = items.indexOfFirst { it.id == held }
     // While a card is held, the card at the focal dot is where it would land.
