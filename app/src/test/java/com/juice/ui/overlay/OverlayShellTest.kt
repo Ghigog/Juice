@@ -157,6 +157,34 @@ class OverlayShellTest {
         assertEquals(false, closedOverlay)
     }
 
+    @Test
+    fun theRoutinesButtonWithNoRoutinesShowsTheEmptyMessage() {
+        show()
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        idle()
+        idle()
+        compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_ROUTINES_EMPTY).assertIsDisplayed()
+    }
+
+    @Test
+    fun reopeningTheRoutinesViewShowsEachRoutineOnce() {
+        runBlocking {
+            repository.save(Item("a", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.TUESDAY)), nextDueOn = LocalDate.now().plusDays(3)))
+        }
+        show()
+        repeat(2) {
+            compose.onNodeWithTag(TAG_ROUTINES).performClick()
+            idle()
+            idle()
+            compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertIsDisplayed()
+            assertEquals(listOf("a"), state.routines.items.map { it.id })
+            compose.onNodeWithTag(TAG_ROUTINES_CLOSE).performClick()
+            idle()
+            compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
+        }
+    }
+
     private fun idle() {
         compose.mainClock.advanceTimeBy(100)
         compose.waitForIdle()
