@@ -65,6 +65,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -89,9 +90,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.withInfiniteAnimationFrameNanos
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -110,6 +111,7 @@ import com.juice.settings.JuiceSettings
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
 import java.time.Clock
+import kotlin.coroutines.coroutineContext
 import kotlin.math.roundToInt
 import com.juice.ui.Tier
 import kotlin.math.abs
@@ -445,6 +447,15 @@ private fun overlayTint(blurred: Boolean): Brush {
     )
 }
 
+/**
+ * [withFrameNanos] that tests can pause: Compose's own `withInfiniteAnimationFrameNanos` is internal, so go through the
+ * public [InfiniteAnimationPolicy] it uses, which keeps this endless loop from blocking test idling.
+ */
+private suspend fun <R> withInfiniteFrameNanos(onFrame: (Long) -> R): R {
+    val policy = coroutineContext[InfiniteAnimationPolicy] ?: return withFrameNanos(onFrame)
+    return policy.onInfiniteOperation { withFrameNanos(onFrame) }
+}
+
 /** The big, blurred slice in the top-right corner behind the content; it takes no touches. */
 @Composable
 private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum) {
@@ -453,9 +464,9 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
     var turn by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(spin) {
         if (!spin.enabled) return@LaunchedEffect
-        var last = withInfiniteAnimationFrameNanos { it }
+        var last = withInfiniteFrameNanos { it }
         while (true) {
-            val now = withInfiniteAnimationFrameNanos { it }
+            val now = withInfiniteFrameNanos { it }
             turn = spin.step(now - last)
             last = now
         }
