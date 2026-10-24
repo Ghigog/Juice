@@ -20,6 +20,7 @@ import com.juice.data.CREATOR_CARD_ID
 import com.juice.data.CoachCardKind
 import com.juice.data.CreateResult
 import com.juice.data.ItemRepository
+import com.juice.data.PendingCoachCardStore
 import com.juice.data.advance
 import com.juice.data.toItems
 import java.time.LocalDate
@@ -53,7 +54,9 @@ class OverlayShellState(
     /** Fires when a coach card is completed; the chat opens from here in a later ticket. */
     private val onCoachCardCompleted: (characterId: String, cardKind: CoachCardKind) -> Unit = { _, _ -> },
     /** Opens a chat with the character when its card is completed; [onFailed] is for the chat to call when the card should stay. */
-    private val coachChatFor: (characterId: String, onFailed: () -> Unit) -> CoachChatState? = { _, _ -> null },
+    private val coachChatFor: (characterId: String, onFailed: () -> Unit, onConfirmed: () -> Unit) -> CoachChatState? = { _, _, _ -> null },
+    /** Marks a coach card while its chat is open, so [restorePending] can bring it back after the process dies. */
+    private val pendingCards: PendingCoachCardStore? = null,
     /** Every character, built-in and created, for finding the one a coach card belongs to. */
     private val registry: CharacterRegistry = CharacterRegistry { emptyList() },
     /** Where the character is generated, which calls the network. */
@@ -219,7 +222,12 @@ class OverlayShellState(
         onCompleted(item)
         coachCard(item)?.let { (id, kind) ->
             onCoachCardCompleted(id, kind)
-            coachChat = coachChatFor(id) { putBack(item, completed = true) }?.also { it.start() }
+            pendingCards?.add(item.id)
+            coachChat = coachChatFor(
+                id,
+                { pendingCards?.remove(item.id); putBack(item, completed = true) },
+                { pendingCards?.remove(item.id) },
+            )?.also { it.start() } ?: run { pendingCards?.remove(item.id); null }
         }
         return true
     }
@@ -286,6 +294,18 @@ class OverlayShellState(
         if (character == null) return finish(item, ItemStatus.Archived, dismissed = true)
         items = items.filterNot { it.id == item.id }
         scope.launch { characters?.dismiss(character) }
+    }
+
+    /** Brings back every coach card whose chat was open when the overlay last stopped, and clears the markers. */
+    fun restorePending() {
+        val ids = pendingCards?.ids().orEmpty()
+        if (ids.isEmpty()) return
+        scope.launch {
+            ids.forEach { id ->
+                repository.get(id)?.let { repository.save(it.copy(status = ItemStatus.Active)) }
+                pendingCards?.remove(id)
+            }
+        }
     }
 
     /** Puts the undone item back where it was in the carousel. */

@@ -19,6 +19,7 @@ import com.juice.core.character.CoachTask
 import java.io.IOException
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.data.PendingCoachCardStore
 import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.coach.ConversationStore
@@ -376,12 +377,12 @@ class OverlayShellStateTest {
         val scope = CoroutineScope(Dispatchers.Unconfined)
         val state = OverlayShellState(
             repository, scope, emptyList(), today = sunday, characters = characters,
-            coachChatFor = { _, onFailed ->
+            coachChatFor = { _, onFailed, onConfirmed ->
                 val conversation = CoachConversation(
                     Characters.Jim, CoachClient("key", "http://localhost"),
                     ConversationStore(File.createTempFile("conversations", ".json")), MemoryStore(File.createTempFile("memory", ".json")), { false }, { emptyList() },
                 )
-                CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, io = Dispatchers.Unconfined)
+                CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, onConfirmed = onConfirmed, io = Dispatchers.Unconfined)
             },
         )
         characters.unlockAtLevel(Characters.Jim, 5)
@@ -394,6 +395,68 @@ class OverlayShellStateTest {
 
         assertEquals(listOf("meet-jim"), state.items.map { it.id })
         assertNull(state.coachChat!!.notice)
+    }
+
+    private fun pendingSetup(): Triple<CharacterRepository, PendingCoachCardStore, File> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-shell-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            repository,
+        )
+        val file = File.createTempFile("pending", ".txt").also { it.delete() }
+        return Triple(characters, PendingCoachCardStore(file), file)
+    }
+
+    @Test
+    fun aLeftoverMarkerRestoresTheCoachCardOnStart() = runBlocking {
+        val (characters, pending, file) = pendingSetup()
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        // First run: the chat opens and the process dies before it ends.
+        val first = OverlayShellState(
+            repository, scope, emptyList(), today = sunday, characters = characters,
+            pendingCards = pending, coachChatFor = { _, _, _ -> null.also { } },
+        )
+        characters.unlockAtLevel(Characters.Jim, 5)
+        val meet = repository.get("meet-jim")!!
+        first.observe()
+        pending.add(meet.id)
+        repository.save(meet.copy(status = ItemStatus.Completed))
+
+        val second = OverlayShellState(repository, scope, emptyList(), today = sunday, characters = characters, pendingCards = PendingCoachCardStore(file))
+        second.observe()
+        second.restorePending()
+
+        assertEquals(listOf("meet-jim"), second.items.map { it.id })
+        assertEquals(emptySet(), PendingCoachCardStore(file).ids())
+    }
+
+    @Test
+    fun confirmingTheChatClearsTheMarkerSoTheCardStaysGone() = runBlocking {
+        val (characters, pending, file) = pendingSetup()
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        var confirmed: () -> Unit = {}
+        val state = OverlayShellState(
+            repository, scope, emptyList(), today = sunday, characters = characters, pendingCards = pending,
+            coachChatFor = { _, onFailed, onConfirmed ->
+                confirmed = onConfirmed
+                val conversation = CoachConversation(
+                    Characters.Jim, CoachClient("key", "http://localhost"),
+                    ConversationStore(File.createTempFile("conversations", ".json")), MemoryStore(File.createTempFile("memory", ".json")), { false }, { emptyList() },
+                )
+                CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, onConfirmed = onConfirmed, io = Dispatchers.Unconfined)
+            },
+        )
+        characters.unlockAtLevel(Characters.Jim, 5)
+        state.observe()
+        state.complete(repository.get("meet-jim")!!)
+        assertEquals(setOf("meet-jim"), pending.ids())
+
+        confirmed()
+        val restarted = OverlayShellState(repository, scope, emptyList(), today = sunday, characters = characters, pendingCards = PendingCoachCardStore(file))
+        restarted.observe()
+        restarted.restorePending()
+
+        assertEquals(emptyList(), restarted.items.filter { it.id == "meet-jim" })
     }
 
     private fun creatorState(llm: (String) -> String): Pair<OverlayShellState, CharacterRepository> {
