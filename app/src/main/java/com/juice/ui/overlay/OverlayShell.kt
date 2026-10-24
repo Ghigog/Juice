@@ -63,6 +63,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -134,7 +136,9 @@ private const val CAROUSEL_GAP_DP = 8
 private const val BANNER_MILLIS = 2200L
 private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
-private const val SLICE_DP = 56
+private val BACKDROP_DP = 280.dp
+private val BACKDROP_BLUR_DP = 12.dp
+private const val BACKDROP_TURN_MILLIS = 45_000
 private const val WIGGLE_MILLIS = 110
 private const val WIGGLE_DEGREES = 1.5f
 private const val WIGGLE_DP = 1.5f
@@ -226,6 +230,21 @@ fun OverlayShell(
                 .fillMaxSize()
                 .background(overlayTint(blurred)),
         ) {
+            SliceBackdrop(
+                hud,
+                slices = SliceLogoPainter.sliceCount(state.items.size),
+                active = centre.coerceAtMost(state.items.lastIndex),
+                spin = !settings.reduceMotion,
+            )
+            // Empty background: a tap closes. Cards, buttons and the field take their own taps first.
+            val closeLabel = stringResource(R.string.overlay_close)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures { actions.onClose() } }
+                    .semantics { contentDescription = closeLabel }
+                    .testTag(TAG_CLOSE),
+            )
             Column(
                 Modifier
                     .fillMaxSize()
@@ -337,14 +356,7 @@ fun OverlayShell(
                     systemBars = systemBars,
                 )
             }
-            // The same slice that opened Juice, where it was left; a tap closes.
-            SliceButton(
-                settings, hud,
-                slices = SliceLogoPainter.sliceCount(state.items.size),
-                active = centre.coerceAtMost(state.items.lastIndex),
-                showRing = ringPreview > 0,
-                onClose = actions.onClose,
-            )
+            if (ringPreview > 0) SwipeRing(settings, hud)
         }
     }
 }
@@ -401,34 +413,42 @@ private fun overlayTint(blurred: Boolean): Brush {
     )
 }
 
-/** The slice handle inside the overlay, at the handle's screen position; [showRing] previews the swipe distance. */
+/** The big, blurred slice in the top-right corner behind the content; it takes no touches. */
 @Composable
-private fun SliceButton(settings: JuiceSettings, hud: Hud, slices: Int, active: Int, showRing: Boolean, onClose: () -> Unit) {
-    val label = stringResource(R.string.overlay_close)
+private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: Boolean) {
     val painter = remember { SliceLogoPainter() }
     val style = SliceStyle.of(hud.flavour)
+    val turn by rememberInfiniteTransition(label = "backdrop").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(BACKDROP_TURN_MILLIS, easing = LinearEasing)),
+        label = "backdropTurn",
+    )
+    Box(Modifier.fillMaxSize()) {
+        Canvas(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(BACKDROP_DP / 4, -BACKDROP_DP / 4)
+                .size(BACKDROP_DP)
+                .graphicsLayer { rotationZ = if (spin) turn else 0f }
+                .blur(BACKDROP_BLUR_DP, BlurredEdgeTreatment.Unbounded),
+        ) {
+            drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active) }
+        }
+    }
+}
+
+/** Previews the swipe distance around the handle's saved position. */
+@Composable
+private fun SwipeRing(settings: JuiceSettings, hud: Hud) {
+    val painter = remember { SliceLogoPainter() }
     val density = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cx = constraints.maxWidth * settings.handleX.coerceIn(0f, 1f)
         val cy = constraints.maxHeight * settings.handleY.coerceIn(0f, 1f)
-        if (showRing) {
-            val radius = with(density) { settings.swipeDistance.dp.dp.toPx() }
-            Canvas(Modifier.fillMaxSize()) {
-                drawIntoCanvas { painter.drawRing(it.nativeCanvas, cx, cy, radius, 0f, false, hud.accent.toArgb(), density.density) }
-            }
-        }
-        val half = with(density) { (SLICE_DP / 2).dp.toPx() }
-        Box(
-            Modifier
-                .offset { IntOffset((cx - half).roundToInt(), (cy - half).roundToInt()) }
-                .size(SLICE_DP.dp)
-                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-                .semantics { contentDescription = label }
-                .testTag(TAG_CLOSE),
-        ) {
-            Canvas(Modifier.fillMaxSize()) {
-                drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active) }
-            }
+        val radius = with(density) { settings.swipeDistance.dp.dp.toPx() }
+        Canvas(Modifier.fillMaxSize()) {
+            drawIntoCanvas { painter.drawRing(it.nativeCanvas, cx, cy, radius, 0f, false, hud.accent.toArgb(), density.density) }
         }
     }
 }
