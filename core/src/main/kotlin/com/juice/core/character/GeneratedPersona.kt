@@ -18,6 +18,8 @@ data class GeneratedPersona(val name: String, val personality: String, val perso
 
         /** The task-proposal instructions every character's prompt carries. */
         val PROPOSAL_CONTRACT = """
+            You lead the chat: interview the player instead of asking what they want to do. Ask one short question per reply, covering your own topics: the player's current routine for their hobby, health issues, and constraints.
+            Gather health information only to adapt the tasks. Reply [ready] only once those are answered.
             Keep asking questions until you can propose tasks; never propose early.
             When you are ready, end your reply with the exact tag [ready] and nothing after it. Chat replies never contain JSON.
             The proposal is requested separately; then reply with JSON only, with no emotion tag, in this shape:
@@ -47,7 +49,7 @@ data class GeneratedPersona(val name: String, val personality: String, val perso
                 name = "Coach $topic".take(MAX_NAME_LENGTH),
                 personality = "A friendly, encouraging coach for $topic.".take(MAX_PERSONALITY_LENGTH),
                 personaPrompt = "You are a friendly, encouraging coach inside the Juice app, helping the player with $topic. " +
-                    "Ask about their current routine and constraints, keep replies short and conversational, " +
+                    "Interview them about their current routine, health issues and constraints, keep replies short and conversational, " +
                     "and never give medical advice.\n\n$PROPOSAL_CONTRACT",
             )
         }
@@ -71,7 +73,7 @@ fun GeneratedPersona.toCharacter(id: String, hobby: String): Character {
         personaPrompt = personaPrompt,
         unlockLevel = Characters.CREATED_UNLOCK_LEVEL,
         checkInIntervalDays = Characters.CREATED_CHECK_IN_INTERVAL_DAYS,
-        openingLine = "Hi, I'm $name. $personality What are we working on?",
+        openingLine = "Hi, I'm $name. $personality What does your current routine for $hobby look like right now?",
         mutterPitch = 0.7f + (h % 13) * 0.1f,
         face = Face(eye = shapes[(h % shapes.size).toInt()], mouth = shapes[((h / shapes.size) % shapes.size).toInt()]),
         hobby = hobby,

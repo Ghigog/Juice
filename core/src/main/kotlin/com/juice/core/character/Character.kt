@@ -36,7 +36,7 @@ object Characters {
         personaPrompt = JimPersona.PROMPT,
         unlockLevel = 5,
         checkInIntervalDays = 14,
-        openingLine = "Well howdy, friend! Jimothy here. I'll push you like a stubborn mule, but I ain't a doctor, so see one for health worries. What're we workin' on?",
+        openingLine = "Well howdy, friend! Jimothy here. I'll push you like a stubborn mule, but I ain't a doctor, so see one for health worries. What does your exercise look like right now?",
         mutterPitch = 0.8f,
         face = Face(eye = Shape.SQUARE, mouth = Shape.TRIANGLE),
     )
@@ -47,7 +47,7 @@ object Characters {
         personaPrompt = NutritionistPersona.PROMPT,
         unlockLevel = 10,
         checkInIntervalDays = 14,
-        openingLine = "Hi hi, Nora here, your nibbles nerd! Let's get kale-ing it with shopping, cooking and new foods. I'm no doctor, so ask one about health or diets. What's on your plate?",
+        openingLine = "Hi hi, Nora here, your nibbles nerd! Let's get kale-ing it with shopping, cooking and new foods. I'm no doctor, so ask one about health or diets. What does your eating look like right now?",
         mutterPitch = 1.3f,
         face = Face(eye = Shape.CIRCLE, mouth = Shape.CIRCLE),
     )
@@ -58,7 +58,7 @@ object Characters {
         personaPrompt = SleepScientistPersona.PROMPT,
         unlockLevel = 15,
         checkInIntervalDays = 14,
-        openingLine = "*yawn* Professor Snooze here. Let's talk bedtime, putting devices down and winding down. I'm not a doctor, so see one for real sleep trouble. How are your nights?",
+        openingLine = "*yawn* Professor Snooze here. Let's talk bedtime, putting devices down and winding down. I'm not a doctor, so see one for real sleep trouble. What time do you usually go to bed and get up?",
         mutterPitch = 0.6f,
         face = Face(eye = Shape.TRIANGLE, mouth = Shape.SQUARE),
     )
