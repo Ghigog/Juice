@@ -19,7 +19,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -387,6 +389,35 @@ class OverlayShellTest {
         idle()
         compose.onAllNodesWithText("Call Sam").onFirst().assertIsDisplayed()
         assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
+    }
+
+    @Test
+    fun tappingTheTitleOnTheCardEditsIt() {
+        val item = Item("a", ItemType.Note, "cal sam")
+        runBlocking { repository.save(item) }
+        show(item)
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { click() }
+        idle()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextClearance()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextInput("Call Sam")
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performImeAction()
+        idle()
+        compose.onAllNodesWithText("Call Sam").onFirst().assertIsDisplayed()
+        assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
+    }
+
+    @Test
+    fun draggingFromTheTitleDoesNotEditIt() {
+        val item = Item("a", ItemType.Note, "cal sam")
+        runBlocking { repository.save(item) }
+        show(item)
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput {
+            down(center)
+            moveBy(Offset(0f, 150f))
+            up()
+        }
+        idle()
+        compose.onAllNodesWithTag(TAG_TITLE_FIELD).assertCountEquals(0)
     }
 
     private fun swipeCentre(toRight: Boolean) {

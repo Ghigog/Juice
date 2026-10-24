@@ -221,7 +221,7 @@ internal fun CentreCard(
             current.clear()
             current += down.position
             down.consume()
-            // Holding still is a long press, which edits the title when it lands on it; moving starts a stroke.
+            // Tapping or holding still on the title edits it; moving starts a stroke.
             val longPress = viewConfiguration.longPressTimeoutMillis
             var stillLifted = false
             val outcome: Boolean? = withTimeoutOrNull(longPress) {
@@ -240,7 +240,7 @@ internal fun CentreCard(
                 }
                 lifted
             }
-            if ((outcome == null || stillLifted) && titleBounds.contains(down.position)) {
+            if (outcome != false && titleBounds.contains(down.position)) {
                 current.clear()
                 editing = true
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
