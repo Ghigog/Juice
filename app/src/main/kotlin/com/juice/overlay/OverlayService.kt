@@ -225,9 +225,31 @@ class OverlayService : Service() {
         handle = view
     }
 
+    /**
+     * Opens the overlay from a swipe: the handle's window goes, the stage keeps drawing the slice
+     * as it flies to the backdrop, and the stage is dismissed after the overlay's first frame.
+     */
     private fun swapToOverlay() {
-        removeHandle()
-        guardedShowOverlay(::showOverlay, ::discardOverlay, ::showHandle, ::reportOverlayFailure)
+        val flying = handle
+        if (flying == null) {
+            guardedShowOverlay(::showOverlay, ::discardOverlay, ::showHandle, ::reportOverlayFailure)
+            return
+        }
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        val target = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
+        handOverToOverlay(
+            fly = { onArrived -> flying.flyTo(target, animate = !settings.reduceMotion, onArrived) },
+            show = {
+                guardedShowOverlay(
+                    show = ::showOverlay,
+                    cleanup = { discardOverlay(); removeHandle() },
+                    restoreStrip = ::showHandle,
+                    onFailure = ::reportOverlayFailure,
+                )
+            },
+            whenOverlayDrawn = { action -> overlay?.whenDrawn(action) ?: action() },
+            dismissStage = { flying.dismissStage(); if (handle === flying) handle = null },
+        )
     }
 
     /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
