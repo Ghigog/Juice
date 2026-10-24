@@ -276,6 +276,24 @@ class OverlayShellTest {
     }
 
     @Test
+    fun tappingEmptyBackgroundCloses() {
+        var closed = 0
+        show(Item("a", ItemType.Task, "Call Sam"), actions = OverlayActions(onClose = { closed++ }))
+        compose.onNodeWithTag(TAG_CLOSE).performTouchInput { click(Offset(width * 0.5f, height - 2f)) }
+        idle()
+        assertEquals(1, closed)
+    }
+
+    @Test
+    fun tappingACardKeepsOverlayOpen() {
+        var closed = 0
+        show(Item("a", ItemType.Task, "Call Sam"), actions = OverlayActions(onClose = { closed++ }))
+        compose.onNodeWithTag(TAG_CENTRE_CARD).performClick()
+        idle()
+        assertEquals(0, closed)
+    }
+
+    @Test
     fun backOutsideWritingModeCloses() {
         show(Item("a", ItemType.Task, "Call Sam"))
         var closed = false
