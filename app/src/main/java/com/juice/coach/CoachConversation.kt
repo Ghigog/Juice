@@ -17,8 +17,15 @@ sealed interface CoachReply {
     data class Reply(val text: String, val expression: Expression = Expression.NEUTRAL) : CoachReply
     /** On-device only is on, or there is no key: nothing was sent. */
     data object CloudRequired : CoachReply
+    /** The coach signalled [READY_TAG] and its proposal passed validation. */
+    data class Proposal(val text: String, val expression: Expression, val tasks: List<CoachTask>) : CoachReply
+    /** The coach signalled [READY_TAG] but its proposal failed validation; the conversation continues. */
+    data class Rejected(val text: String, val expression: Expression, val reason: String) : CoachReply
     data class Error(val message: String) : CoachReply
 }
+
+/** The coach ends a reply with this when it understands the player well enough to propose tasks. */
+private const val READY_TAG = "[ready]"
 
 sealed interface CoachFinish {
     data class Proposal(val tasks: List<CoachTask>) : CoachFinish
@@ -53,12 +60,20 @@ class CoachConversation(
         if (client == null || onDeviceOnly()) return CoachReply.CloudRequired
         val turn = messages + ChatMessage("user", userText)
         return try {
-            val (expression, text) = Expression.parse(client.chat(systemPrompt(), turn))
+            val raw = client.chat(systemPrompt(), turn).trimEnd()
+            val ready = raw.endsWith(READY_TAG)
+            val (expression, text) = Expression.parse(if (ready) raw.removeSuffix(READY_TAG).trimEnd() else raw)
             messages += turn.last()
             messages += ChatMessage("assistant", text, expression)
             store.save(character.id, messages)
-            CoachReply.Reply(text, expression)
-        } catch (e: IOException) {
+            if (!ready) return CoachReply.Reply(text, expression)
+            when (val proposal = finish()) {
+                is CoachFinish.Proposal -> CoachReply.Proposal(text, expression, proposal.tasks)
+                is CoachFinish.Rejected -> CoachReply.Rejected(text, expression, proposal.reason)
+                is CoachFinish.Error -> CoachReply.Error(proposal.message)
+                CoachFinish.CloudRequired -> CoachReply.CloudRequired
+            }
+        } catch (e: Exception) {
             CoachReply.Error(e.message ?: "Coach unreachable")
         }
     }
@@ -78,7 +93,7 @@ class CoachConversation(
                 }
                 is CoachProposalResult.Rejected -> CoachFinish.Rejected(result.reason)
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             CoachFinish.Error(e.message ?: "Coach unreachable")
         }
     }

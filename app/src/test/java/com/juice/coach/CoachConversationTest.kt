@@ -177,4 +177,41 @@ class CoachConversationTest {
         store.save("jim", listOf(ChatMessage("assistant", "grr", Expression.ANGRY), ChatMessage("user", "sorry")))
         assertEquals(Expression.ANGRY, conversation().lastExpression)
     }
+
+    @Test fun storeSaveFailureIsAnErrorNotAThrow() {
+        reply("Hello")
+        val chat = conversation()
+        storeFile.delete()
+        storeFile.mkdirs()
+        File(storeFile, "blocker").writeText("x")
+        assertTrue(chat.send("hi") is CoachReply.Error)
+    }
+
+    @Test fun nonIoClientFailureIsAnError() {
+        server.enqueue(MockResponse().setBody("""{"choices":[]}"""))
+        assertTrue(conversation().send("hi") is CoachReply.Error)
+    }
+
+    @Test fun readyReplyWithValidProposalIsAProposalWithoutTheTag() {
+        reply("[happy] Let's do it [ready]")
+        reply("""{"tasks":[{"action":"add","title":"Walk","cadence":{"days":"daily"}}]}""")
+        reply("""{"shared":[],"characters":{}}""")
+        val result = conversation().send("walking daily")
+        assertEquals(
+            CoachReply.Proposal("Let's do it", Expression.HAPPY, listOf(CoachTask.Add("Walk", Cadence(DayOfWeek.entries.toSet())))),
+            result,
+        )
+        assertEquals("Let's do it", store.load(Characters.JIM_ID).first { it.role == "assistant" }.content)
+    }
+
+    @Test fun readyReplyWithInvalidProposalIsRejectedAndChatContinues() {
+        reply("Ready [ready]")
+        reply("not json")
+        val chat = conversation()
+        val result = chat.send("hi")
+        assertTrue(result is CoachReply.Rejected)
+        assertEquals("Ready", result.text)
+        reply("Go on")
+        assertEquals(CoachReply.Reply("Go on"), chat.send("more"))
+    }
 }
