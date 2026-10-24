@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.juice.coach.ChatMessage
 import com.juice.coach.CoachConversation
-import com.juice.coach.CoachFinish
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
 import com.juice.core.character.CoachTask
@@ -23,7 +22,7 @@ import kotlinx.coroutines.withContext
 enum class CoachNotice { CloudRequired, Unreachable }
 
 /**
- * An open chat with [character]. Messages go through [conversation] off the main thread; Finish asks for the
+ * An open chat with [character]. Messages go through [conversation] off the main thread; a ready coach's
  * proposal, which Confirm applies through [characters] and Cancel drops. When the coach needs the cloud or fails,
  * the chat closes with a [notice] and calls [onFailed] so the coach card the player completed can stay. Cancel
  * calls [onFailed] too, without a notice.
@@ -102,26 +101,6 @@ class CoachChatState(
                 }
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
                 is CoachReply.Error -> fail(CoachNotice.Unreachable)
-            }
-            busy = false
-        }
-    }
-
-    /** Asks the coach for the proposal. */
-    fun finish() {
-        if (busy || !open || proposal != null) return
-        busy = true
-        proposalRejected = false
-        scope.launch {
-            val (result, current) = withContext(io) { conversation.finish() to coachTasks() }
-            when (result) {
-                is CoachFinish.Proposal -> {
-                    titles = current.associate { it.id to it.title }
-                    proposal = result.tasks
-                }
-                CoachFinish.CloudRequired -> fail(CoachNotice.CloudRequired)
-                is CoachFinish.Error -> fail(CoachNotice.Unreachable)
-                is CoachFinish.Rejected -> proposalRejected = true
             }
             busy = false
         }
