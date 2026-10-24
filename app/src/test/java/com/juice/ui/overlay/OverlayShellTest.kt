@@ -36,6 +36,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.settings.JuiceSettings
 import com.juice.ui.Tier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -87,12 +88,37 @@ class OverlayShellTest {
         db.close()
     }
 
-    private fun show(vararg items: Item, hud: Hud = Hud(), actions: OverlayActions = OverlayActions()) {
+    private fun show(
+        vararg items: Item,
+        hud: Hud = Hud(),
+        actions: OverlayActions = OverlayActions(),
+        reduceMotion: Boolean = true,
+    ) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, hud = hud, actions = actions, writingBack = writingBack) }
+        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack) }
         idle()
+    }
+
+    private fun juiceBoxTop() = compose.onNodeWithTag(TAG_JUICE_BOX).fetchSemanticsNode().boundsInRoot.top
+
+    @Test
+    fun withMotionOnTheContentRisesInAfterTheReveal() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false)
+        val beforeEntrance = juiceBoxTop()
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + ENTRANCE_TOTAL_MILLIS + 100)
+        compose.waitForIdle()
+        assertTrue(beforeEntrance > juiceBoxTop())
+    }
+
+    @Test
+    fun withReducedMotionTheContentIsAtRestAtOnce() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true)
+        val first = juiceBoxTop()
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + ENTRANCE_TOTAL_MILLIS + 100)
+        compose.waitForIdle()
+        assertEquals(first, juiceBoxTop(), 0.5f)
     }
 
     @Test

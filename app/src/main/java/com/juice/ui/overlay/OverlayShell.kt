@@ -2,6 +2,7 @@ package com.juice.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -68,6 +69,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -204,6 +207,17 @@ fun OverlayShell(
         if (imeWasVisible && !imeVisible && writing) leaveWriting()
         imeWasVisible = imeVisible
     }
+    // The ground grows first, then the content rises in; both are fully shown on the first frame with reduced motion.
+    val reveal = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
+    val entrance = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!settings.reduceMotion) {
+            reveal.animateTo(1f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
+            entrance.animateTo(1f, tween(ENTRANCE_TOTAL_MILLIS, easing = LinearEasing))
+        }
+    }
+    val entranceProgress: () -> Float = { entrance.value }
+    val overshoot = revealOriginOvershootPx(LocalDensity.current)
     var ringPreview by remember { mutableStateOf(0) }
     LaunchedEffect(ringPreview) {
         if (ringPreview > 0) {
@@ -229,7 +243,17 @@ fun OverlayShell(
         Box(
             modifier
                 .fillMaxSize()
-                .background(overlayTint(blurred)),
+                .drawBehind {
+                    val ground = overlayTint(blurred)
+                    val progress = reveal.value
+                    if (progress >= 1f) {
+                        drawRect(ground)
+                    } else {
+                        val origin = revealOrigin(size.width, overshoot)
+                        val radius = revealRadius(size.width, size.height, origin) * progress
+                        clipPath(Path().apply { addOval(Rect(origin, radius)) }) { drawRect(ground) }
+                    }
+                },
         ) {
             SliceBackdrop(
                 hud,
@@ -257,15 +281,16 @@ fun OverlayShell(
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 if (!writing) {
-                    Header(hud, onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
+                    Header(hud, entranceProgress, onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
                     val list = state.items
                     CardRow(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
+                        entrance = entranceProgress,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().height(44.dp)) {
+                    Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
                         if (undo != null) UndoToast(undo, hud) {
                             state.undoLast()
                             actions.feedback(FeedbackEvent.UNDO)
@@ -278,7 +303,7 @@ fun OverlayShell(
                     writing = writing,
                     onWritingChange = { writing = it },
                     onLeave = ::leaveWriting,
-                    modifier = if (writing) Modifier.weight(1f) else Modifier,
+                    modifier = if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress),
                 ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
@@ -374,14 +399,15 @@ internal fun CardRow(
     centre: Int,
     onCentre: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    entrance: () -> Float = { 1f },
 ) {
     val list = state.items
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, onCentre = onCentre, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
-        Column(Modifier.weight(1f).fillMaxHeight()) {
+        Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
             HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
             Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
                 CentreCard(
@@ -455,8 +481,8 @@ private fun SwipeRing(settings: JuiceSettings, hud: Hud) {
 }
 
 @Composable
-private fun Header(hud: Hud, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun Header(hud: Hud, entrance: () -> Float, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
         Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
@@ -558,6 +584,7 @@ private fun Carousel(
     actions: OverlayActions,
     state: OverlayShellState,
     reduceMotion: Boolean,
+    entrance: () -> Float,
     onCentre: (Int) -> Unit,
     modifier: Modifier,
 ) {
@@ -616,6 +643,7 @@ private fun Carousel(
                 val isCentre = index == centreIndex
                 Column(
                     Modifier
+                        .entrance(entrance, index)
                         .size(width = 88.dp, height = CAROUSEL_ITEM_DP.dp)
                         .graphicsLayer {
                             val info = listState.layoutInfo
