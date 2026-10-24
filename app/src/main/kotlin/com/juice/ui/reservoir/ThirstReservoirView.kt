@@ -12,9 +12,11 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.util.Log
 import android.view.Choreographer
 import android.view.View
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.random.Random
 import com.juice.core.physics.RippleField
@@ -24,7 +26,7 @@ internal const val AGSL ="""
 uniform float2 u_resolution;
 uniform float  u_time;
 uniform float  u_fill;
-uniform float  u_heights[48];
+uniform shader u_heights;   // 48x1 bitmap, red = surface height * 0.5 + 0.5
 uniform shader u_ripples;   // 24x16 bitmap, red = ripple height * 0.5 + 0.5
 layout(color) uniform half4 u_color;
 
@@ -38,11 +40,10 @@ half4 main(float2 fragCoord) {
 
     float f = clamp(st.x, 0.0, 1.0) * 47.0;
     int i0 = int(min(floor(f), 46.0));
-    // AGSL only allows constant-index-expressions on uniform arrays, so select the segment with a loop.
-    float h = 0.0;
-    for (int i = 0; i < 47; i++) {
-        if (i == i0) h = mix(u_heights[i], u_heights[i + 1], f - float(i0));
-    }
+    // Heights live in a bitmap: AGSL only allows constant-index-expressions on uniform arrays.
+    float h0 = u_heights.eval(float2(float(i0) + 0.5, 0.5)).r * 2.0 - 1.0;
+    float h1 = u_heights.eval(float2(float(i0) + 1.5, 0.5)).r * 2.0 - 1.0;
+    float h = mix(h0, h1, f - float(i0));
     float surface = u_fill + h * 0.06;
 
     if (st.y > surface) return half4(0.0);
@@ -82,7 +83,9 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     var color = Color.rgb(255, 170, 40)
         set(value) {
             field = value
-            shader.setColorUniform("u_color", value)
+            shader?.setColorUniform("u_color", value)
+            fallbackPaint.color = value
+            fallbackPaint.alpha = 230
             particlePaint.color = lighten(value)
             invalidate()
         }
@@ -106,11 +109,22 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     var fizz = false
 
     private val rippleBitmap = Bitmap.createBitmap(RippleField.WIDTH, RippleField.HEIGHT, Bitmap.Config.ARGB_8888)
-    private val shader = RuntimeShader(AGSL).apply {
-        setColorUniform("u_color", color)
-        setInputShader("u_ripples", BitmapShader(rippleBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP))
+    private val heightsBitmap = Bitmap.createBitmap(SurfaceWaves.COLUMNS, 1, Bitmap.Config.ARGB_8888)
+    private val heightPixels = IntArray(SurfaceWaves.COLUMNS)
+
+    /** Null when the AGSL fails to compile; [onDraw] then falls back to a plain fill. */
+    private val shader: RuntimeShader? = try {
+        RuntimeShader(AGSL).apply {
+            setColorUniform("u_color", color)
+            setInputShader("u_ripples", BitmapShader(rippleBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP))
+            setInputShader("u_heights", BitmapShader(heightsBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP))
+        }
+    } catch (e: RuntimeException) {
+        Log.e(TAG, "Reservoir shader failed to compile; drawing a plain fill", e)
+        null
     }
     private val paint = Paint().apply { this.shader = this@ThirstReservoirView.shader }
+    private val fallbackPaint = Paint().apply { color = this@ThirstReservoirView.color; alpha = 230 }
     internal val waves = SurfaceWaves()
     internal val ripples = RippleField()
     private val flatHeights = FloatArray(SurfaceWaves.COLUMNS)
@@ -197,17 +211,26 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     }
 
     override fun onDraw(canvas: Canvas) {
-        shader.setFloatUniform("u_resolution", width.toFloat(), height.toFloat())
-        shader.setFloatUniform("u_time", time)
-        shader.setFloatUniform("u_fill", fill)
-        shader.setFloatUniform("u_heights", if (sloshEnabled) waves.heights else flatHeights)
-        val rh = ripples.heights
-        for (i in rh.indices) {
-            val level = ((if (sloshEnabled) rh[i] else 0f) * 0.5f + 0.5f) * 255f
-            ripplePixels[i] = Color.rgb(level.toInt(), 0, 0)
+        if (shader == null) {
+            if (fill >= MIN_FILL) {
+                val top = height * (1f - fill)
+                canvas.drawRect(0f, top, width.toFloat(), height.toFloat(), fallbackPaint)
+            }
+        } else {
+            shader.setFloatUniform("u_resolution", width.toFloat(), height.toFloat())
+            shader.setFloatUniform("u_time", time)
+            shader.setFloatUniform("u_fill", fill)
+            val hs = if (sloshEnabled) waves.heights else flatHeights
+            for (i in hs.indices) heightPixels[i] = Color.rgb(((hs[i].coerceIn(-1f, 1f) * 0.5f + 0.5f) * 255f).roundToInt(), 0, 0)
+            heightsBitmap.setPixels(heightPixels, 0, hs.size, 0, 0, hs.size, 1)
+            val rh = ripples.heights
+            for (i in rh.indices) {
+                val level = ((if (sloshEnabled) rh[i] else 0f) * 0.5f + 0.5f) * 255f
+                ripplePixels[i] = Color.rgb(level.toInt(), 0, 0)
+            }
+            rippleBitmap.setPixels(ripplePixels, 0, RippleField.WIDTH, 0, 0, RippleField.WIDTH, RippleField.HEIGHT)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
         }
-        rippleBitmap.setPixels(ripplePixels, 0, RippleField.WIDTH, 0, 0, RippleField.WIDTH, RippleField.HEIGHT)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
         particles.forEach {
             particlePaint.alpha = (it.life.coerceIn(0f, 0.9f) * 255).toInt()
             canvas.drawCircle(it.x, it.y, 3f * resources.displayMetrics.density, particlePaint)
@@ -276,6 +299,8 @@ class ThirstReservoirView(context: Context) : View(context), SensorEventListener
     )
 
     private companion object {
+        const val TAG = "ThirstReservoirView"
+        const val MIN_FILL = 0.005f
         const val SATIATED_FILL = 0.75f
         const val MAX_PARTICLES = 120
         const val FIZZ_RATE = 8f
