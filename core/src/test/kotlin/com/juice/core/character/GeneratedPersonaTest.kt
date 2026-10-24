@@ -24,6 +24,8 @@ class GeneratedPersonaTest {
             assertTrue("[ready]" in it.personaPrompt)
             assertTrue("never propose early" in it.personaPrompt)
             assertFalse("When you have enough" in it.personaPrompt)
+            assertTrue("Ask one short question per reply" in it.personaPrompt)
+            assertTrue("health issues" in it.personaPrompt)
         }
     }
 
@@ -54,5 +56,11 @@ class GeneratedPersonaTest {
         assertEquals(0, c.unlockLevel)
         assertEquals("plumbing", c.hobby)
         assertEquals(c, persona.toCharacter("created-1", "plumbing"))
+    }
+
+    @Test fun createdCharacterOpensWithAQuestionAboutTheirRoutine() {
+        val persona = GeneratedPersona.fallbackPersona("plumbing")
+        val line = persona.toCharacter("id", "plumbing").openingLine
+        assertTrue(line.endsWith("?") && "plumbing" in line && "What are we working on" !in line)
     }
 }

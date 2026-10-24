@@ -71,7 +71,7 @@ class GroqClient(
             Output only JSON: {"name": "string", "personality": "string", "personaPrompt": "string"}.
             - "name": a short, memorable character name, at most 60 characters.
             - "personality": one or two sentences describing how the coach comes across, at most 300 characters.
-            - "personaPrompt": a system prompt, in the second person, telling the coach who it is, how it talks, and to ask about the player's routine and constraints before proposing tasks. Do not describe any output format.
+            - "personaPrompt": a system prompt, in the second person, telling the coach who it is, how it talks, and to interview the player, one short question at a time, about their current routine, health issues and constraints before proposing tasks. Do not describe any output format.
         """.trimIndent()
 
         /** The design doc §7.4 prompt, with date, time and timezone injected. */
