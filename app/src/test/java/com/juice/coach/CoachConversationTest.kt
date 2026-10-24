@@ -179,11 +179,12 @@ class CoachConversationTest {
     }
 
     @Test fun storeSaveFailureIsAnErrorNotAThrow() {
+        reply("Hello")
+        val chat = conversation()
         storeFile.delete()
         storeFile.mkdirs()
         File(storeFile, "blocker").writeText("x")
-        reply("Hello")
-        assertTrue(conversation().send("hi") is CoachReply.Error)
+        assertTrue(chat.send("hi") is CoachReply.Error)
     }
 
     @Test fun nonIoClientFailureIsAnError() {
