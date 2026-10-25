@@ -52,14 +52,28 @@ internal fun revealOriginOvershootPx(density: Density): Float =
     with(density) { REVEAL_ORIGIN_OVERSHOOT.toPx() }
 
 /**
- * Slides and fades content in as the entrance [progress] (read only while drawing, so no recomposition) runs:
- * from below when [fromBottom], else from above. [index] staggers carousel cards.
+ * The sideways sway, -1..1, of an item [fraction] (0..1) of the way through its entrance: it wobbles
+ * back and forth while the swing dies away, so it is at rest at both ends.
+ */
+internal fun entranceSway(fraction: Float): Float {
+    val f = fraction.coerceIn(0f, 1f)
+    return kotlin.math.sin(f * SWAY_CYCLES * 2f * Math.PI.toFloat()) * (1f - f)
+}
+
+private const val SWAY_CYCLES = 1.5f
+private val ENTRANCE_SWAY = 14.dp
+
+/**
+ * Bubbles content in as the entrance [progress] (read only while drawing, so no recomposition) runs:
+ * rising from below when [fromBottom], else sinking from above, while swaying side to side as it settles.
+ * [index] staggers carousel cards.
  */
 internal fun Modifier.entrance(progress: () -> Float, index: Int = 0, fromBottom: Boolean = true): Modifier =
     graphicsLayer {
         val f = entranceFraction(progress(), index)
         if (f < 1f) {
             translationY = (1f - f) * ENTRANCE_DISTANCE.toPx() * if (fromBottom) 1f else -1f
+            translationX = entranceSway(f) * ENTRANCE_SWAY.toPx()
             alpha = f
         }
     }

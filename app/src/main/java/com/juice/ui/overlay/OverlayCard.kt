@@ -302,8 +302,12 @@ internal fun CentreCard(
 
     Box(
         modifier
-            .graphicsLayer { translationX = shake.value }
-            .clip(RoundedCornerShape(30.dp))
+            .graphicsLayer {
+                translationX = shake.value
+                // Clipped in the shaking layer itself, so every frame is rounded, whatever else is drawn into the card.
+                shape = RoundedCornerShape(30.dp)
+                clip = true
+            }
             .background(JuiceColors.white(0.14f))
             .border(1.dp, JuiceColors.white(0.28f), RoundedCornerShape(30.dp))
             .testTag(TAG_CENTRE_CARD)
@@ -312,7 +316,7 @@ internal fun CentreCard(
             .then(drawing),
     ) {
         // The juice sits behind the text, outside the Column that flies away.
-        Box(Modifier.fillMaxSize().testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(30.dp)).testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
         if (item == null) {
             Text(
                 stringResource(R.string.overlay_empty),
