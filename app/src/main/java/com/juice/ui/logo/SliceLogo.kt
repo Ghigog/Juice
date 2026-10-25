@@ -46,14 +46,14 @@ class SliceLogoPainter {
     private val oval = RectF()
     private val scaleDash = DashPathEffect(floatArrayOf(13f, 4.28f), 0f)
 
-    /** Draws the logo [size] px across, centred on ([cx], [cy]), with a soft drop shadow. */
-    fun draw(canvas: Canvas, cx: Float, cy: Float, size: Float, style: SliceStyle, slices: Int, active: Int) {
+    /** Draws the logo [size] px across, centred on ([cx], [cy]), with a soft drop shadow unless [shadow] is off. */
+    fun draw(canvas: Canvas, cx: Float, cy: Float, size: Float, style: SliceStyle, slices: Int, active: Int, shadow: Boolean = true) {
         canvas.save()
         canvas.translate(cx - size / 2, cy - size / 2)
         canvas.scale(size / VIEW, size / VIEW)
 
         fill.color = style.flesh
-        fill.setShadowLayer(14f, 0f, 10f, SHADOW)
+        if (shadow) fill.setShadowLayer(14f, 0f, 10f, SHADOW)
         canvas.drawCircle(C, C, 58f, fill)
         fill.clearShadowLayer()
 

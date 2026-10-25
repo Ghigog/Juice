@@ -532,7 +532,7 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
                 .graphicsLayer { rotationZ = turn }
                 .blur(BACKDROP_BLUR_DP, BlurredEdgeTreatment.Unbounded),
         ) {
-            drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active) }
+            drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active, shadow = false) }
         }
     }
 }
