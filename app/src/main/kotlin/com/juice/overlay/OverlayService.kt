@@ -528,7 +528,8 @@ internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop
     }
 }
 
-private const val BLUR_RADIUS_PX = 40
+// About 40dp on a typical phone; 40px was a faint smear that the dark tint swallowed.
+private const val BLUR_RADIUS_PX = 120
 
 /** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
 @androidx.compose.runtime.Composable

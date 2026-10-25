@@ -436,12 +436,11 @@ internal fun CardRow(
 }
 
 /**
- * The overlay's ground: the mockup's dark teal-to-indigo glass. Over a blurred, often bright
- * wallpaper it has to stay mostly opaque, or the screen behind washes it out to grey.
+ * The overlay's ground: the mockup's dark teal-to-indigo glass. Over the blur it stays thin
+ * enough for the blurred screen to show through; at 0.9 it hid the blur completely.
  */
 private fun overlayTint(blurred: Boolean): Brush {
-    // Thick enough that, if the system drops the blur for a moment, the screen behind barely shows.
-    val alpha = if (blurred) 0.9f else 0.97f
+    val alpha = if (blurred) 0.55f else 0.97f
     return Brush.linearGradient(
         listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
     )
