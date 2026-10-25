@@ -93,11 +93,12 @@ class OverlayShellTest {
         hud: Hud = Hud(),
         actions: OverlayActions = OverlayActions(),
         reduceMotion: Boolean = true,
+        onRevealProgress: (Float) -> Unit = {},
     ) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack) }
+        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress) }
         idle()
     }
 
@@ -110,6 +111,25 @@ class OverlayShellTest {
         compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + ENTRANCE_TOTAL_MILLIS + 100)
         compose.waitForIdle()
         assertTrue(beforeEntrance > juiceBoxTop())
+    }
+
+    @Test
+    fun withMotionOnTheRevealReportsRisingProgressFromZeroToOne() {
+        val reported = mutableListOf<Float>()
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false, onRevealProgress = { reported += it })
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
+        compose.waitForIdle()
+        assertEquals(0f, reported.first(), 0.001f)
+        assertEquals(1f, reported.last(), 0.001f)
+        assertTrue(reported.size > 2)
+        assertEquals(reported.sorted(), reported)
+    }
+
+    @Test
+    fun withReducedMotionTheRevealReportsOneAtOnce() {
+        val reported = mutableListOf<Float>()
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true, onRevealProgress = { reported += it })
+        assertEquals(listOf(1f), reported)
     }
 
     @Test

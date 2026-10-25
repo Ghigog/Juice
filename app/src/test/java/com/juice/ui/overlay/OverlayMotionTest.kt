@@ -7,6 +7,11 @@ import org.junit.Test
 
 class OverlayMotionTest {
     @Test
+    fun theRevealLastsAsLongAsTheSliceFlight() {
+        assertEquals(320, REVEAL_MILLIS)
+    }
+
+    @Test
     fun cardsStartOneAfterAnother() {
         assertEquals(0, entranceDelayMillis(0))
         assertTrue(entranceDelayMillis(2) > entranceDelayMillis(1))

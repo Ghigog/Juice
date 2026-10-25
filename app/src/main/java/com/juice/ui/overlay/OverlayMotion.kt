@@ -8,8 +8,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.math.hypot
 
-/** How long the ground takes to grow from the backdrop slice to cover the screen. */
-internal const val REVEAL_MILLIS = 400
+/** How long the ground takes to grow from the backdrop slice to cover the screen; must match SliceHandle's FLIGHT_MILLIS. */
+internal const val REVEAL_MILLIS = 320
 
 /** How long one piece of content takes to rise (or fall) into place. */
 internal const val ITEM_ENTRANCE_MILLIS = 350

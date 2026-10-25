@@ -185,6 +185,8 @@ fun OverlayShell(
     /** True once the host has asked to close: the content pops away, the ground drains, then [onClosed] is called. */
     closing: Boolean = false,
     onClosed: () -> Unit = {},
+    /** Reports how far the ground has grown, 0..1: rising on open, falling on the drain at close. */
+    onRevealProgress: (Float) -> Unit = {},
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -226,6 +228,10 @@ fun OverlayShell(
             reveal.animateTo(1f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
             entrance.animateTo(1f, tween(ENTRANCE_TOTAL_MILLIS, easing = LinearEasing))
         }
+    }
+    val currentOnRevealProgress by rememberUpdatedState(onRevealProgress)
+    LaunchedEffect(Unit) {
+        snapshotFlow { reveal.value }.collect { currentOnRevealProgress(it) }
     }
     val entranceProgress: () -> Float = { entrance.value }
     val pop = remember { Animatable(0f) }
