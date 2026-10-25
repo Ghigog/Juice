@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +48,7 @@ class OverlayCloseTest {
         db.close()
     }
 
-    private fun show(reduceMotion: Boolean) {
+    private fun show(reduceMotion: Boolean, onRevealProgress: (Float) -> Unit = {}) {
         val state = OverlayShellState(ItemRepository(db.itemDao()), scope, emptyList())
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -56,6 +57,7 @@ class OverlayCloseTest {
                 settings = JuiceSettings(reduceMotion = reduceMotion),
                 closing = closing.value,
                 onClosed = { closed++ },
+                onRevealProgress = onRevealProgress,
             )
         }
         compose.mainClock.advanceTimeBy(100)
@@ -71,6 +73,22 @@ class OverlayCloseTest {
         compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
         compose.waitForIdle()
         assertEquals(1, closed)
+    }
+
+    @Test
+    fun theDrainReportsProgressFallingFromOneToZero() {
+        val reported = mutableListOf<Float>()
+        show(reduceMotion = false, onRevealProgress = { reported += it })
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
+        val opened = reported.size
+        closing.value = true
+        compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
+        compose.waitForIdle()
+        val drain = reported.drop(opened)
+        assertEquals(1f, reported[opened - 1], 0.001f)
+        assertEquals(0f, drain.last(), 0.001f)
+        assertTrue(drain.size > 2)
+        assertEquals(drain.sortedDescending(), drain)
     }
 
     @Test
