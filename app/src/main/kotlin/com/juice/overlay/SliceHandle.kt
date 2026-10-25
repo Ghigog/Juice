@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
+import com.juice.ui.overlay.REVEAL_MILLIS
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
 import kotlin.math.hypot
@@ -370,7 +371,7 @@ internal class SliceHandleView(
         private const val MOVE_SLOP_DP = 6f
         private const val HOLD_MILLIS = 420L
         private const val SPRING_MILLIS = 320L
-        private const val FLIGHT_MILLIS = 320L
+        private const val FLIGHT_MILLIS = REVEAL_MILLIS.toLong()
         private const val PRESS_SCALE = 1.06f
         private const val MOVE_SCALE = 1.22f
     }
