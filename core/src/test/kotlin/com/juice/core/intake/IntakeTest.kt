@@ -105,6 +105,21 @@ class IntakeTest {
         assertEquals(ItemType.Note, RulesFallback.classify("note: just one thing").type)
     }
 
+    @Test fun leadingVerbGivesTaskButMidSentenceVerbGivesNote() {
+        for (text in listOf("find my passport", "go to the bank", "get milk", "Please pick up the parcel", "to remember the charger")) {
+            assertEquals(ItemType.Task, RulesFallback.classify(text).type, text)
+        }
+        for (text in listOf("the weekend plan was great", "idea for an app", "the report I should write")) {
+            assertEquals(ItemType.Note, RulesFallback.classify(text).type, text)
+        }
+    }
+
+    @Test fun modelNoteBecomesTaskWhenTheRulesFoundALeadingVerb() {
+        val rules = RulesFallback.classify("get the car washed")
+        val model = ParsedItem(ItemType.Note, "Car wash", completionCondition = "washed")
+        assertEquals(model.copy(type = ItemType.Task), model.improvingOn(rules))
+    }
+
     @Test fun simplePhrasesResolveToAFutureDeadline() {
         val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
         assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6pm", now).deadline)

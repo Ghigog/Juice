@@ -9,13 +9,13 @@ import java.time.temporal.TemporalAdjusters
 
 /**
  * Local classifier for offline, API failure and on-device-only mode: a cadence phrase ("every Sunday")
- * makes a Routine, a date or time phrase makes a Goal, "Title: a, b and c" makes a Project, an action verb makes a Task, anything else is a Note.
+ * makes a Routine, a date or time phrase makes a Goal, "Title: a, b and c" makes a Project, a leading action verb ("find my passport") makes a Task, anything else is a Note.
  */
 object RulesFallback {
     /** Spans of time; a bare "week" or "month" needs "this", "next" or "end of" to count. */
     private const val PERIOD =
         """end of (the |this |next )?(day|week|month)|eod|eow|eom|""" +
-            """(this |next )(week ?end|week|month)|(the )?week ?end"""
+            """(this |next )(week ?end|week|month)|(the )?week ?end(?!\s+\w)"""
     private const val WITHIN = """(?:in|within) (\d+|a|an|one) (hours?|days?|weeks?|months?)"""
 
     private val monthNames = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec"
@@ -29,9 +29,10 @@ object RulesFallback {
             """$PERIOD|$WITHIN)\b""",
         RegexOption.IGNORE_CASE,
     )
-    private val actionVerb = Regex(
-        """\b(buy|call|send|email|finish|do|write|fix|book|pay|order|reply|clean|plan|review|ship|pick|make|record|""" +
-            """submit|check|update|cancel|renew|schedule|prepare|draft|read|text|ask|return|file|tidy|wash)\b""",
+    private val leadingVerb = Regex(
+        """^(?:(?:please|pls|to)\s+)*(?:buy|call|send|email|finish|do|write|fix|book|pay|order|reply|clean|plan|review|ship|pick|make|record|""" +
+            """submit|check|update|cancel|renew|schedule|prepare|draft|read|text|ask|return|file|tidy|wash|""" +
+            """find|go|get|take|bring|look|set|try|remember|put|move|change|open|stop|start|see|meet|visit)\b""",
         RegexOption.IGNORE_CASE,
     )
     private val clockTime = Regex("""\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b""", RegexOption.IGNORE_CASE)
@@ -56,7 +57,7 @@ object RulesFallback {
         if (dateOrTimePhrase.containsMatchIn(text)) {
             return ParsedItem(ItemType.Goal, title, deadline = now?.let { deadlineIn(text, it) }?.toInstant())
         }
-        val type = if (actionVerb.containsMatchIn(text)) ItemType.Task else ItemType.Note
+        val type = if (leadingVerb.containsMatchIn(text)) ItemType.Task else ItemType.Note
         return ParsedItem(type, title)
     }
 
