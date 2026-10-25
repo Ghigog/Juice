@@ -87,7 +87,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
@@ -180,6 +182,9 @@ fun OverlayShell(
     characters: CharacterSettings? = null,
     /** Decides which day, week and month the Recap covers. */
     clock: Clock = Clock.systemDefaultZone(),
+    /** True once the host has asked to close: the content pops away, the ground drains, then [onClosed] is called. */
+    closing: Boolean = false,
+    onClosed: () -> Unit = {},
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -223,6 +228,19 @@ fun OverlayShell(
         }
     }
     val entranceProgress: () -> Float = { entrance.value }
+    val pop = remember { Animatable(0f) }
+    val currentOnClosed by rememberUpdatedState(onClosed)
+    // Cancelled with the composition, so tearing the overlay down mid-close never calls onClosed.
+    LaunchedEffect(closing) {
+        if (closing) {
+            if (!settings.reduceMotion) {
+                pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing))
+                reveal.animateTo(0f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
+            }
+            currentOnClosed()
+        }
+    }
+    var contentSize by remember { mutableStateOf(IntSize.Zero) }
     val overshoot = revealOriginOvershootPx(LocalDensity.current)
     var ringPreview by remember { mutableStateOf(0) }
     LaunchedEffect(ringPreview) {
@@ -276,6 +294,19 @@ fun OverlayShell(
                     .semantics { contentDescription = closeLabel }
                     .testTag(TAG_CLOSE),
             )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .onSizeChanged { contentSize = it }
+                    .graphicsLayer {
+                        val p = pop.value
+                        if (p > 0f) {
+                            scaleX = popScale(p)
+                            scaleY = popScale(p)
+                            alpha = popAlpha(p)
+                        }
+                    },
+            ) {
             Column(
                 Modifier
                     .fillMaxSize()
@@ -389,9 +420,31 @@ fun OverlayShell(
                 )
             }
             if (ringPreview > 0) SwipeRing(settings, hud)
+            }
+            if (pop.value > 0f) {
+                // Froth bursts from the carousel, the centre card and the capture field.
+                val bubbles = remember(contentSize) {
+                    val w = contentSize.width.toFloat()
+                    val h = contentSize.height.toFloat()
+                    val origins = listOf(Offset(w * 0.2f, h * 0.5f), Offset(w * 0.65f, h * 0.45f), Offset(w * 0.5f, h * 0.9f))
+                    frothBubbles(origins, FROTH_SEED, maxDistance = w * 0.35f, maxRadius = w * 0.04f)
+                }
+                Canvas(Modifier.fillMaxSize()) {
+                    bubbles.forEach { bubble ->
+                        val (centre, radius) = bubble.at(pop.value)
+                        drawCircle(hud.accent.copy(alpha = 0.7f), radius, centre)
+                    }
+                }
+            }
+            if (closing) {
+                // A second tap must not restart or double-close while the overlay pops away.
+                Box(Modifier.fillMaxSize().pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } })
+            }
         }
     }
 }
+
+private const val FROTH_SEED = 44L
 
 /** The carousel beside the centre card for the items of [state]; shared by the main view and the Routines view. */
 @Composable

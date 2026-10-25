@@ -36,4 +36,32 @@ class OverlayMotionTest {
         // Farthest corner is bottom-left: (400 + 70 - 0, 800 + 70).
         assertEquals(kotlin.math.hypot(470f, 870f), revealRadius(400f, 800f, origin), 0.01f)
     }
+
+    @Test
+    fun contentSwellsThenBurstsToNothing() {
+        assertEquals(1f, popScale(0f), 0.001f)
+        assertEquals(1.08f, popScale(0.3f), 0.001f)
+        assertEquals(0f, popScale(1f), 0.001f)
+        assertEquals(1f, popAlpha(0.3f), 0.001f)
+        assertEquals(0f, popAlpha(1f), 0.001f)
+    }
+
+    @Test
+    fun frothIsTheSameForTheSameSeed() {
+        val origins = listOf(Offset(10f, 20f), Offset(100f, 200f))
+        val first = frothBubbles(origins, seed = 7, maxDistance = 80f, maxRadius = 10f)
+        assertEquals(first, frothBubbles(origins, seed = 7, maxDistance = 80f, maxRadius = 10f))
+        assertTrue(first != frothBubbles(origins, seed = 8, maxDistance = 80f, maxRadius = 10f))
+    }
+
+    @Test
+    fun frothStaysWithinBoundsAndShrinksAway() {
+        val bubbles = frothBubbles(listOf(Offset(50f, 50f)), seed = 1, maxDistance = 80f, maxRadius = 10f)
+        assertTrue(bubbles.isNotEmpty())
+        bubbles.forEach {
+            assertTrue(it.distance <= 80f && it.radius <= 10f && it.radius > 0f)
+            assertEquals(0f, it.at(1f).second, 0.001f)
+            assertEquals(it.origin, it.at(0f).first)
+        }
+    }
 }

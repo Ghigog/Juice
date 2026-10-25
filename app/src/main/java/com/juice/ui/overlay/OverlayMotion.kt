@@ -63,3 +63,49 @@ internal fun Modifier.entrance(progress: () -> Float, index: Int = 0, fromBottom
             alpha = f
         }
     }
+
+/** How long the content takes to swell and burst when the overlay closes; the ground drains afterwards over [REVEAL_MILLIS]. */
+internal const val POP_MILLIS = 320
+
+/** The share of the pop spent swelling before the burst, and the largest the content swells to. */
+private const val SWELL_SHARE = 0.3f
+private const val SWELL_SCALE = 1.08f
+
+/** The content's scale as the pop [progress] (0..1) runs: a quick swell to [SWELL_SCALE], then down to nothing. */
+internal fun popScale(progress: Float): Float {
+    val p = progress.coerceIn(0f, 1f)
+    return if (p < SWELL_SHARE) 1f + (SWELL_SCALE - 1f) * (p / SWELL_SHARE)
+    else SWELL_SCALE * (1f - (p - SWELL_SHARE) / (1f - SWELL_SHARE))
+}
+
+/** The content's alpha as the pop [progress] runs: untouched while swelling, then fading out with the burst. */
+internal fun popAlpha(progress: Float): Float =
+    1f - ((progress - SWELL_SHARE) / (1f - SWELL_SHARE)).coerceIn(0f, 1f)
+
+/** One froth bubble: it leaves [origin], flying [distance] along [angle] (radians), and is [radius] wide. */
+internal data class FrothBubble(val origin: Offset, val angle: Float, val distance: Float, val radius: Float)
+
+private const val BUBBLES_PER_ORIGIN = 14
+
+/** Froth bursting from each of [origins]; the same [seed] always gives the same bubbles. */
+internal fun frothBubbles(origins: List<Offset>, seed: Long, maxDistance: Float, maxRadius: Float): List<FrothBubble> {
+    val random = kotlin.random.Random(seed)
+    return origins.flatMap { origin ->
+        List(BUBBLES_PER_ORIGIN) {
+            FrothBubble(
+                origin = origin,
+                angle = random.nextFloat() * 2f * Math.PI.toFloat(),
+                distance = maxDistance * (0.3f + 0.7f * random.nextFloat()),
+                radius = maxRadius * (0.3f + 0.7f * random.nextFloat()),
+            )
+        }
+    }
+}
+
+/** Where a [bubble] is, and how wide, when the pop is at [progress]: it flies out and shrinks away. */
+internal fun FrothBubble.at(progress: Float): Pair<Offset, Float> {
+    val p = progress.coerceIn(0f, 1f)
+    val eased = FastOutSlowInEasing.transform(p)
+    val centre = Offset(origin.x + kotlin.math.cos(angle) * distance * eased, origin.y + kotlin.math.sin(angle) * distance * eased)
+    return centre to radius * (1f - p)
+}

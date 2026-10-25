@@ -91,6 +91,7 @@ class OverlayService : Service() {
     private var starting = false
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val backdrop = mutableStateOf(Backdrop.SCRIM)
+    private val closeRequest = CloseRequest(reduceMotion = { settings.reduceMotion }, finish = ::closeOverlay)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
@@ -262,6 +263,7 @@ class OverlayService : Service() {
     private fun discardOverlay() = runCatching { removeOverlay() }.onFailure { overlay = null }
 
     private fun closeOverlay() {
+        if (overlay == null) return
         removeOverlay()
         showHandle()
     }
@@ -305,7 +307,7 @@ class OverlayService : Service() {
         val root = object : FrameLayout(this) {
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                    if (event.action == KeyEvent.ACTION_UP) writingBack.back(::closeOverlay)
+                    if (event.action == KeyEvent.ACTION_UP) writingBack.back(closeRequest::request)
                     return true
                 }
                 return super.dispatchKeyEvent(event)
@@ -333,7 +335,7 @@ class OverlayService : Service() {
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
             onSettingsChange = { change -> scope.launch { settingsRepository.update(change) } },
-            onClose = ::closeOverlay,
+            onClose = closeRequest::request,
             onScroll = { steps -> reservoir.kick(steps * 2.2f) },
             onLiquidTouch = { touch ->
                 val x = touch.position.x / touch.size.width
@@ -402,6 +404,8 @@ class OverlayService : Service() {
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
                     systemBars = bars,
                     writingBack = writingBack,
+                    closing = closeRequest.closing.value,
+                    onClosed = closeRequest::closed,
                     characters = characterSettings,
                 )
             }
@@ -459,6 +463,7 @@ class OverlayService : Service() {
         if (overlay != null) windowManager.removeCrossWindowBlurEnabledListener(blurListener)
         overlay?.let(windowManager::removeView)
         overlay = null
+        closeRequest.reset()
         overlayLifecycle?.stop()
         overlayLifecycle = null
     }
