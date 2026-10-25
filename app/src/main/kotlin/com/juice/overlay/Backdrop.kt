@@ -1,5 +1,7 @@
 package com.juice.overlay
 
+import kotlin.math.roundToInt
+
 /** What sits behind the overlay content: the blurred screen, or a dark semi-opaque scrim. */
 internal enum class Backdrop {
     BLUR,
@@ -30,10 +32,17 @@ internal fun backdropSliceSpot(screenWidthPx: Int, density: Float): SliceSpot {
     return SliceSpot(screenWidthPx - size / 2 + past, size / 2 - past, size)
 }
 
+// About 40dp on a typical phone; 40px was a faint smear that the dark tint swallowed.
+internal const val BLUR_RADIUS_PX = 120
+
+/** The window blur radius for a reveal [progress] (0..1): the window blur cannot be clipped to the growing ground, so it ramps instead. */
+internal fun blurRadiusFor(progress: Float): Int = (BLUR_RADIUS_PX * progress.coerceIn(0f, 1f)).roundToInt()
+
 /**
- * The swipe-open hand-over, in order: the slice flies to the backdrop, then the overlay is
- * shown, then the stage is dismissed once the overlay has drawn its first frame. A throwing
- * [show] stops the hand-over there; the caller's guard cleans up.
+ * The swipe-open hand-over: the overlay is shown as the slice starts flying to the backdrop, so
+ * the ground grows while it flies. The stage is dismissed once the flight is done and the overlay
+ * has drawn its first frame. A throwing [show] stops the hand-over before the flight starts; the
+ * caller's guard cleans up.
  */
 internal fun handOverToOverlay(
     fly: (onArrived: () -> Unit) -> Unit,
@@ -41,8 +50,9 @@ internal fun handOverToOverlay(
     whenOverlayDrawn: (action: () -> Unit) -> Unit,
     dismissStage: () -> Unit,
 ) {
-    fly {
-        show()
-        whenOverlayDrawn(dismissStage)
-    }
+    var pending = 2
+    val oneDone = { if (--pending == 0) dismissStage() }
+    show()
+    whenOverlayDrawn(oneDone)
+    fly(oneDone)
 }
