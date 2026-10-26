@@ -5,6 +5,8 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.MotionEvent
@@ -20,7 +22,7 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /** What letting go of the handle does. */
-internal enum class Release { NONE, OPEN, MOVED }
+internal enum class Release { NONE, OPEN, MOVED, DISMISS }
 
 /**
  * Reads a press on the slice handle: travel past [moveSlop] then out past the swipe radius, any
@@ -77,10 +79,11 @@ internal class SliceGesture(private val moveSlop: Float) {
     /** How far out the swipe is, 0..1 of [radius]. */
     fun pull(radius: Float): Float = if (swiping && travelled) (hypot(dx, dy) / radius).coerceAtMost(1f) else 0f
 
-    fun up(): Release {
+    /** Lets go; a move released [overDismiss], over the dismiss target, is a [Release.DISMISS]. */
+    fun up(overDismiss: Boolean = false): Release {
         val release = when {
             !pressed -> Release.NONE
-            moving -> Release.MOVED
+            moving -> if (overDismiss) Release.DISMISS else Release.MOVED
             ready -> Release.OPEN
             else -> Release.NONE
         }
@@ -97,6 +100,10 @@ internal class SliceGesture(private val moveSlop: Float) {
     }
 }
 
+/** True when the slice centre ([x], [y]) is within [radius] of the dismiss target's centre ([targetX], [targetY]). */
+internal fun overDismissTarget(x: Float, y: Float, targetX: Float, targetY: Float, radius: Float): Boolean =
+    hypot(x - targetX, y - targetY) <= radius
+
 /**
  * The floating slice handle, in its own small window that never changes size, so the system
  * never has to nudge it back on screen. While pressed, the ring and the slice are drawn on a
@@ -109,6 +116,7 @@ internal class SliceHandleView(
     private val reduceMotion: () -> Boolean,
     private val feedback: (FeedbackEvent) -> Unit,
     private val onMoved: (x: Float, y: Float) -> Unit,
+    private val onDismiss: () -> Unit,
     onOpen: () -> Unit,
 ) : View(context) {
     var style: SliceStyle = SliceStyle.of(com.juice.core.progression.Flavour.ELECTRIC_CITRUS)
@@ -128,6 +136,7 @@ internal class SliceHandleView(
     private var centreY = 0f
     /** True while the stage draws the slice and this window draws nothing. */
     private var handedOff = false
+    private var overTarget = false
     private var springBack: ValueAnimator? = null
     private var flight: ValueAnimator? = null
     private var windowAttached = false
@@ -154,6 +163,7 @@ internal class SliceHandleView(
 
     init {
         contentDescription = context.getString(com.juice.R.string.strip_open)
+        stage.contentDescription = context.getString(com.juice.R.string.strip_dismiss)
         setOnClickListener { onOpen() }
     }
 
@@ -287,12 +297,21 @@ internal class SliceHandleView(
                 val crossed = gesture.move(event.rawX, event.rawY, radius())
                 if (!gesture.moving && gesture.pull(radius()) > 0f) removeCallbacks(hold)
                 if (crossed) feedback(FeedbackEvent.SNAP)
+                val over = gesture.moving && isOverDismiss()
+                if (over && !overTarget) feedback(FeedbackEvent.SNAP)
+                overTarget = over
                 updateStage()
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(hold)
                 val (x, y) = slicePosition()
-                when (gesture.up()) {
+                val over = gesture.moving && isOverDismiss()
+                overTarget = false
+                when (gesture.up(over)) {
+                    Release.DISMISS -> {
+                        stage.dismissTarget = null
+                        onDismiss()
+                    }
                     Release.OPEN -> performClick()
                     Release.MOVED -> {
                         feedback(FeedbackEvent.CAPTURE)
@@ -308,6 +327,7 @@ internal class SliceHandleView(
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(hold)
                 val (x, y) = slicePosition()
+                overTarget = false
                 gesture.cancel()
                 returnHome(x, y)
             }
@@ -342,6 +362,22 @@ internal class SliceHandleView(
         return centreX + gesture.dx * k to centreY + gesture.dy * k
     }
 
+    /** The dismiss target, in screen px: centred horizontally, near the bottom, clear of the navigation bar. */
+    private fun dismissSpot(): SliceStage.DismissTarget {
+        val metrics = windowManager.maximumWindowMetrics
+        val bar = metrics.windowInsets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+        val r = DISMISS_RADIUS_DP * density
+        return SliceStage.DismissTarget(
+            metrics.bounds.width() / 2f, metrics.bounds.bottom - bar - r - DISMISS_MARGIN_DP * density, r, overTarget,
+        )
+    }
+
+    private fun isOverDismiss(): Boolean {
+        val (x, y) = slicePosition()
+        val t = dismissSpot()
+        return overDismissTarget(x, y, t.x, t.y, t.radius)
+    }
+
     /** Shows the stage and stops drawing here once the stage's first frame is on screen. */
     private fun handOff() {
         updateStage()
@@ -356,6 +392,7 @@ internal class SliceHandleView(
 
     /** Draws the slice here again, then hides the stage once this window's frame is on screen. */
     private fun takeBack() {
+        stage.dismissTarget = null
         springBack = null
         handedOff = false
         invalidate()
@@ -374,6 +411,7 @@ internal class SliceHandleView(
             return
         }
         stage.ring = null
+        stage.dismissTarget = null
         springBack = ValueAnimator.ofFloat(1f, 0f).apply {
             duration = SPRING_MILLIS
             interpolator = OvershootInterpolator(2f)
@@ -394,6 +432,7 @@ internal class SliceHandleView(
         val (x, y) = slicePosition()
         val scale = if (gesture.moving) MOVE_SCALE else PRESS_SCALE
         stage.slice = SliceStage.Slice(x, y, logo * scale, style, slices)
+        stage.dismissTarget = if (gesture.moving) dismissSpot() else null
         val r = radius()
         stage.ring = if (gesture.swiping) SliceStage.Ring(centreX, centreY, r, gesture.pull(r), gesture.ready, accent) else null
     }
@@ -416,6 +455,8 @@ internal class SliceHandleView(
         private const val FLIGHT_MILLIS = REVEAL_MILLIS.toLong()
         private const val PRESS_SCALE = 1.06f
         private const val MOVE_SCALE = 1.22f
+        private const val DISMISS_RADIUS_DP = 32f
+        private const val DISMISS_MARGIN_DP = 40f
     }
 }
 
@@ -431,15 +472,19 @@ internal fun View.whenDrawn(action: () -> Unit) {
  */
 internal class SliceStage(context: Context) : View(context) {
     data class Slice(val x: Float, val y: Float, val size: Float, val style: SliceStyle, val slices: Int)
+    data class DismissTarget(val x: Float, val y: Float, val radius: Float, val highlighted: Boolean)
     data class Ring(val x: Float, val y: Float, val radius: Float, val pull: Float, val ready: Boolean, val accent: Int)
 
     var slice: Slice? = null
         set(value) { field = value; invalidate() }
     var ring: Ring? = null
         set(value) { field = value; invalidate() }
+    var dismissTarget: DismissTarget? = null
+        set(value) { field = value; invalidate() }
 
     private val painter = SliceLogoPainter()
     private val density = resources.displayMetrics.density
+    private val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
@@ -462,7 +507,22 @@ internal class SliceStage(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
+        dismissTarget?.let { drawDismissTarget(canvas, it) }
         ring?.let { painter.drawRing(canvas, it.x, it.y, it.radius, it.pull, it.ready, it.accent, density) }
         slice?.let { painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0) }
+    }
+
+    private fun drawDismissTarget(canvas: Canvas, t: DismissTarget) {
+        val scale = if (t.highlighted) 1.2f else 1f
+        targetPaint.style = Paint.Style.FILL
+        targetPaint.color = if (t.highlighted) 0xFFE53935.toInt() else 0xB3000000.toInt()
+        canvas.drawCircle(t.x, t.y, t.radius * scale, targetPaint)
+        targetPaint.style = Paint.Style.STROKE
+        targetPaint.strokeCap = Paint.Cap.ROUND
+        targetPaint.strokeWidth = 3f * density
+        targetPaint.color = Color.WHITE
+        val a = t.radius * 0.35f * scale
+        canvas.drawLine(t.x - a, t.y - a, t.x + a, t.y + a, targetPaint)
+        canvas.drawLine(t.x - a, t.y + a, t.x + a, t.y - a, targetPaint)
     }
 }

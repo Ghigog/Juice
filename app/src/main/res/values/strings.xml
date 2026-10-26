@@ -8,6 +8,7 @@
     <string name="overlay_permission_open_settings">Open settings</string>
     <string name="overlay_close">Close Juice</string>
     <string name="strip_open">Open Juice</string>
+    <string name="strip_dismiss">Close Juice</string>
     <string name="overlay_failed">Juice couldn\'t open: %1$s: %2$s (details copied to clipboard)</string>
     <string name="overlay_undo">Undo</string>
     <string name="onboarding_title">Before you start</string>
