@@ -69,4 +69,12 @@ class OverlayMotionTest {
             assertEquals(it.origin, it.at(0f).first)
         }
     }
+
+    @Test
+    fun swayIsZeroAtBothEndsAndNonzeroBetween() {
+        assertEquals(0f, entranceSway(0f), 0.0001f)
+        assertEquals(0f, entranceSway(1f), 0.0001f)
+        assertTrue(kotlin.math.abs(entranceSway(0.15f)) > 0.1f)
+        assertTrue(entranceSway(0.15f) * entranceSway(0.5f) < 0f)
+    }
 }

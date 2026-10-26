@@ -769,7 +769,7 @@ private fun Carousel(
                                 drawLine(lineColor, Offset(0f, y), Offset(size.width, y), 3.dp.toPx(), StrokeCap.Round)
                             }
                         }
-                        .clip(RoundedCornerShape(16.dp))
+                        .roundedClip(RoundedCornerShape(16.dp))
                         .background(JuiceColors.white(if (isCentre) 0.24f else 0.12f))
                         .clickable {
                             scope.launch { listState.animateScrollToItem(index) }

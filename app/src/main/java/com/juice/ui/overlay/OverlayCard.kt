@@ -302,8 +302,10 @@ internal fun CentreCard(
 
     Box(
         modifier
-            .graphicsLayer { translationX = shake.value }
-            .clip(RoundedCornerShape(30.dp))
+            .graphicsLayer {
+                translationX = shake.value
+            }
+            .roundedClip(RoundedCornerShape(30.dp))
             .background(JuiceColors.white(0.14f))
             .border(1.dp, JuiceColors.white(0.28f), RoundedCornerShape(30.dp))
             .testTag(TAG_CENTRE_CARD)

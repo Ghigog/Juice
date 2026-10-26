@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
@@ -54,6 +55,7 @@ import org.robolectric.annotation.Config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.test.onRoot
 
 @RunWith(RobolectricTestRunner::class)
@@ -130,6 +132,18 @@ class OverlayShellTest {
         val reported = mutableListOf<Float>()
         show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true, onRevealProgress = { reported += it })
         assertEquals(listOf(1f), reported)
+    }
+
+    @Test
+    fun theCardsAreClippedRoundAtEveryFrameOfTheEntrance() {
+        show(Item("a", ItemType.Task, "Call Sam"), Item("b", ItemType.Task, "Email Lee"), reduceMotion = false)
+        val clipped = SemanticsMatcher.keyIsDefined(ClippedShape)
+        for (step in listOf(0L, 150L, REVEAL_MILLIS.toLong(), ENTRANCE_TOTAL_MILLIS.toLong())) {
+            compose.mainClock.advanceTimeBy(step)
+            val cards = compose.onAllNodes(clipped, useUnmergedTree = true)
+            cards.assertCountEquals(3)
+            cards.fetchSemanticsNodes().forEach { assertTrue(it.config[ClippedShape] is RoundedCornerShape) }
+        }
     }
 
     @Test
