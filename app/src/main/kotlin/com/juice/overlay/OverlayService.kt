@@ -574,5 +574,5 @@ internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop
 /** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
 @androidx.compose.runtime.Composable
 internal fun ReservoirHost(reservoir: ThirstReservoirView, fill: Float, modifier: androidx.compose.ui.Modifier) {
-    AndroidView(factory = { reservoir }, modifier = modifier, update = { it.fill = fill })
+    AndroidView(factory = { reservoir.also { (it.parent as? android.view.ViewGroup)?.removeView(it) } }, modifier = modifier, update = { it.fill = fill })
 }
