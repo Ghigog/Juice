@@ -56,3 +56,32 @@ internal fun handOverToOverlay(
     whenOverlayDrawn(oneDone)
     fly(oneDone)
 }
+
+/**
+ * The close hand-over, the open played backwards: when the ground starts to drain ([draining]) the
+ * slice flies from the backdrop to the handle; once the drain is done ([drained]) and the slice
+ * has landed, [finish] removes the overlay and the handle takes touches. A drain that never
+ * started (reduced motion) finishes at once without a flight.
+ */
+internal class HandBack(
+    private val fly: (onLanded: () -> Unit) -> Unit,
+    private val finish: () -> Unit,
+) {
+    private var pending = 0
+    private var flying = false
+
+    fun draining() {
+        if (flying) return
+        flying = true
+        pending = 2
+        fly(::oneDone)
+    }
+
+    fun drained() {
+        if (flying) oneDone() else finish()
+    }
+
+    private fun oneDone() {
+        if (--pending == 0) finish()
+    }
+}

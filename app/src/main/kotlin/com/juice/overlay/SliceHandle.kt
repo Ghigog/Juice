@@ -168,6 +168,48 @@ internal class SliceHandleView(
         windowAttached = true
     }
 
+    /**
+     * Shows the stage only, drawing the slice at [from], and flies it to the handle's place; the
+     * handle's own window, which takes touches, is added once it has landed, then [onLanded] is called.
+     * Without [animate] it lands at once.
+     */
+    fun flyHome(x: Float, y: Float, from: SliceSpot, animate: Boolean, onLanded: () -> Unit) {
+        centreX = x
+        centreY = y
+        place()
+        windowManager.addView(stage, stage.params)
+        stageAttached = true
+        val home = SliceSpot(x, y, logo)
+        val land = {
+            windowManager.addView(this, params)
+            windowAttached = true
+            whenDrawn { stage.slice = null; stage.visibility = GONE }
+            onLanded()
+        }
+        if (!animate) {
+            land()
+            return
+        }
+        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices)
+        stage.visibility = VISIBLE
+        flight = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = FLIGHT_MILLIS
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener {
+                val at = from.lerp(home, it.animatedValue as Float)
+                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (flight !== animation) return
+                    flight = null
+                    land()
+                }
+            })
+            start()
+        }
+    }
+
     /** Removes the handle's window and its stage; safe to call again. */
     fun dismiss() {
         springBack?.cancel()
