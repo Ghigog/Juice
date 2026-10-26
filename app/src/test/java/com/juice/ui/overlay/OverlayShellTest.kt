@@ -3,6 +3,7 @@ package com.juice.ui.overlay
 import com.juice.RegisterComposeActivity
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -125,6 +126,25 @@ class OverlayShellTest {
         assertEquals(1f, reported.last(), 0.001f)
         assertTrue(reported.size > 2)
         assertEquals(reported.sorted(), reported)
+    }
+
+    private fun backdropState() = compose.onNodeWithTag(TAG_BACKDROP_SLICE).fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+
+    @Test
+    fun theBackdropSliceIsHiddenAtAPartialRevealAndShownAtFullReveal() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false)
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS / 2L)
+        compose.waitForIdle()
+        assertEquals(BACKDROP_HIDDEN, backdropState())
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong())
+        compose.waitForIdle()
+        assertEquals(BACKDROP_SHOWN, backdropState())
+    }
+
+    @Test
+    fun withReducedMotionTheBackdropSliceIsShownAtOnce() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true)
+        assertEquals(BACKDROP_SHOWN, backdropState())
     }
 
     @Test
