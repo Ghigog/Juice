@@ -160,20 +160,29 @@ class CharacterRepositoryTest {
         conversations.save(jim.id, listOf(ChatMessage("user", "hi")))
         withChat.disable(jim)
 
-        withChat.reset(jim)
+        withChat.reset(jim, 5)
 
-        assertEquals(emptyList(), items.byCharacter(jim.id))
+        assertEquals(listOf("Meet Coach Humble Jumble Jim"), items.byCharacter(jim.id).map { it.title })
         assertEquals(emptyList(), conversations.load(jim.id))
-        assertEquals(CharacterState(), withChat.state(jim.id))
-        withChat.unlockAtLevel(jim, 5)
+        assertEquals(Availability.MetPending, withChat.state(jim.id).availability)
+        assertEquals(CharacterState(availability = Availability.MetPending), withChat.state(jim.id))
+        withChat.unlockAtLevel(jim, 6)
         assertEquals(listOf("Meet Coach Humble Jumble Jim"), items.byCharacter(jim.id).map { it.title })
     }
 
     @Test
     fun resetDoesNothingWhileLocked() = runBlocking {
         items.save(Item("checkin-jim", ItemType.Task, "x", characterId = jim.id))
-        characters.reset(jim)
+        characters.reset(jim, 5)
         assertEquals(1, items.byCharacter(jim.id).size)
+    }
+
+    @Test
+    fun resetBelowTheUnlockLevelLeavesTheCharacterLocked() = runBlocking {
+        characters.unlockAtLevel(jim, 5)
+        characters.reset(jim, 0)
+        assertEquals(Availability.Locked, characters.state(jim.id).availability)
+        assertEquals(emptyList(), items.byCharacter(jim.id))
     }
 
     @Test

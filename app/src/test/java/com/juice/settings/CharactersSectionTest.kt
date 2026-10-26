@@ -89,7 +89,7 @@ class CharactersSectionTest {
         db.close()
     }
 
-    private fun show() = compose.setContent { CharactersSection(CharacterSettings(characters, scope)) }
+    private fun show() = compose.setContent { CharactersSection(CharacterSettings(characters, scope, level = { 5 })) }
 
     private val restoreTag = TAG_CHARACTER_RESTORE_PREFIX + jim.id
     private val enableTag = TAG_CHARACTER_ENABLE_PREFIX + jim.id
@@ -203,8 +203,22 @@ class CharactersSectionTest {
         assertNotNull(runBlocking { items.get("meet-jim") })
         compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + jim.id).performClick()
         compose.waitForIdle()
-        assertEquals(emptyList(), runBlocking { items.byCharacter(jim.id) })
+        assertEquals(listOf("meet-jim"), runBlocking { items.byCharacter(jim.id) }.map { it.id })
         assertEquals(false, characters.state(jim.id).disabled)
+    }
+
+    @Test
+    fun resetAfterConfirmationMakesTheRowActive() {
+        runBlocking {
+            characters.unlockAtLevel(jim, 5)
+            characters.disable(jim)
+        }
+        show()
+        compose.onNodeWithTag(resetTag).performClick()
+        compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + jim.id).performClick()
+        compose.waitForIdle()
+        assertNotNull(runBlocking { items.get("meet-jim") })
+        compose.onNodeWithTag(disableTag).assertIsDisplayed()
     }
 
     @Test
