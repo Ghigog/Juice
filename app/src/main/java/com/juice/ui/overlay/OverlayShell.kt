@@ -350,7 +350,8 @@ fun OverlayShell(
                     )
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
-                if (!writing) {
+                // The Routines view covers the main view and hosts its own carousel; the service has one reservoir View, which only one host can hold.
+                if (!writing && !routinesOpen) {
                     Header(hud, entranceProgress, cardPops.element(0), onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
                     val list = state.items
