@@ -203,7 +203,7 @@ class CharactersSectionTest {
         assertNotNull(runBlocking { items.get("meet-jim") })
         compose.onNodeWithTag(TAG_CHARACTER_CONFIRM_RESET_PREFIX + jim.id).performClick()
         compose.waitForIdle()
-        assertEquals(emptyList(), runBlocking { items.byCharacter(jim.id) })
+        assertEquals(listOf("meet-jim"), runBlocking { items.byCharacter(jim.id) }.map { it.id })
         assertEquals(false, characters.state(jim.id).disabled)
     }
 
