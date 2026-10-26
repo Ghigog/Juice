@@ -297,24 +297,29 @@ fun OverlayShell(
     CompositionLocalProvider(LocalTextStyle provides TextStyle(fontFamily = SpaceGrotesk, color = Color.White)) {
         Box(
             modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val ground = overlayTint(blurred)
-                    val progress = reveal.value
-                    if (progress >= 1f) {
-                        drawRect(ground)
-                    } else {
-                        val origin = revealOrigin(size.width, overshoot)
-                        val radius = revealRadius(size.width, size.height, origin) * progress
-                        clipPath(Path().apply { addOval(Rect(origin, radius)) }) { drawRect(ground) }
-                    }
-                },
+                .fillMaxSize(),
         ) {
             SliceBackdrop(
                 hud,
                 slices = SliceLogoPainter.sliceCount(state.items.size),
                 active = centre.coerceAtMost(state.items.lastIndex),
                 spin = spin,
+            )
+            // The ground sits in front of the slice, so the slice is dimmed by it; it grows from the reveal origin.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        val ground = overlayTint(blurred)
+                        val progress = reveal.value
+                        if (progress >= 1f) {
+                            drawRect(ground)
+                        } else {
+                            val origin = revealOrigin(size.width, overshoot)
+                            val radius = revealRadius(size.width, size.height, origin) * progress
+                            clipPath(Path().apply { addOval(Rect(origin, radius)) }) { drawRect(ground) }
+                        }
+                    },
             )
             // Empty background: a tap closes. Cards, buttons and the field take their own taps first.
             val closeLabel = stringResource(R.string.overlay_close)
@@ -527,12 +532,16 @@ internal fun CardRow(
     }
 }
 
+/** The ground's alpha: lighter than the old 0.55 and 0.97, so the screen behind shows through. */
+internal fun overlayGroundAlpha(blurred: Boolean): Float = if (blurred) 0.35f else 0.75f
+
 /**
  * The overlay's ground: the mockup's dark teal-to-indigo glass. Over the blur it stays thin
- * enough for the blurred screen to show through; at 0.9 it hid the blur completely.
+ * enough for the blurred screen to show through; at 0.9 it hid the blur completely. It is drawn over the
+ * slice backdrop and also backs the panels, so it stays light but dark enough for white text.
  */
 private fun overlayTint(blurred: Boolean): Brush {
-    val alpha = if (blurred) 0.55f else 0.97f
+    val alpha = overlayGroundAlpha(blurred)
     return Brush.linearGradient(
         listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
     )
