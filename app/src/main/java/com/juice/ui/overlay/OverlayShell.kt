@@ -68,8 +68,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -164,7 +162,6 @@ private const val BANNER_MILLIS = 2200L
 private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
 private val BACKDROP_DP = 280.dp
-private val BACKDROP_BLUR_DP = 3.dp
 private const val WIGGLE_MILLIS = 110
 private const val WIGGLE_DEGREES = 1.5f
 private const val WIGGLE_DP = 1.5f
@@ -571,7 +568,10 @@ const val TAG_BACKDROP_SLICE = "backdrop_slice"
 const val BACKDROP_SHOWN = "shown"
 const val BACKDROP_HIDDEN = "hidden"
 
-/** The big, blurred slice in the top-right corner behind the content; it takes no touches. */
+/**
+ * The big slice in the top-right corner behind the content; it takes no touches. It is drawn sharp, as a
+ * plain vector draw; the ground in front of it supplies any dimming or softening.
+ */
 @Composable
 private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum, shown: () -> Boolean) {
     val painter = remember { SliceLogoPainter() }
@@ -598,8 +598,7 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
                 .graphicsLayer {
                     alpha = if (shown()) 1f else 0f
                     rotationZ = turn
-                }
-                .blur(BACKDROP_BLUR_DP, BlurredEdgeTreatment.Unbounded),
+                },
         ) {
             drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active, shadow = false) }
         }
