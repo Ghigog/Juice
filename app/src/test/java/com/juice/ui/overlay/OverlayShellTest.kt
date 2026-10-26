@@ -21,7 +21,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
@@ -55,7 +55,7 @@ import org.robolectric.annotation.Config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.test.onRoot
 
 @RunWith(RobolectricTestRunner::class)
@@ -135,15 +135,15 @@ class OverlayShellTest {
     }
 
     @Test
-    fun theCentreCardHasRoundedCornersMidEntrance() {
-        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false)
-        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 150)
-        val bounds = compose.onNodeWithTag(TAG_CENTRE_CARD).fetchSemanticsNode().boundsInRoot
-        val image = compose.onRoot().captureToImage().toPixelMap()
-        // Just inside the square corner, the card's rounded clip leaves the ground showing, as it does just outside.
-        val corner = image[bounds.left.toInt() + 2, bounds.top.toInt() + 2]
-        val ground = image[bounds.left.toInt() - 6, bounds.top.toInt() - 6]
-        assertEquals(ground.toArgb(), corner.toArgb())
+    fun theCardsAreClippedRoundAtEveryFrameOfTheEntrance() {
+        show(Item("a", ItemType.Task, "Call Sam"), Item("b", ItemType.Task, "Email Lee"), reduceMotion = false)
+        val clipped = SemanticsMatcher.keyIsDefined(ClippedShape)
+        for (step in listOf(0L, 150L, REVEAL_MILLIS.toLong(), ENTRANCE_TOTAL_MILLIS.toLong())) {
+            compose.mainClock.advanceTimeBy(step)
+            val cards = compose.onAllNodes(clipped, useUnmergedTree = true)
+            cards.assertCountEquals(3)
+            cards.fetchSemanticsNodes().forEach { assertTrue(it.config[ClippedShape] is RoundedCornerShape) }
+        }
     }
 
     @Test

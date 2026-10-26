@@ -3,7 +3,12 @@ package com.juice.ui.overlay
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.math.hypot
@@ -123,3 +128,10 @@ internal fun FrothBubble.at(progress: Float): Pair<Offset, Float> {
     val centre = Offset(origin.x + kotlin.math.cos(angle) * distance * eased, origin.y + kotlin.math.sin(angle) * distance * eased)
     return centre to radius * (1f - p)
 }
+
+/** The shape a card is clipped to, exposed so a test can see the clip without capturing pixels. */
+internal val ClippedShape = SemanticsPropertyKey<Shape>("ClippedShape")
+
+/** Clips to [shape] and reports it, so a card's corners are rounded on every frame, whatever is drawn into it. */
+internal fun Modifier.roundedClip(shape: Shape): Modifier =
+    clip(shape).semantics { this[ClippedShape] = shape }
