@@ -117,4 +117,38 @@ class BackdropTest {
         }
         assertEquals(false, flew)
     }
+
+    @Test
+    fun handBackFliesWhenTheDrainStartsAndFinishesOnceBothDrainAndLandingAreDone() {
+        val calls = mutableListOf<String>()
+        var land = {}
+        val back = HandBack(fly = { land = it; calls += "fly" }, finish = { calls += "finish" })
+        back.draining()
+        assertEquals(listOf("fly"), calls)
+        back.drained()
+        assertEquals(listOf("fly"), calls)
+        land()
+        assertEquals(listOf("fly", "finish"), calls)
+    }
+
+    @Test
+    fun handBackFinishesOnceWhicheverEndsLast() {
+        val calls = mutableListOf<String>()
+        var land = {}
+        val back = HandBack(fly = { land = it }, finish = { calls += "finish" })
+        back.draining()
+        land()
+        assertEquals(emptyList(), calls)
+        back.drained()
+        assertEquals(listOf("finish"), calls)
+    }
+
+    @Test
+    fun handBackWithoutADrainFinishesAtOnceWithoutAFlight() {
+        var flew = false
+        var finished = 0
+        HandBack(fly = { flew = true }, finish = { finished++ }).drained()
+        assertEquals(false, flew)
+        assertEquals(1, finished)
+    }
 }

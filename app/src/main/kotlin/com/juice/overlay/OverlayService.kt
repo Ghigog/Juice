@@ -89,6 +89,7 @@ class OverlayService : Service() {
     private var handle: SliceHandleView? = null
     private var overlay: View? = null
     private var starting = false
+    private var handBack: HandBack? = null
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val backdrop = mutableStateOf(Backdrop.SCRIM)
     // The blur radius last set on the overlay window, which ramps up with the reveal.
@@ -205,7 +206,8 @@ class OverlayService : Service() {
         view.accent = FlavourTheme.of(flavour).accent
     }
 
-    private fun showHandle() {
+    /** Shows the handle; with [flyFrom] the slice flies in from there first and [onLanded] is called once the handle takes touches. */
+    private fun showHandle(flyFrom: SliceSpot? = null, onLanded: () -> Unit = {}) {
         val density = resources.displayMetrics.density
         val view = SliceHandleView(
             this,
@@ -224,8 +226,8 @@ class OverlayService : Service() {
         styleHandle(view)
         view.slices = SliceLogoPainter.sliceCount(openItems)
         val (x, y) = handleCentre()
-        view.show(x, y)
         handle = view
+        if (flyFrom == null) view.show(x, y) else view.flyHome(x, y, flyFrom, animate = !settings.reduceMotion, onLanded)
     }
 
     /**
@@ -277,10 +279,23 @@ class OverlayService : Service() {
 
     private fun discardOverlay() = runCatching { removeOverlay() }.onFailure { overlay = null }
 
+    /** The overlay's close, once the ground has drained (or at once with reduced motion): lands the slice, then swaps. */
     private fun closeOverlay() {
         if (overlay == null) return
-        removeOverlay()
-        showHandle()
+        handBack?.drained() ?: run { removeOverlay(); showHandle() }
+    }
+
+    /** The ground starts to drain: the slice flies from the backdrop to the handle meanwhile. */
+    private fun startHandBack() {
+        if (overlay == null || handBack != null) return
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        val from = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
+        val back = HandBack(
+            fly = { onLanded -> showHandle(from, onLanded) },
+            finish = { handBack = null; removeOverlay() },
+        )
+        handBack = back
+        back.draining()
     }
 
     private fun showOverlay() {
@@ -422,6 +437,7 @@ class OverlayService : Service() {
                     writingBack = writingBack,
                     closing = closeRequest.closing.value,
                     onClosed = closeRequest::closed,
+                    onDraining = ::startHandBack,
                     characters = characterSettings,
                 )
             }
@@ -480,6 +496,7 @@ class OverlayService : Service() {
         if (overlay != null) windowManager.removeCrossWindowBlurEnabledListener(blurListener)
         overlay?.let(windowManager::removeView)
         overlay = null
+        handBack = null
         closeRequest.reset()
         overlayLifecycle?.stop()
         overlayLifecycle = null
