@@ -117,6 +117,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.roundToInt
 import com.juice.ui.Tier
 import kotlin.math.abs
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -185,6 +186,8 @@ fun OverlayShell(
     /** True once the host has asked to close: the content pops away, the ground drains, then [onClosed] is called. */
     closing: Boolean = false,
     onClosed: () -> Unit = {},
+    /** Called when the ground starts to drain, after the content has popped away and before [onClosed]. */
+    onDraining: () -> Unit = {},
     /** Reports how far the ground has grown, 0..1: rising on open, falling on the drain at close. */
     onRevealProgress: (Float) -> Unit = {},
 ) {
@@ -236,11 +239,25 @@ fun OverlayShell(
     val entranceProgress: () -> Float = { entrance.value }
     val pop = remember { Animatable(0f) }
     val currentOnClosed by rememberUpdatedState(onClosed)
+    val currentOnDraining by rememberUpdatedState(onDraining)
+    val cardPops = remember { CardPops() }
     // Cancelled with the composition, so tearing the overlay down mid-close never calls onClosed.
     LaunchedEffect(closing) {
         if (closing) {
             if (!settings.reduceMotion) {
-                pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing))
+                // The visible cards pop top to bottom, each with its sound; the rest pops away with the last one.
+                val visible = cardPops.visibleIndices()
+                cardPops.popping = visible
+                coroutineScope {
+                    launch { cardPops.elapsed.animateTo(cardPopTotalMillis(visible.size).toFloat(), tween(cardPopTotalMillis(visible.size), easing = LinearEasing)) }
+                    visible.forEachIndexed { i, _ ->
+                        if (i > 0) delay(CARD_POP_GAP_MILLIS.toLong())
+                        actions.feedback(FeedbackEvent.CARD_POP)
+                        if (i == visible.lastIndex) launch { pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing)) }
+                    }
+                    if (visible.isEmpty()) pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing))
+                }
+                currentOnDraining()
                 reveal.animateTo(0f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
             }
             currentOnClosed()
@@ -330,7 +347,7 @@ fun OverlayShell(
                     CardRow(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entrance = entranceProgress, onSpin = { spin.kick(it) },
+                        entrance = entranceProgress, onSpin = { spin.kick(it) }, cardPops = cardPops,
                     )
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
@@ -452,6 +469,13 @@ fun OverlayShell(
 
 private const val FROTH_SEED = 44L
 
+/** The carousel's cards popping away on close: which of them are on screen, top to bottom, and how far the popping has run. */
+internal class CardPops {
+    var visibleIndices: () -> List<Int> = { emptyList() }
+    var popping by mutableStateOf<List<Int>>(emptyList())
+    val elapsed = Animatable(0f)
+}
+
 /** The carousel beside the centre card for the items of [state]; shared by the main view and the Routines view. */
 @Composable
 internal fun CardRow(
@@ -466,11 +490,12 @@ internal fun CardRow(
     modifier: Modifier = Modifier,
     entrance: () -> Float = { 1f },
     onSpin: (Float) -> Unit = {},
+    cardPops: CardPops = remember { CardPops() },
 ) {
     val list = state.items
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, onSpin = onSpin, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, onSpin = onSpin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
@@ -665,9 +690,11 @@ private fun Carousel(
     entrance: () -> Float,
     onCentre: (Int) -> Unit,
     onSpin: (Float) -> Unit,
+    cardPops: CardPops,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
+    SideEffect { cardPops.visibleIndices = { listState.layoutInfo.visibleItemsInfo.map { it.index } } }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val centreIndex by remember {
@@ -754,6 +781,13 @@ private fun Carousel(
                                 scaleX = s * (1f - steps * 0.08f).coerceAtLeast(0.78f)
                                 scaleY = scaleX
                                 alpha = (1f - steps * 0.26f).coerceIn(0.3f, 1f)
+                            }
+                            val rank = cardPops.popping.indexOf(index)
+                            if (rank >= 0) {
+                                val p = cardPopProgress(cardPops.elapsed.value, rank)
+                                scaleX *= popScale(p)
+                                scaleY *= popScale(p)
+                                alpha *= popAlpha(p)
                             }
                             if (item.id == held) {
                                 alpha *= HELD_ALPHA

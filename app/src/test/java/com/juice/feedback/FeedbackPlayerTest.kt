@@ -43,7 +43,7 @@ class FeedbackPlayerTest {
         val p = player(FeedbackSettings(soundEnabled = false))
         FeedbackEvent.entries.forEach { p.play(it) }
         assertTrue(sounds.isEmpty())
-        assertEquals(FeedbackEvent.entries.size, haptics.size)
+        assertEquals((FeedbackEvent.entries - FeedbackEvent.CARD_POP).size, haptics.size)
     }
 
     @Test fun documentedMomentsHaveTheirDocumentedEffects() {
@@ -66,6 +66,18 @@ class FeedbackPlayerTest {
         player(FeedbackSettings(soundEnabled = false)).play(FeedbackEvent.RECAP_REVEAL)
         assertTrue(sounds.isEmpty())
         assertEquals(listOf(Haptic.SELECTION_TICK), haptics)
+    }
+
+    @Test fun cardPopPlaysThePopWithoutVibrating() {
+        player(FeedbackSettings()).play(FeedbackEvent.CARD_POP)
+        assertEquals(listOf(Cue.POP to 1f), sounds)
+        assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun cardPopWithSoundOffIsSilent() {
+        player(FeedbackSettings(soundEnabled = false)).play(FeedbackEvent.CARD_POP)
+        assertTrue(sounds.isEmpty())
+        assertTrue(haptics.isEmpty())
     }
 
     @Test fun mutterPlaysAtItsRateWithoutVibrating() {

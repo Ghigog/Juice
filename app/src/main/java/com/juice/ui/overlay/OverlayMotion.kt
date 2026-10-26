@@ -86,6 +86,20 @@ internal fun Modifier.entrance(progress: () -> Float, index: Int = 0, fromBottom
 /** How long the content takes to swell and burst when the overlay closes; the ground drains afterwards over [REVEAL_MILLIS]. */
 internal const val POP_MILLIS = 320
 
+/** Gap between visible cards starting to pop when the overlay closes, and how long each card's pop takes. */
+internal const val CARD_POP_GAP_MILLIS = 80
+internal const val CARD_POP_MILLIS = 200
+
+/** When the pop of the [index]th visible card (top to bottom) starts, in milliseconds after the closing begins. */
+internal fun cardPopStartMillis(index: Int): Int = index * CARD_POP_GAP_MILLIS
+
+/** How long popping [count] visible cards takes, from the first starting to the last one gone; 0 when there are none. */
+internal fun cardPopTotalMillis(count: Int): Int = if (count <= 0) 0 else cardPopStartMillis(count - 1) + CARD_POP_MILLIS
+
+/** How far the [index]th visible card's pop is, 0..1, [elapsedMillis] after the closing began. */
+internal fun cardPopProgress(elapsedMillis: Float, index: Int): Float =
+    ((elapsedMillis - cardPopStartMillis(index)) / CARD_POP_MILLIS).coerceIn(0f, 1f)
+
 /** The share of the pop spent swelling before the burst, and the largest the content swells to. */
 private const val SWELL_SHARE = 0.3f
 private const val SWELL_SCALE = 1.08f

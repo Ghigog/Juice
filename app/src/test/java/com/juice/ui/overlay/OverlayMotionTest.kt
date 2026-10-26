@@ -77,4 +77,18 @@ class OverlayMotionTest {
         assertTrue(kotlin.math.abs(entranceSway(0.15f)) > 0.1f)
         assertTrue(entranceSway(0.15f) * entranceSway(0.5f) < 0f)
     }
+
+    @Test fun cardPopsStartOneGapApartAndTheSequenceStaysShort() {
+        assertEquals(listOf(0, CARD_POP_GAP_MILLIS, 2 * CARD_POP_GAP_MILLIS), List(3) { cardPopStartMillis(it) })
+        assertEquals(0, cardPopTotalMillis(0))
+        assertEquals(CARD_POP_MILLIS, cardPopTotalMillis(1))
+        assertEquals(3 * CARD_POP_GAP_MILLIS + CARD_POP_MILLIS, cardPopTotalMillis(4))
+    }
+
+    @Test fun cardPopProgressRunsFromItsStartOverTheCardDuration() {
+        assertEquals(0f, cardPopProgress(0f, 1), 0.001f)
+        assertEquals(0f, cardPopProgress(CARD_POP_GAP_MILLIS.toFloat(), 1), 0.001f)
+        assertEquals(0.5f, cardPopProgress(CARD_POP_GAP_MILLIS + CARD_POP_MILLIS / 2f, 1), 0.001f)
+        assertEquals(1f, cardPopProgress(1000f, 1), 0.001f)
+    }
 }

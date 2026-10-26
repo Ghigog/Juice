@@ -4,7 +4,7 @@ import com.juice.core.audio.Cue
 import com.juice.ui.theme.SoundSet
 
 /** Moments that produce audio and haptic feedback (design doc §9, plus the overlay's smaller moments). */
-enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT_RECOGNISED, UNDO, OPEN, LEVEL_UP, RECAP_OPEN, RECAP_REVEAL }
+enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT_RECOGNISED, UNDO, OPEN, LEVEL_UP, RECAP_OPEN, RECAP_REVEAL, CARD_POP }
 
 /** What the UI calls. [boosted] raises the pitch, used while the meter is Satiated. */
 interface Feedback {
@@ -55,7 +55,7 @@ class FeedbackPlayer(
     }
 
     override fun play(event: FeedbackEvent, boosted: Boolean) {
-        val (cue, haptic) = when (event) {
+        val (cue, haptic: Haptic?) = when (event) {
             FeedbackEvent.SNAP -> Cue.TICK to Haptic.SELECTION_TICK
             FeedbackEvent.CHECKMARK -> Cue.DONE to Haptic.MEDIUM_IMPACT
             FeedbackEvent.DISMISS -> Cue.X to Haptic.DOUBLE_LOW_BUZZ
@@ -67,10 +67,11 @@ class FeedbackPlayer(
             FeedbackEvent.LEVEL_UP -> Cue.LEVEL to Haptic.MEDIUM_IMPACT
             FeedbackEvent.RECAP_OPEN -> Cue.RECAP_OPEN to Haptic.MEDIUM_IMPACT
             FeedbackEvent.RECAP_REVEAL -> Cue.RECAP_REVEAL to Haptic.SELECTION_TICK
+            FeedbackEvent.CARD_POP -> Cue.POP to null
         }
         val rate = if (boosted || event == FeedbackEvent.SATIATED_PEAK) BOOSTED_RATE else 1f
         val current = settings()
         if (current.soundEnabled) sounds.play(cue, rate)
-        if (current.hapticsEnabled) haptics.vibrate(haptic)
+        if (haptic != null && current.hapticsEnabled) haptics.vibrate(haptic)
     }
 }
