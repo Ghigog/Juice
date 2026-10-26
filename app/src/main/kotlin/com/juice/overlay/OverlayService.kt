@@ -221,6 +221,10 @@ class OverlayService : Service() {
                 settings = settings.copy(handleX = fx, handleY = fy)
                 scope.launch { settingsRepository.update { it.copy(handleX = fx, handleY = fy) } }
             },
+            onDismiss = {
+                removeHandle()
+                stopSelf()
+            },
             onOpen = ::swapToOverlay,
         )
         styleHandle(view)

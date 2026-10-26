@@ -66,4 +66,37 @@ class SliceGestureTest {
         gesture.move(300f, 0f, radius = 90f)
         assertEquals(1f, gesture.pull(90f))
     }
+
+    @Test fun hitTestIsWithinTheTargetRadius() {
+        assertTrue(overDismissTarget(100f, 900f, 100f, 900f, radius = 50f))
+        assertTrue(overDismissTarget(130f, 940f, 100f, 900f, radius = 50f))
+        assertFalse(overDismissTarget(160f, 900f, 100f, 900f, radius = 50f))
+    }
+
+    @Test fun movedReleaseOverTheTargetDismisses() {
+        gesture.down(500f, 500f)
+        gesture.hold()
+        gesture.move(300f, 900f, radius = 90f)
+        assertEquals(Release.DISMISS, gesture.up(overDismiss = true))
+    }
+
+    @Test fun movedReleaseElsewhereMoves() {
+        gesture.down(500f, 500f)
+        gesture.hold()
+        gesture.move(300f, 900f, radius = 90f)
+        assertEquals(Release.MOVED, gesture.up(overDismiss = false))
+    }
+
+    @Test fun swipeOverTheTargetDoesNotDismiss() {
+        gesture.down(500f, 500f)
+        gesture.move(600f, 500f, radius = 90f)
+        assertEquals(Release.OPEN, gesture.up(overDismiss = true))
+    }
+
+    @Test fun cancelNeverDismisses() {
+        gesture.down(500f, 500f)
+        gesture.hold()
+        gesture.cancel()
+        assertEquals(Release.NONE, gesture.up(overDismiss = true))
+    }
 }
