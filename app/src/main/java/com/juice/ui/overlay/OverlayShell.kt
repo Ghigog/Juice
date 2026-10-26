@@ -98,6 +98,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -307,6 +308,7 @@ fun OverlayShell(
                 slices = SliceLogoPainter.sliceCount(state.items.size),
                 active = centre.coerceAtMost(state.items.lastIndex),
                 spin = spin,
+                shown = { reveal.value >= 1f },
             )
             // Empty background: a tap closes. Cards, buttons and the field take their own taps first.
             val closeLabel = stringResource(R.string.overlay_close)
@@ -539,9 +541,13 @@ private suspend fun <R> withInfiniteFrameNanos(onFrame: (Long) -> R): R {
     return policy.onInfiniteOperation { withFrameNanos(onFrame) }
 }
 
+const val TAG_BACKDROP_SLICE = "backdrop_slice"
+const val BACKDROP_SHOWN = "shown"
+const val BACKDROP_HIDDEN = "hidden"
+
 /** The big, blurred slice in the top-right corner behind the content; it takes no touches. */
 @Composable
-private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum) {
+private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum, shown: () -> Boolean) {
     val painter = remember { SliceLogoPainter() }
     val style = SliceStyle.of(hud.flavour)
     var turn by remember { mutableFloatStateOf(0f) }
@@ -560,7 +566,13 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
                 .align(Alignment.TopEnd)
                 .offset(BACKDROP_DP / 4, -BACKDROP_DP / 4)
                 .size(BACKDROP_DP)
-                .graphicsLayer { rotationZ = turn }
+                .semantics { stateDescription = if (shown()) BACKDROP_SHOWN else BACKDROP_HIDDEN }
+                .testTag(TAG_BACKDROP_SLICE)
+                // Hidden while the stage's flying slice opens or closes the overlay, so one slice is on screen.
+                .graphicsLayer {
+                    alpha = if (shown()) 1f else 0f
+                    rotationZ = turn
+                }
                 .blur(BACKDROP_BLUR_DP, BlurredEdgeTreatment.Unbounded),
         ) {
             drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active, shadow = false) }
