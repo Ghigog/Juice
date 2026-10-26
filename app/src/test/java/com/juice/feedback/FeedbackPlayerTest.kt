@@ -68,6 +68,18 @@ class FeedbackPlayerTest {
         assertEquals(listOf(Haptic.SELECTION_TICK), haptics)
     }
 
+    @Test fun cardPopPlaysThePopWithoutVibrating() {
+        player(FeedbackSettings()).play(FeedbackEvent.CARD_POP)
+        assertEquals(listOf(Cue.POP to 1f), sounds)
+        assertTrue(haptics.isEmpty())
+    }
+
+    @Test fun cardPopWithSoundOffIsSilent() {
+        player(FeedbackSettings(soundEnabled = false)).play(FeedbackEvent.CARD_POP)
+        assertTrue(sounds.isEmpty())
+        assertTrue(haptics.isEmpty())
+    }
+
     @Test fun mutterPlaysAtItsRateWithoutVibrating() {
         player(FeedbackSettings()).mutter(1.3f)
         assertEquals(listOf(Cue.MUTTER to 1.3f), sounds)
