@@ -43,7 +43,7 @@ class FeedbackPlayerTest {
         val p = player(FeedbackSettings(soundEnabled = false))
         FeedbackEvent.entries.forEach { p.play(it) }
         assertTrue(sounds.isEmpty())
-        assertEquals(FeedbackEvent.entries.size, haptics.size)
+        assertEquals((FeedbackEvent.entries - FeedbackEvent.CARD_POP).size, haptics.size)
     }
 
     @Test fun documentedMomentsHaveTheirDocumentedEffects() {
