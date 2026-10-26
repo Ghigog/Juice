@@ -45,10 +45,10 @@ class OverlayServiceTest {
 
     @Test
     fun blurIsPartOfTheParamsTheWindowIsAddedWith() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
         assertTrue(params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND != 0)
         assertTrue(params.blurBehindRadius > 0)
-        withBackdrop(params, Backdrop.SCRIM)
+        withBackdrop(params, Backdrop.SCRIM, BLUR_RADIUS_PX)
         assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     }
 
@@ -81,20 +81,20 @@ class OverlayServiceTest {
     // updateViewLayout dropping FLAG_BLUR_BEHIND from our side (docs/overlay-blur-flicker.md).
     @Test
     fun reapplyingTheSameBackdropKeepsTheBlurParams() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
         val flags = params.flags
         val radius = params.blurBehindRadius
-        withBackdrop(params, Backdrop.BLUR)
+        withBackdrop(params, Backdrop.BLUR, BLUR_RADIUS_PX)
         assertEquals(flags, params.flags)
         assertEquals(radius, params.blurBehindRadius)
     }
 
     @Test
     fun scrimAndBackAgainRestoresTheBlurParams() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR) }
+        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
         val blurred = params.flags to params.blurBehindRadius
-        withBackdrop(params, Backdrop.SCRIM)
-        withBackdrop(params, Backdrop.BLUR)
+        withBackdrop(params, Backdrop.SCRIM, BLUR_RADIUS_PX)
+        withBackdrop(params, Backdrop.BLUR, BLUR_RADIUS_PX)
         assertEquals(blurred, params.flags to params.blurBehindRadius)
     }
 }

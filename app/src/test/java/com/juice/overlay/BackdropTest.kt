@@ -2,6 +2,7 @@ package com.juice.overlay
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class BackdropTest {
     @Test
@@ -56,7 +57,20 @@ class BackdropTest {
     }
 
     @Test
-    fun handOverShowsTheOverlayAfterTheFlightAndDismissesTheStageAfterItsFirstFrame() {
+    fun blurRadiusRisesFromNothingToFullWithTheReveal() {
+        assertEquals(0, blurRadiusFor(0f))
+        assertEquals(BLUR_RADIUS_PX / 2, blurRadiusFor(0.5f))
+        assertEquals(BLUR_RADIUS_PX, blurRadiusFor(1f))
+    }
+
+    @Test
+    fun blurRadiusStaysWithinZeroAndFullForOutOfRangeProgress() {
+        assertEquals(0, blurRadiusFor(-0.2f))
+        assertEquals(BLUR_RADIUS_PX, blurRadiusFor(1.3f))
+    }
+
+    @Test
+    fun handOverShowsTheOverlayAsTheFlightStartsAndDismissesTheStageOnceBothFlightAndFirstFrameAreDone() {
         val calls = mutableListOf<String>()
         var arrive = {}
         var drawn = {}
@@ -66,10 +80,41 @@ class BackdropTest {
             whenOverlayDrawn = { drawn = it; calls += "await-frame" },
             dismissStage = { calls += "dismiss" },
         )
-        assertEquals(listOf("fly"), calls)
-        arrive()
-        assertEquals(listOf("fly", "show", "await-frame"), calls)
+        assertEquals(listOf("show", "await-frame", "fly"), calls)
         drawn()
-        assertEquals(listOf("fly", "show", "await-frame", "dismiss"), calls)
+        assertEquals(listOf("show", "await-frame", "fly"), calls)
+        arrive()
+        assertEquals(listOf("show", "await-frame", "fly", "dismiss"), calls)
+    }
+
+    @Test
+    fun handOverDismissesOnceWhicheverFinishesLast() {
+        val calls = mutableListOf<String>()
+        var arrive = {}
+        var drawn = {}
+        handOverToOverlay(
+            fly = { arrive = it },
+            show = {},
+            whenOverlayDrawn = { drawn = it },
+            dismissStage = { calls += "dismiss" },
+        )
+        arrive()
+        assertEquals(emptyList(), calls)
+        drawn()
+        assertEquals(listOf("dismiss"), calls)
+    }
+
+    @Test
+    fun aFailingShowNeverStartsTheFlight() {
+        var flew = false
+        assertFailsWith<IllegalStateException> {
+            handOverToOverlay(
+                fly = { flew = true },
+                show = { throw IllegalStateException("no window") },
+                whenOverlayDrawn = {},
+                dismissStage = {},
+            )
+        }
+        assertEquals(false, flew)
     }
 }

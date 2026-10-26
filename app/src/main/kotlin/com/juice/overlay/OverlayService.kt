@@ -91,6 +91,8 @@ class OverlayService : Service() {
     private var starting = false
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val backdrop = mutableStateOf(Backdrop.SCRIM)
+    // The blur radius last set on the overlay window, which ramps up with the reveal.
+    private var blurRadius = 0
     private val closeRequest = CloseRequest(reduceMotion = { settings.reduceMotion }, finish = ::closeOverlay)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
@@ -238,19 +240,32 @@ class OverlayService : Service() {
         }
         val bounds = windowManager.maximumWindowMetrics.bounds
         val target = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
-        handOverToOverlay(
-            fly = { onArrived -> flying.flyTo(target, animate = !settings.reduceMotion, onArrived) },
+        guardedShowOverlay(
             show = {
-                guardedShowOverlay(
+                handOverToOverlay(
+                    fly = { onArrived -> flying.flyTo(target, animate = !settings.reduceMotion, onArrived) },
                     show = ::showOverlay,
-                    cleanup = { discardOverlay(); removeHandle() },
-                    restoreStrip = ::showHandle,
-                    onFailure = ::reportOverlayFailure,
+                    whenOverlayDrawn = { action -> overlay?.whenDrawn(action) ?: action() },
+                    dismissStage = { flying.dismissStage(); if (handle === flying) handle = null },
                 )
             },
-            whenOverlayDrawn = { action -> overlay?.whenDrawn(action) ?: action() },
-            dismissStage = { flying.dismissStage(); if (handle === flying) handle = null },
+            cleanup = { discardOverlay(); removeHandle() },
+            restoreStrip = ::showHandle,
+            onFailure = ::reportOverlayFailure,
         )
+    }
+
+    /** Sets the window blur to follow the reveal [progress]; a scrim has none, and an unchanged radius is not re-applied. */
+    private fun rampBlur(progress: Float) {
+        val view = overlay ?: return
+        val radius = blurRadiusFor(progress)
+        if (radius == blurRadius) return
+        // Tracked even under the scrim, so a later switch to blur starts from the right radius.
+        blurRadius = radius
+        if (backdrop.value != Backdrop.BLUR) return
+        val params = view.layoutParams as WindowManager.LayoutParams
+        params.blurBehindRadius = radius
+        windowManager.updateViewLayout(view, params)
     }
 
     /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
@@ -399,6 +414,7 @@ class OverlayService : Service() {
                     settings = current,
                     hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
+                    onRevealProgress = ::rampBlur,
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
@@ -412,7 +428,8 @@ class OverlayService : Service() {
         }
         val params = overlayLayoutParams()
         backdrop.value = chooseBackdrop()
-        withBackdrop(params, backdrop.value)
+        blurRadius = 0
+        withBackdrop(params, backdrop.value, blurRadius)
         windowManager.addView(root, params)
         overlay = root
         windowManager.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
@@ -444,7 +461,7 @@ class OverlayService : Service() {
         val view = overlay ?: return
         backdrop.value = chooseBackdrop()
         val params = view.layoutParams as WindowManager.LayoutParams
-        withBackdrop(params, backdrop.value)
+        withBackdrop(params, backdrop.value, blurRadius)
         windowManager.updateViewLayout(view, params)
     }
 
@@ -522,19 +539,16 @@ internal fun guardedShowOverlay(
     }
 }
 
-/** Blur behind the window for [Backdrop.BLUR], none otherwise. */
-internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop) {
+/** Blur of [radius] behind the window for [Backdrop.BLUR], none otherwise. */
+internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop, radius: Int) {
     if (backdrop == Backdrop.BLUR) {
         params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-        params.blurBehindRadius = BLUR_RADIUS_PX
+        params.blurBehindRadius = radius
     } else {
         params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
         params.blurBehindRadius = 0
     }
 }
-
-// About 40dp on a typical phone; 40px was a faint smear that the dark tint swallowed.
-private const val BLUR_RADIUS_PX = 120
 
 /** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
 @androidx.compose.runtime.Composable
