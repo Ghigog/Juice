@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
@@ -54,6 +55,7 @@ import org.robolectric.annotation.Config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.onRoot
 
 @RunWith(RobolectricTestRunner::class)
@@ -130,6 +132,18 @@ class OverlayShellTest {
         val reported = mutableListOf<Float>()
         show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true, onRevealProgress = { reported += it })
         assertEquals(listOf(1f), reported)
+    }
+
+    @Test
+    fun theCentreCardHasRoundedCornersMidEntrance() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false)
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 150)
+        val bounds = compose.onNodeWithTag(TAG_CENTRE_CARD).fetchSemanticsNode().boundsInRoot
+        val image = compose.onRoot().captureToImage().toPixelMap()
+        // Just inside the square corner, the card's rounded clip leaves the ground showing, as it does just outside.
+        val corner = image[bounds.left.toInt() + 2, bounds.top.toInt() + 2]
+        val ground = image[bounds.left.toInt() - 6, bounds.top.toInt() - 6]
+        assertEquals(ground.toArgb(), corner.toArgb())
     }
 
     @Test
