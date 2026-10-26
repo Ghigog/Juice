@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.core.Juice
+import com.juice.core.progression.Progression
+import com.juice.data.EconomyStore
 import com.juice.onboarding.OnboardingScreen
 import com.juice.data.CharacterRepository
 import com.juice.coach.ConversationStore
@@ -60,7 +62,7 @@ class MainActivity : ComponentActivity() {
                     val store = CharacterStore(this@MainActivity)
                     val items = ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao(), hiddenCharacterIds = store::disabledIds, hiddenChanges = store.changes())
                     val conversations = ConversationStore(File(filesDir, "conversations.json"))
-                    CharacterSettings(CharacterRepository(store, items, conversations, MemoryStore(File(filesDir, "memory.json"))), scope)
+                    CharacterSettings(CharacterRepository(store, items, conversations, MemoryStore(File(filesDir, "memory.json"))), scope, level = { Progression.levelFor(EconomyStore(this@MainActivity).load()?.state?.juice ?: 0L) })
                 }
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())

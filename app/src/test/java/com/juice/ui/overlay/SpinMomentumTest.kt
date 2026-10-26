@@ -54,4 +54,36 @@ class SpinMomentumTest {
         assertEquals(0f, m.angle, 0f)
         assertEquals(0f, m.boost, 0f)
     }
+
+    @Test fun grabZeroesBoostAndHoldsTheIdleTurn() {
+        val m = SpinMomentum().apply { kick(500f); grab() }
+        assertEquals(0f, m.boost, 0f)
+        m.run(1)
+        assertEquals(0f, m.angle, 0f)
+    }
+
+    @Test fun dragMovesTheAngleAndWraps() {
+        val m = SpinMomentum().apply { grab(); drag(30f) }
+        assertEquals(30f, m.angle, 0.001f)
+        m.drag(-40f)
+        assertEquals(350f, m.angle, 0.001f)
+        m.drag(20f)
+        assertEquals(10f, m.angle, 0.001f)
+    }
+
+    @Test fun releaseResumesTheIdleTurn() {
+        val m = SpinMomentum().apply { grab(); release() }
+        assertEquals(IDLE_SPIN_DEG_PER_SEC * 0.016f, turnPerStep(m), 0.001f)
+    }
+
+    @Test fun reduceMotionDoesNotDrag() {
+        val m = SpinMomentum(enabled = false).apply { drag(30f) }
+        assertEquals(0f, m.angle, 0f)
+    }
+
+    @Test fun onlyFastFlingsAreBigSwipes() {
+        assertTrue(!isBigSwipe(BIG_SWIPE_PX_PER_SEC))
+        assertTrue(isBigSwipe(BIG_SWIPE_PX_PER_SEC + 1f))
+        assertTrue(isBigSwipe(-BIG_SWIPE_PX_PER_SEC - 1f))
+    }
 }

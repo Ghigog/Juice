@@ -90,7 +90,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
@@ -144,6 +149,14 @@ const val TAG_FLAVOUR_PREFIX = "flavour_"
 const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
 const val TAG_BANNER = "banner"
 const val MAX_CARD_SCALE = 1.15f
+
+/** True when [y] lies between the first visible item's start and the last one's end but on no item: a gap between cards. */
+internal fun tapIsInCarouselGap(y: Float, itemSpans: List<IntRange>): Boolean {
+    if (itemSpans.isEmpty()) return false
+    val first = itemSpans.minOf { it.first }
+    val last = itemSpans.maxOf { it.last }
+    return y > first && y < last && itemSpans.none { y >= it.first && y <= it.last }
+}
 
 private const val CAROUSEL_ITEM_DP = 56
 private const val CAROUSEL_GAP_DP = 8
@@ -290,18 +303,7 @@ fun OverlayShell(
     CompositionLocalProvider(LocalTextStyle provides TextStyle(fontFamily = SpaceGrotesk, color = Color.White)) {
         Box(
             modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val ground = overlayTint(blurred)
-                    val progress = reveal.value
-                    if (progress >= 1f) {
-                        drawRect(ground)
-                    } else {
-                        val origin = revealOrigin(size.width, overshoot)
-                        val radius = revealRadius(size.width, size.height, origin) * progress
-                        clipPath(Path().apply { addOval(Rect(origin, radius)) }) { drawRect(ground) }
-                    }
-                },
+                .fillMaxSize(),
         ) {
             SliceBackdrop(
                 hud,
@@ -309,6 +311,22 @@ fun OverlayShell(
                 active = centre.coerceAtMost(state.items.lastIndex),
                 spin = spin,
                 shown = { reveal.value >= 1f },
+            )
+            // The ground sits in front of the slice, so the slice is dimmed by it; it grows from the reveal origin.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        val ground = overlayTint(blurred)
+                        val progress = reveal.value
+                        if (progress >= 1f) {
+                            drawRect(ground)
+                        } else {
+                            val origin = revealOrigin(size.width, overshoot)
+                            val radius = revealRadius(size.width, size.height, origin) * progress
+                            clipPath(Path().apply { addOval(Rect(origin, radius)) }) { drawRect(ground) }
+                        }
+                    },
             )
             // Empty background: a tap closes. Cards, buttons and the field take their own taps first.
             val closeLabel = stringResource(R.string.overlay_close)
@@ -349,7 +367,7 @@ fun OverlayShell(
                     CardRow(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entrance = entranceProgress, onSpin = { spin.kick(it) }, cardPops = cardPops,
+                        entrance = entranceProgress, spin = spin, cardPops = cardPops,
                     )
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
@@ -491,13 +509,13 @@ internal fun CardRow(
     onCentre: (Int) -> Unit,
     modifier: Modifier = Modifier,
     entrance: () -> Float = { 1f },
-    onSpin: (Float) -> Unit = {},
+    spin: SpinMomentum = remember { SpinMomentum() },
     cardPops: CardPops = remember { CardPops() },
 ) {
     val list = state.items
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, onSpin = onSpin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
@@ -521,12 +539,16 @@ internal fun CardRow(
     }
 }
 
+/** The ground's alpha: lighter than the old 0.55 and 0.97, so the screen behind shows through. */
+internal fun overlayGroundAlpha(blurred: Boolean): Float = if (blurred) 0.35f else 0.75f
+
 /**
  * The overlay's ground: the mockup's dark teal-to-indigo glass. Over the blur it stays thin
- * enough for the blurred screen to show through; at 0.9 it hid the blur completely.
+ * enough for the blurred screen to show through; at 0.9 it hid the blur completely. It is drawn over the
+ * slice backdrop and also backs the panels, so it stays light but dark enough for white text.
  */
 private fun overlayTint(blurred: Boolean): Brush {
-    val alpha = if (blurred) 0.55f else 0.97f
+    val alpha = overlayGroundAlpha(blurred)
     return Brush.linearGradient(
         listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
     )
@@ -701,7 +723,7 @@ private fun Carousel(
     reduceMotion: Boolean,
     entrance: () -> Float,
     onCentre: (Int) -> Unit,
-    onSpin: (Float) -> Unit,
+    spin: SpinMomentum,
     cardPops: CardPops,
     modifier: Modifier,
 ) {
@@ -717,23 +739,19 @@ private fun Carousel(
         }
     }
     var lastCentre by remember { mutableStateOf<Int?>(null) }
-    // Scroll speed in px/s, from the list's position between emissions, feeds the backdrop slice's spin.
-    val onSpinNow by rememberUpdatedState(onSpin)
-    val gapPx = with(density) { CAROUSEL_GAP_DP.dp.toPx() }
-    LaunchedEffect(listState) {
-        var lastPos = Float.NaN
-        var lastTime = 0L
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val first = info.visibleItemsInfo.firstOrNull()
-            if (first == null) Float.NaN else first.index * (first.size + gapPx) - first.offset.toFloat()
-        }.collect { pos ->
-            val now = System.nanoTime()
-            if (!lastPos.isNaN() && !pos.isNaN() && now > lastTime) {
-                onSpinNow(spinBoostFor((pos - lastPos) / ((now - lastTime) / 1e9f)))
+    // Only finger-driven scrolling turns the slice; animated and snap scrolls never do.
+    val spinNow by rememberUpdatedState(spin)
+    val spinConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
+                return Offset.Zero
             }
-            lastPos = pos
-            lastTime = now
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (isBigSwipe(available.y)) spinNow.kick(spinBoostFor(-available.y))
+                return Velocity.Zero
+            }
         }
     }
     val held = state.held
@@ -764,7 +782,23 @@ private fun Carousel(
     // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
     BoxWithConstraints(
         modifier
-            .pointerInput(held) { if (held == null) detectTapGestures { actions.onClose() } }
+            .pointerInput(spin) {
+                // Initial pass and never consumes: a touch stops the spin without disturbing taps or reordering.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    spinNow.grab()
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (event.changes.any { it.pressed })
+                    spinNow.release()
+                }
+            }
+            .pointerInput(held) {
+                if (held == null) detectTapGestures { tap ->
+                    val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
+                    if (!tapIsInCarouselGap(tap.y, spans)) actions.onClose()
+                }
+            }
             .testTag(TAG_CAROUSEL),
     ) {
         val pad = (maxHeight - CAROUSEL_ITEM_DP.dp) / 2
@@ -774,7 +808,7 @@ private fun Carousel(
             contentPadding = PaddingValues(top = pad, bottom = pad),
             verticalArrangement = Arrangement.spacedBy(CAROUSEL_GAP_DP.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize().padding(start = 12.dp),
+            modifier = Modifier.fillMaxSize().nestedScroll(spinConnection).padding(start = 12.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 val isCentre = index == centreIndex
