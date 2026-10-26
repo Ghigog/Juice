@@ -90,7 +90,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
@@ -347,7 +352,7 @@ fun OverlayShell(
                     CardRow(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entrance = entranceProgress, onSpin = { spin.kick(it) }, cardPops = cardPops,
+                        entrance = entranceProgress, spin = spin, cardPops = cardPops,
                     )
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
@@ -489,13 +494,13 @@ internal fun CardRow(
     onCentre: (Int) -> Unit,
     modifier: Modifier = Modifier,
     entrance: () -> Float = { 1f },
-    onSpin: (Float) -> Unit = {},
+    spin: SpinMomentum = remember { SpinMomentum() },
     cardPops: CardPops = remember { CardPops() },
 ) {
     val list = state.items
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, onSpin = onSpin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
@@ -689,7 +694,7 @@ private fun Carousel(
     reduceMotion: Boolean,
     entrance: () -> Float,
     onCentre: (Int) -> Unit,
-    onSpin: (Float) -> Unit,
+    spin: SpinMomentum,
     cardPops: CardPops,
     modifier: Modifier,
 ) {
@@ -705,23 +710,19 @@ private fun Carousel(
         }
     }
     var lastCentre by remember { mutableStateOf<Int?>(null) }
-    // Scroll speed in px/s, from the list's position between emissions, feeds the backdrop slice's spin.
-    val onSpinNow by rememberUpdatedState(onSpin)
-    val gapPx = with(density) { CAROUSEL_GAP_DP.dp.toPx() }
-    LaunchedEffect(listState) {
-        var lastPos = Float.NaN
-        var lastTime = 0L
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val first = info.visibleItemsInfo.firstOrNull()
-            if (first == null) Float.NaN else first.index * (first.size + gapPx) - first.offset.toFloat()
-        }.collect { pos ->
-            val now = System.nanoTime()
-            if (!lastPos.isNaN() && !pos.isNaN() && now > lastTime) {
-                onSpinNow(spinBoostFor((pos - lastPos) / ((now - lastTime) / 1e9f)))
+    // Only finger-driven scrolling turns the slice; animated and snap scrolls never do.
+    val spinNow by rememberUpdatedState(spin)
+    val spinConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
+                return Offset.Zero
             }
-            lastPos = pos
-            lastTime = now
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (isBigSwipe(available.y)) spinNow.kick(spinBoostFor(-available.y))
+                return Velocity.Zero
+            }
         }
     }
     val held = state.held
@@ -752,6 +753,17 @@ private fun Carousel(
     // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
     BoxWithConstraints(
         modifier
+            .pointerInput(spin) {
+                // Initial pass and never consumes: a touch stops the spin without disturbing taps or reordering.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    spinNow.grab()
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (event.changes.any { it.pressed })
+                    spinNow.release()
+                }
+            }
             .pointerInput(held) { if (held == null) detectTapGestures { actions.onClose() } }
             .testTag(TAG_CAROUSEL),
     ) {
@@ -762,7 +774,7 @@ private fun Carousel(
             contentPadding = PaddingValues(top = pad, bottom = pad),
             verticalArrangement = Arrangement.spacedBy(CAROUSEL_GAP_DP.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize().padding(start = 12.dp),
+            modifier = Modifier.fillMaxSize().nestedScroll(spinConnection).padding(start = 12.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 val isCentre = index == centreIndex

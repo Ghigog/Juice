@@ -18,6 +18,15 @@ internal const val SPIN_FRICTION_SECONDS = 1.2f
 
 private const val DEG_PER_SEC_PER_PX_PER_SEC = 0.25f
 
+/** A fling faster than this (px/s) is a big swipe that spins the slice freely. */
+internal const val BIG_SWIPE_PX_PER_SEC = 2500f
+
+/** How far the slice turns per pixel the finger drags it. */
+internal const val DRAG_DEG_PER_PX = 0.3f
+
+/** Whether a fling at [pxPerSec] (either direction) is fast enough to spin the slice freely. */
+internal fun isBigSwipe(pxPerSec: Float): Boolean = abs(pxPerSec) > BIG_SWIPE_PX_PER_SEC
+
 /** The spin boost for a carousel scrolling at [pxPerSec] (positive = down); capped later by [SpinMomentum]. */
 internal fun spinBoostFor(pxPerSec: Float): Float = pxPerSec * DEG_PER_SEC_PER_PX_PER_SEC
 
@@ -37,6 +46,25 @@ internal class SpinMomentum(
     var angle = 0f
         private set
 
+    private var held = false
+
+    /** A finger is down: stops any spin and pauses the idle turn so the slice follows the finger. */
+    fun grab() {
+        held = true
+        boost = 0f
+    }
+
+    /** The finger is up: the idle turn resumes. */
+    fun release() {
+        held = false
+    }
+
+    /** Turns the slice directly by [deg] (sign = scroll direction). */
+    fun drag(deg: Float) {
+        if (!enabled) return
+        angle = ((angle + deg) % 360f + 360f) % 360f
+    }
+
     /** Adds a spin of [degPerSec] (sign = direction); a slower kick never cuts a faster spin the same way. */
     fun kick(degPerSec: Float) {
         if (!enabled) return
@@ -47,6 +75,7 @@ internal class SpinMomentum(
     /** Advances by [dtNanos] and returns the angle in degrees, in [0, 360). */
     fun step(dtNanos: Long): Float {
         if (!enabled) return 0f
+        if (held) return angle
         val dt = dtNanos / 1e9f
         angle = ((angle + (idleDegPerSec + boost) * dt) % 360f + 360f) % 360f
         boost *= exp(-dt / frictionSeconds)
