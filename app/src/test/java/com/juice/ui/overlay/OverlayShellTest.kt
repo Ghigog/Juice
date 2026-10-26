@@ -415,6 +415,26 @@ class OverlayShellTest {
     }
 
     @Test
+    fun tappingTheGapBetweenCarouselCardsKeepsOverlayOpen() {
+        var closed = 0
+        show(*threeItems(), actions = OverlayActions(onClose = { closed++ }))
+        // The focal card is centred, 56dp tall; the gap to the next card is 8dp below it.
+        compose.onNodeWithTag(TAG_CAROUSEL).performTouchInput { click(Offset(56.dp.toPx(), height / 2f + 32.dp.toPx())) }
+        idle()
+        assertEquals(0, closed)
+    }
+
+    @Test
+    fun gapCheckOnlyCoversTheSpaceBetweenItems() {
+        val spans = listOf(10..50, 60..100)
+        assertTrue(tapIsInCarouselGap(55f, spans))
+        assertEquals(false, tapIsInCarouselGap(30f, spans))
+        assertEquals(false, tapIsInCarouselGap(5f, spans))
+        assertEquals(false, tapIsInCarouselGap(120f, spans))
+        assertEquals(false, tapIsInCarouselGap(5f, emptyList()))
+    }
+
+    @Test
     fun tappingACarouselCardKeepsOverlayOpen() {
         var closed = 0
         show(*threeItems(), actions = OverlayActions(onClose = { closed++ }))
