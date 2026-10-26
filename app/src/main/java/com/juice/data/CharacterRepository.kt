@@ -141,12 +141,13 @@ class CharacterRepository(
         store.save(character.id, CharacterTransitions.enable(state(character.id)))
     }
 
-    /** Starts [character] over: its items and saved conversation are deleted and it is enabled and new. Not for a locked one. */
-    suspend fun reset(character: Character) {
+    /** Starts [character] over: its items and saved conversation are deleted and it is enabled and new, with a fresh meet card when [level] unlocks it. Not for a locked one. */
+    suspend fun reset(character: Character, level: Int) {
         if (state(character.id).availability == Availability.Locked) return
         items.deleteByCharacter(character.id)
         conversations?.clear(character.id)
         store.save(character.id, CharacterState())
+        unlockAtLevel(character, level)
     }
 
     /** Applies a validated proposal: new Routines are added, changed ones updated, removed ones deleted. */
