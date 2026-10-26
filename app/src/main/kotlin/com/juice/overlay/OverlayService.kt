@@ -118,7 +118,7 @@ class OverlayService : Service() {
             }),
         )
     }
-    private val characterSettings by lazy { CharacterSettings(characters, scope) }
+    private val characterSettings by lazy { CharacterSettings(characters, scope, level = { Progression.levelFor(EconomyStore(this).load()?.state?.juice ?: 0L) }) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
 
