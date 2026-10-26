@@ -142,6 +142,13 @@ class OverlayShellTest {
     }
 
     @Test
+    fun theBackdropSliceHasNoBlurEffectOfItsOwn() {
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true)
+        val modifiers = compose.onNodeWithTag(TAG_BACKDROP_SLICE).fetchSemanticsNode().layoutInfo.getModifierInfo()
+        assertTrue(modifiers.none { it.modifier.toString().contains("renderEffect=BlurEffect") })
+    }
+
+    @Test
     fun withReducedMotionTheBackdropSliceIsShownAtOnce() {
         show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = true)
         assertEquals(BACKDROP_SHOWN, backdropState())
