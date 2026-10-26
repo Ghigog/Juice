@@ -23,6 +23,7 @@ import com.juice.data.ItemRepository
 import com.juice.data.PendingCoachCardStore
 import com.juice.data.advance
 import com.juice.data.toItems
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.abs
@@ -208,6 +209,16 @@ class OverlayShellState(
         if (at < 0) return
         items = items.take(at) + landed + items.drop(at + 1)
         scope.launch { repository.save(landed) }
+    }
+
+    /** Pins [item] after the cards starred before it and before the rest; one already starred keeps its place. */
+    fun star(item: Item) {
+        val current = items.firstOrNull { it.id == item.id } ?: return
+        if (current.starredAt != null) return
+        val starred = current.copy(starredAt = Instant.now())
+        items = (items.map { if (it.id == item.id) starred else it })
+            .sortedWith(compareBy({ it.starredAt == null }, { it.starredAt }))
+        scope.launch { repository.star(item.id) }
     }
 
     /** Completing a Project's card. False when [canComplete] is not met. */

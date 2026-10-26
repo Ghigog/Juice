@@ -38,13 +38,15 @@ data class ItemEntity(
     val completedAtMillis: Long? = null,
     /** The character (coach) this card belongs to; null for the player's own cards. */
     val characterId: String? = null,
+    /** When the item was starred; null while unstarred. */
+    val starredAtMillis: Long? = null,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
     cadence?.encode(), nextDueOn?.toEpochDay(), createdAt?.toEpochMilli(), completedAt?.toEpochMilli(),
-    characterId,
+    characterId, starredAt?.toEpochMilli(),
 )
 
 fun ItemEntity.toItem() = Item(
@@ -61,6 +63,7 @@ fun ItemEntity.toItem() = Item(
     createdAt = createdAtMillis?.let(Instant::ofEpochMilli),
     completedAt = completedAtMillis?.let(Instant::ofEpochMilli),
     characterId = characterId,
+    starredAt = starredAtMillis?.let(Instant::ofEpochMilli),
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
