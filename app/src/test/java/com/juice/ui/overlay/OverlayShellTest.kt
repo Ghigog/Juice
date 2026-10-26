@@ -604,4 +604,11 @@ class OverlayShellTest {
         assertEquals(ItemStatus.Completed, statusOf("a"))
         assertEquals(null, state.held)
     }
+
+    @Test
+    fun groundIsLighterThanBeforeInBothModes() {
+        assertTrue(overlayGroundAlpha(blurred = true) < 0.55f)
+        assertTrue(overlayGroundAlpha(blurred = false) < 0.97f)
+        assertTrue(overlayGroundAlpha(blurred = true) < overlayGroundAlpha(blurred = false))
+    }
 }
