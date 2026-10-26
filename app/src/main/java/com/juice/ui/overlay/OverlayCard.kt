@@ -87,11 +87,14 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** Pause after the last stroke before the drawing is read, so an X can take two strokes. */
 const val STROKE_PAUSE_MILLIS = 420L
 
+/** Extra wait when two to four strokes read as nothing yet, so a star drawn as five spokes can be finished. */
+const val STAR_STROKE_PAUSE_MILLIS = 400L
+
 /** A swipe has to cross this share of the card's width. */
 private const val SWIPE_FRACTION = 0.3f
 const val FLY_MILLIS = 300
 
-private enum class Tint { OK, X, BAD }
+private enum class Tint { OK, X, BAD, STAR }
 
 /**
  * The frosted centre card: the current item, its type pill, worth and the drawing surface. A ✓
@@ -129,6 +132,7 @@ internal fun CentreCard(
     val notRecognised = stringResource(R.string.overlay_not_recognised)
     val finishSteps = stringResource(R.string.overlay_finish_steps)
     val archived = stringResource(R.string.overlay_archived)
+    val starredText = stringResource(R.string.overlay_starred)
 
     fun say(text: String) {
         hint = text
@@ -186,10 +190,11 @@ internal fun CentreCard(
     fun read() {
         val drawn = strokes.toList()
         strokes.clear()
-        val result = recognizer.recognise(drawn.flatten().map { GesturePoint(it.x.toDouble(), it.y.toDouble()) })
+        val result = recognizer.recogniseStrokes(drawn.map { stroke -> stroke.map { GesturePoint(it.x.toDouble(), it.y.toDouble()) } })
         tint = when (result) {
             is GestureResult.Checkmark -> Tint.OK
             is GestureResult.Dismiss -> Tint.X
+            is GestureResult.Star -> Tint.STAR
             GestureResult.NotRecognised -> Tint.BAD
         }
         strokes.addAll(drawn)
@@ -207,6 +212,12 @@ internal fun CentreCard(
         when (result) {
             is GestureResult.Checkmark -> if (step != null && item != null) actOnStep(item, step, complete = true) else act(complete = true)
             is GestureResult.Dismiss -> if (step != null && item != null) actOnStep(item, step, complete = false) else act(complete = false)
+            // Steps have nothing to star, so a star over one acts on the card.
+            is GestureResult.Star -> if (item != null) {
+                actions.feedback(FeedbackEvent.CHECKMARK)
+                state.star(item)
+                effects.float(starredText)
+            }
             GestureResult.NotRecognised -> reject(notRecognised)
         }
     }
@@ -273,6 +284,10 @@ internal fun CentreCard(
             current.clear()
             readJob = scope.launch {
                 delay(STROKE_PAUSE_MILLIS)
+                val unfinished = strokes.size in 2..4 && recognizer.recogniseStrokes(
+                    strokes.map { stroke -> stroke.map { GesturePoint(it.x.toDouble(), it.y.toDouble()) } },
+                ) == GestureResult.NotRecognised
+                if (unfinished) delay(STAR_STROKE_PAUSE_MILLIS)
                 read()
             }
         }
@@ -297,6 +312,7 @@ internal fun CentreCard(
         Tint.OK -> JuiceColors.Ok
         Tint.X -> JuiceColors.No
         Tint.BAD -> JuiceColors.Muted
+        Tint.STAR -> JuiceColors.Ok
         null -> hud.accent
     }
 
@@ -354,6 +370,9 @@ internal fun CentreCard(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    }
+                    if (item.starredAt != null) {
+                        Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = 18.sp, modifier = Modifier.padding(start = 8.dp))
                     }
                     if (item.id in state.parsing) ParsingChip(onDeviceOnly)
                 }

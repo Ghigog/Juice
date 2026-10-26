@@ -38,4 +38,6 @@ data class Item(
     val createdAt: Instant? = null,
     /** When the item was completed; null while it is open or after an undo. */
     val completedAt: Instant? = null,
+    /** When the player starred the item; starred items sit first, earliest starred first. Null if unstarred. */
+    val starredAt: Instant? = null,
 )

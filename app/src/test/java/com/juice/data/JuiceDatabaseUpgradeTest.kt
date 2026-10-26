@@ -36,6 +36,10 @@ class JuiceDatabaseUpgradeTest {
         6 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
             "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
             "position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, PRIMARY KEY(id)",
+        7 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
+            "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
+            "position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, createdAtMillis INTEGER, " +
+            "completedAtMillis INTEGER, characterId TEXT, PRIMARY KEY(id)",
     )
 
     private val seeded = listOf("a" to "Active", "c" to "Completed", "z" to "Archived", "r" to "Active")
@@ -76,6 +80,16 @@ class JuiceDatabaseUpgradeTest {
     @Test fun versionThreeKeepsEveryRow() = upgradeFrom(3)
 
     @Test fun versionSixKeepsEveryRow() = upgradeFrom(6)
+
+    @Test fun versionSevenKeepsEveryRow() = upgradeFrom(7)
+
+    @Test
+    fun versionSevenCardsAreUnstarredAndKeepTheirOrder() {
+        upgradeFrom(7)
+        val active = runBlocking { db!!.itemDao().active(Long.MAX_VALUE) }
+        assertEquals(listOf("a", "r"), active.map { it.id })
+        assertEquals(listOf(null, null), active.map { it.starredAtMillis })
+    }
 
     @Test
     fun completedRowsFromBeforeV7StayInTheRecap() {

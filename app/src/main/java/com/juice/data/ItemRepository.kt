@@ -34,7 +34,7 @@ class ItemRepository(
     private val writes = Mutex()
 
     /**
-     * Saves [item]; an item already stored keeps its place in the order, a new one goes last. Times are
+     * Saves [item]; an item already stored keeps its place in the order, a new one goes last, and a star is never lost to a stale copy. Times are
      * stamped here: createdAt on first save, completedAt on completing (cleared by an undo; a Routine
      * keeps the one it carries), doneAt on a step newly ticked.
      */
@@ -53,13 +53,19 @@ class ItemRepository(
         }
         val position = stored?.position ?: ((dao.maxPosition() ?: 0) + 1)
         val createdAt = before?.createdAt ?: item.createdAt ?: now.takeIf { stored == null }
-        dao.upsert(item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt).toEntity(position))
+        dao.upsert(item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt, starredAt = before?.starredAt ?: item.starredAt).toEntity(position))
     }
 
     /** Stores the order the user chose: [ids] first to last. */
     suspend fun reorder(ids: List<String>) = writes.withLock {
         val base = (dao.maxPosition() ?: 0) + 1
         ids.forEachIndexed { index, id -> dao.setPosition(id, base + index) }
+    }
+
+    /** Stars [id]; one already starred keeps its original place in the order. */
+    suspend fun star(id: String) = writes.withLock {
+        val stored = dao.get(id) ?: return@withLock
+        if (stored.starredAtMillis == null) dao.upsert(stored.copy(starredAtMillis = clock().toEpochMilli()))
     }
 
     /** Every card and regular task that belongs to [characterId], whatever its status. */

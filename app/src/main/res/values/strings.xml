@@ -61,6 +61,8 @@
     <string name="overlay_card_hint">Draw a check to complete. Two strokes for an X to dismiss.</string>
     <string name="overlay_done_when">Done when: %1$s</string>
     <string name="overlay_empty">All squeezed. Add a note below.</string>
+    <string name="overlay_starred">Starred</string>
+    <string name="overlay_starred_badge">★</string>
     <string name="overlay_not_recognised">Not recognized</string>
     <string name="overlay_finish_steps">Finish its steps first</string>
     <string name="overlay_archived">Archived</string>

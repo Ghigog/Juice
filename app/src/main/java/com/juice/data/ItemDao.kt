@@ -20,7 +20,7 @@ interface ItemDao {
     @Query("UPDATE items SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 
-    @Query("SELECT * FROM items WHERE characterId = :characterId ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE characterId = :characterId ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun byCharacter(characterId: String): List<ItemEntity>
 
     @Query("DELETE FROM items WHERE characterId = :characterId")
@@ -29,21 +29,21 @@ interface ItemDao {
     @Query("DELETE FROM items WHERE id = :id")
     suspend fun delete(id: String)
 
-    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun active(todayEpochDay: Long): List<ItemEntity>
 
-    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     fun observeActive(todayEpochDay: Long): Flow<List<ItemEntity>>
 
-    @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun routines(): List<ItemEntity>
 
-    @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     fun observeRoutines(): Flow<List<ItemEntity>>
 
-    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun recapItems(sinceMillis: Long): List<ItemEntity>
 
-    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY position, rowid")
+    @Query("SELECT * FROM items WHERE status != 'Archived' AND (status = 'Active' OR completedAtMillis >= :sinceMillis) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     fun observeRecapItems(sinceMillis: Long): Flow<List<ItemEntity>>
 }
