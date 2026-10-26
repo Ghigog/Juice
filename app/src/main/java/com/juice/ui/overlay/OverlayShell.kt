@@ -144,6 +144,14 @@ const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
 const val TAG_BANNER = "banner"
 const val MAX_CARD_SCALE = 1.15f
 
+/** True when [y] lies between the first visible item's start and the last one's end but on no item: a gap between cards. */
+internal fun tapIsInCarouselGap(y: Float, itemSpans: List<IntRange>): Boolean {
+    if (itemSpans.isEmpty()) return false
+    val first = itemSpans.minOf { it.first }
+    val last = itemSpans.maxOf { it.last }
+    return y > first && y < last && itemSpans.none { y >= it.first && y <= it.last }
+}
+
 private const val CAROUSEL_ITEM_DP = 56
 private const val CAROUSEL_GAP_DP = 8
 private const val BANNER_MILLIS = 2200L
@@ -761,7 +769,12 @@ private fun Carousel(
     // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
     BoxWithConstraints(
         modifier
-            .pointerInput(held) { if (held == null) detectTapGestures { actions.onClose() } }
+            .pointerInput(held) {
+                if (held == null) detectTapGestures { tap ->
+                    val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
+                    if (!tapIsInCarouselGap(tap.y, spans)) actions.onClose()
+                }
+            }
             .testTag(TAG_CAROUSEL),
     ) {
         val pad = (maxHeight - CAROUSEL_ITEM_DP.dp) / 2

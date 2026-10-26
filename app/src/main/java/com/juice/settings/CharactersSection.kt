@@ -59,7 +59,11 @@ sealed interface CharacterStatus {
 data class CharacterRow(val character: Character, val status: CharacterStatus)
 
 /** One [CharacterRow] per registered character, read from [characters]; [refresh] after anything that changes them. */
-class CharacterSettings(private val characters: CharacterRepository, private val scope: CoroutineScope) {
+class CharacterSettings(
+    private val characters: CharacterRepository,
+    private val scope: CoroutineScope,
+    private val level: () -> Int,
+) {
     var rows by mutableStateOf<List<CharacterRow>>(emptyList())
         private set
 
@@ -100,7 +104,7 @@ class CharacterSettings(private val characters: CharacterRepository, private val
 
     fun reset(character: Character) {
         scope.launch {
-            characters.reset(character)
+            characters.reset(character, level())
             refresh()
         }
     }
