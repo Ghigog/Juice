@@ -5,7 +5,7 @@ import kotlin.math.cos
 
 /**
  * 1D height field for the reservoir surface. [heights] holds [COLUMNS] values clamped to -1..1, left to right.
- * Tilt biases the rest shape and drives sloshing, [kick] and [disturb] add waves; [viscosity] (0..1) slows
+ * The surface rests flat; [kick] and [disturb] add waves; [viscosity] (0..1) slows
  * waves and damps them faster. Arrays are allocated once; [step] does not allocate.
  */
 class SurfaceWaves {
@@ -15,8 +15,6 @@ class SurfaceWaves {
     /** Read-only view for the renderer; do not modify. */
     val heights: FloatArray get() = h
 
-    var tiltX = 0f
-    var tiltY = 0f
     var viscosity = 0f
         set(value) { field = value.coerceIn(0f, 1f) }
 
@@ -45,15 +43,11 @@ class SurfaceWaves {
         val sub = capped / steps
         val c2 = waveSpeed * waveSpeed
         val damping = BASE_DAMPING + 5f * viscosity
-        val slopeTarget = tiltX.coerceIn(-1f, 1f) * TILT_BIAS
-        val drive = tiltY.coerceIn(-1f, 1f) * TILT_DRIVE
         repeat(steps) {
             for (i in 0 until COLUMNS) {
                 val left = h[if (i == 0) 1 else i - 1]
                 val right = h[if (i == COLUMNS - 1) COLUMNS - 2 else i + 1]
-                val target = slopeTarget * (2f * i / (COLUMNS - 1) - 1f)
-                val shape = cos(PI.toFloat() * i / (COLUMNS - 1))
-                val a = c2 * (left + right - 2f * h[i]) - RESTORE * (h[i] - target) - damping * v[i] + drive * shape
+                val a = c2 * (left + right - 2f * h[i]) - RESTORE * h[i] - damping * v[i]
                 v[i] += a * sub
             }
             for (i in 0 until COLUMNS) h[i] = (h[i] + v[i] * sub).coerceIn(-1f, 1f)
@@ -67,8 +61,6 @@ class SurfaceWaves {
         private const val BASE_SPEED = 30f
         private const val BASE_DAMPING = 3f
         private const val RESTORE = 20f
-        private const val TILT_BIAS = 0.25f
-        private const val TILT_DRIVE = 20f
         private const val KICK_GAIN = 6f
     }
 }
