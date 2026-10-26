@@ -367,4 +367,37 @@ class ItemRepositoryTest {
         assertEquals(daily, saved.cadence)
         assertEquals(wednesday.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant(), saved.deadline)
     }
+
+    @Test
+    fun starredCardsComeFirstEarliestStarredFirst() = runBlocking {
+        listOf("c", "b", "a").forEach { repository.save(item(it)) }
+        now = Instant.ofEpochMilli(2_000)
+        repository.star("a")
+        now = Instant.ofEpochMilli(3_000)
+        repository.star("b")
+        assertEquals(listOf("a", "b", "c"), repository.active().map { it.id })
+        assertEquals(listOf("a", "b", "c"), repository.observeActive().first().map { it.id })
+        assertEquals(listOf("a", "b", "c"), repository.recapItems(Instant.EPOCH).map { it.id })
+    }
+
+    @Test
+    fun starringAgainKeepsTheOriginalPlace() = runBlocking {
+        listOf("a", "b").forEach { repository.save(item(it)) }
+        now = Instant.ofEpochMilli(2_000)
+        repository.star("a")
+        now = Instant.ofEpochMilli(3_000)
+        repository.star("b")
+        now = Instant.ofEpochMilli(4_000)
+        repository.star("a")
+        assertEquals(Instant.ofEpochMilli(2_000), repository.get("a")?.starredAt)
+        assertEquals(listOf("a", "b"), repository.active().map { it.id })
+    }
+
+    @Test
+    fun savingAnOlderCopyKeepsTheStar() = runBlocking {
+        repository.save(item("a"))
+        repository.star("a")
+        repository.save(item("a"))
+        assertEquals(now, repository.get("a")?.starredAt)
+    }
 }
