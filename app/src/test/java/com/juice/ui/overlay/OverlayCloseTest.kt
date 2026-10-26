@@ -76,6 +76,17 @@ class OverlayCloseTest {
     }
 
     @Test
+    fun closedWaitsForTheCaptureFieldPopWhenThereAreNoCards() {
+        show(reduceMotion = false)
+        closing.value = true
+        compose.mainClock.advanceTimeBy(elementPopStartMillis(0, 1) + CARD_POP_MILLIS / 2L)
+        assertEquals(0, closed)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
+        compose.waitForIdle()
+        assertEquals(1, closed)
+    }
+
+    @Test
     fun theDrainReportsProgressFallingFromOneToZero() {
         val reported = mutableListOf<Float>()
         show(reduceMotion = false, onRevealProgress = { reported += it })

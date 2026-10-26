@@ -259,17 +259,18 @@ fun OverlayShell(
     LaunchedEffect(closing) {
         if (closing) {
             if (!settings.reduceMotion) {
-                // The visible cards pop top to bottom, each with its sound; the rest pops away with the last one.
+                // The visible cards pop top to bottom, then the centre card and the capture field, each with its sound;
+                // the froth (the shared pop) starts with the centre card.
                 val visible = cardPops.visibleIndices()
                 cardPops.popping = visible
+                val total = elementPopStartMillis(visible.size, 1) + CARD_POP_MILLIS
                 coroutineScope {
-                    launch { cardPops.elapsed.animateTo(cardPopTotalMillis(visible.size).toFloat(), tween(cardPopTotalMillis(visible.size), easing = LinearEasing)) }
-                    visible.forEachIndexed { i, _ ->
+                    launch { cardPops.elapsed.animateTo(total.toFloat(), tween(total, easing = LinearEasing)) }
+                    repeat(visible.size + 2) { i ->
                         if (i > 0) delay(CARD_POP_GAP_MILLIS.toLong())
                         actions.feedback(FeedbackEvent.CARD_POP)
-                        if (i == visible.lastIndex) launch { pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing)) }
+                        if (i == visible.size) launch { pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing)) }
                     }
-                    if (visible.isEmpty()) pop.animateTo(1f, tween(POP_MILLIS, easing = LinearEasing))
                 }
                 currentOnDraining()
                 reveal.animateTo(0f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
@@ -340,15 +341,7 @@ fun OverlayShell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .onSizeChanged { contentSize = it }
-                    .graphicsLayer {
-                        val p = pop.value
-                        if (p > 0f) {
-                            scaleX = popScale(p)
-                            scaleY = popScale(p)
-                            alpha = popAlpha(p)
-                        }
-                    },
+                    .onSizeChanged { contentSize = it },
             ) {
             Column(
                 Modifier
@@ -361,7 +354,7 @@ fun OverlayShell(
                     .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
             ) {
                 if (!writing) {
-                    Header(hud, entranceProgress, onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
+                    Header(hud, entranceProgress, cardPops.element(0), onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
                     Spacer(Modifier.height(12.dp))
                     val list = state.items
                     CardRow(
@@ -370,7 +363,7 @@ fun OverlayShell(
                         entrance = entranceProgress, spin = spin, cardPops = cardPops,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress)) {
+                    Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress).then(cardPops.element(0))) {
                         if (undo != null) UndoToast(undo, hud) {
                             state.undoLast()
                             actions.feedback(FeedbackEvent.UNDO)
@@ -383,7 +376,7 @@ fun OverlayShell(
                     writing = writing,
                     onWritingChange = { writing = it },
                     onLeave = ::leaveWriting,
-                    modifier = if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress),
+                    modifier = (if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress)).then(cardPops.element(1)),
                 ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
@@ -394,6 +387,7 @@ fun OverlayShell(
                     chat, hud,
                     Modifier
                         .fillMaxSize()
+                        .then(cardPops.element(1))
                         .background(overlayTint(blurred))
                         .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
                         .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
@@ -494,6 +488,16 @@ internal class CardPops {
     var visibleIndices: () -> List<Int> = { emptyList() }
     var popping by mutableStateOf<List<Int>>(emptyList())
     val elapsed = Animatable(0f)
+
+    /** A pop for a non-card element once the cards are gone: slot 0 is the centre card, slot 1 the capture field. */
+    fun element(slot: Int): Modifier = Modifier.graphicsLayer {
+        val p = elementPopProgress(elapsed.value, popping.size, slot)
+        if (p > 0f) {
+            scaleX = popScale(p)
+            scaleY = popScale(p)
+            alpha = popAlpha(p)
+        }
+    }
 }
 
 /** The carousel beside the centre card for the items of [state]; shared by the main view and the Routines view. */
@@ -518,7 +522,7 @@ internal fun CardRow(
             Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
             Spacer(Modifier.width(8.dp))
         }
-        Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance)) {
+        Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance).then(cardPops.element(0))) {
             HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
             Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
                 CentreCard(
@@ -618,8 +622,8 @@ private fun SwipeRing(settings: JuiceSettings, hud: Hud) {
 }
 
 @Composable
-private fun Header(hud: Hud, entrance: () -> Float, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false), verticalAlignment = Alignment.CenterVertically) {
+private fun Header(hud: Hud, entrance: () -> Float, pop: Modifier, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false).then(pop), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
         Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {

@@ -91,4 +91,14 @@ class OverlayMotionTest {
         assertEquals(0.5f, cardPopProgress(CARD_POP_GAP_MILLIS + CARD_POP_MILLIS / 2f, 1), 0.001f)
         assertEquals(1f, cardPopProgress(1000f, 1), 0.001f)
     }
+
+    @Test fun elementPopsStartAfterTheLastCardOneGapApart() {
+        assertEquals(0, elementPopStartMillis(0, 0))
+        assertEquals(CARD_POP_GAP_MILLIS, elementPopStartMillis(0, 1))
+        assertEquals(3 * CARD_POP_GAP_MILLIS, elementPopStartMillis(3, 0))
+        assertEquals(4 * CARD_POP_GAP_MILLIS, elementPopStartMillis(3, 1))
+        assertEquals(0f, elementPopProgress(3 * CARD_POP_GAP_MILLIS.toFloat(), 3, 0), 0.001f)
+        assertEquals(0.5f, elementPopProgress(3 * CARD_POP_GAP_MILLIS + CARD_POP_MILLIS / 2f, 3, 0), 0.001f)
+        assertEquals(1f, elementPopProgress(1000f, 3, 1), 0.001f)
+    }
 }

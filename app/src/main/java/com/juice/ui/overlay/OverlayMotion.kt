@@ -100,6 +100,16 @@ internal fun cardPopTotalMillis(count: Int): Int = if (count <= 0) 0 else cardPo
 internal fun cardPopProgress(elapsedMillis: Float, index: Int): Float =
     ((elapsedMillis - cardPopStartMillis(index)) / CARD_POP_MILLIS).coerceIn(0f, 1f)
 
+/**
+ * When the pop of a non-card element starts, in milliseconds after the closing began: after the last of [cardCount] visible
+ * cards (at 0 with none). Slot 0 is the centre card (and header), slot 1 the capture field (and coach chat), one gap apart.
+ */
+internal fun elementPopStartMillis(cardCount: Int, slot: Int): Int = cardPopStartMillis(cardCount.coerceAtLeast(0) + slot)
+
+/** How far a non-card element's pop is, 0..1, [elapsedMillis] after the closing began. */
+internal fun elementPopProgress(elapsedMillis: Float, cardCount: Int, slot: Int): Float =
+    ((elapsedMillis - elementPopStartMillis(cardCount, slot)) / CARD_POP_MILLIS).coerceIn(0f, 1f)
+
 /** The share of the pop spent swelling before the burst, and the largest the content swells to. */
 private const val SWELL_SHARE = 0.3f
 private const val SWELL_SCALE = 1.08f
