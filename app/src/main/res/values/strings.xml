@@ -102,6 +102,11 @@
     <string name="coach_proposal_remove">Remove: %1$s</string>
     <string name="coach_proposal_rejected">I couldn\'t make a usable list of tasks yet. Tell me more.</string>
     <string name="coach_confirm">Confirm</string>
+    <string name="coach_history">History</string>
+    <string name="coach_history_title">Chat history</string>
+    <string name="coach_history_close">Close history</string>
+    <string name="coach_you">You</string>
+    <string name="coach_face_description">%1$s looks %2$s</string>
     <string name="coach_cancel">Cancel</string>
     <string name="creator_title">Summon a coach. What hobby do you want to get better at?</string>
     <string name="creator_hint">e.g. plumbing</string>
@@ -110,8 +115,4 @@
     <string name="creator_error">Could not summon a coach: %1$s</string>
     <string name="coach_needs_cloud">The coach needs cloud access. Turn off On-device only and try again.</string>
     <string name="coach_unreachable">The coach could not be reached. Try again later.</string>
-    <string name="portrait_neutral">Coach looks neutral</string>
-    <string name="portrait_happy">Coach looks happy</string>
-    <string name="portrait_stern">Coach looks stern</string>
-    <string name="portrait_thinking">Coach looks thoughtful</string>
 </resources>

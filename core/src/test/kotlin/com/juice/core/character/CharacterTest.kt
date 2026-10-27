@@ -101,8 +101,13 @@ class CharacterTest {
         assertEquals(Face(Shape.SQUARE, Shape.TRIANGLE), jim.face)
     }
 
-    @Test fun jimPromptNamesEveryExpressionTag() {
-        Expression.entries.forEach { assertTrue("[${it.name.lowercase()}]" in jim.personaPrompt, it.name) }
+    @Test fun everyPromptNamesEveryExpressionTagOnceAsOneSet() {
+        val prompts = Characters.all.map { it.personaPrompt } + GeneratedPersona.fallbackPersona("chess").personaPrompt
+        prompts.forEach { prompt ->
+            Expression.entries.forEach { assertTrue(it.tag in prompt, it.name) }
+            assertEquals(1, Regex(Regex.escape(Expression.TAG_LIST)).findAll(prompt).count())
+            assertFalse("[angry]" in prompt || "[scared]" in prompt)
+        }
     }
 
     @Test fun jimHasOpeningLineAndPitchInRange() {

@@ -173,9 +173,14 @@ class CoachConversationTest {
         assertEquals(ChatMessage("assistant", "yo"), store.load("jim").last())
     }
 
+    @Test fun historySavedWithAnOldExpressionNameLoadsAsItsMergedOne() {
+        storeFile.writeText("""{"jim":[{"role":"assistant","content":"grr","expression":"angry"},{"role":"assistant","content":"eek","expression":"scared"}]}""")
+        assertEquals(listOf(Expression.STERN, Expression.WORRIED), store.load("jim").map { it.expression })
+    }
+
     @Test fun lastExpressionIsTheLastCoachMessagesSavedExpression() {
-        store.save("jim", listOf(ChatMessage("assistant", "grr", Expression.ANGRY), ChatMessage("user", "sorry")))
-        assertEquals(Expression.ANGRY, conversation().lastExpression)
+        store.save("jim", listOf(ChatMessage("assistant", "grr", Expression.STERN), ChatMessage("user", "sorry")))
+        assertEquals(Expression.STERN, conversation().lastExpression)
     }
 
     @Test fun storeSaveFailureIsAnErrorNotAThrow() {

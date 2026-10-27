@@ -34,6 +34,7 @@ import com.juice.core.character.Monogram
 import com.juice.core.memory.Memory
 import com.juice.data.CharacterRepository
 import com.juice.ui.face.CharacterFace
+import com.juice.ui.face.FaceColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -139,7 +140,7 @@ class CharacterSettings(
 fun CharacterAvatar(character: Character, modifier: Modifier = Modifier) {
     Box(modifier.size(40.dp).clip(CircleShape).background(Color.DarkGray), contentAlignment = Alignment.Center) {
         if (character.hobby == null) {
-            CharacterFace(character.face, Expression.NEUTRAL, Modifier.size(32.dp))
+            CharacterFace(character.face, Expression.NEUTRAL, Modifier.size(32.dp), shadow = FaceColors.of(character))
         } else {
             val monogram = Monogram(character)
             Box(Modifier.size(40.dp).background(Color.hsv(monogram.hue.toFloat(), 0.5f, 0.6f)), contentAlignment = Alignment.Center) {

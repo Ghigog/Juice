@@ -397,7 +397,8 @@ fun OverlayShell(
             if (chat != null && chat.open) {
                 CoachChat(
                     chat, hud,
-                    Modifier
+                    animate = !settings.reduceMotion,
+                    modifier = Modifier
                         .fillMaxSize()
                         .then(cardPops.element(1))
                         .background(overlayTint(blurred))

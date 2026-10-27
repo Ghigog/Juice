@@ -21,6 +21,8 @@ data class GeneratedPersona(val name: String, val personality: String, val perso
             You lead the chat: interview the player instead of asking what they want to do. Ask one short question per reply, covering your own topics: the player's current routine for their hobby, health issues, and constraints.
             Gather health information only to adapt the tasks. Reply [ready] only once those are answered.
             Keep asking questions until you can propose tasks; never propose early.
+            Keep replies short and conversational. Begin every chat reply with exactly one emotion tag from this set:
+            ${Expression.TAG_LIST}.
             When you are ready, end your reply with the exact tag [ready] and nothing after it. Chat replies never contain JSON.
             The proposal is requested separately; then reply with JSON only, with no emotion tag, in this shape:
             {"tasks":[{"action":"add","title":"Walk 20 minutes","cadence":{"days":["mon","wed","fri"],"time":"07:30"}},

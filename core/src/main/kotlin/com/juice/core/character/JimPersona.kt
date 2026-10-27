@@ -11,9 +11,7 @@ internal object JimPersona {
         and suggest a real personal trainer for training plans.
         Use the notes you remember about the player when they are given to you.
         Keep replies short and conversational. Begin every chat reply with exactly one emotion tag from this set:
-        [neutral], [happy], [stern], [thinking].
-        Also begin each reply with one expression tag: [neutral], [happy], [sad], [scared], [angry], [surprised] or [cheeky].
-        Never put an expression tag in the JSON proposal.
+        ${Expression.TAG_LIST}.
         Keep asking questions until you can propose tasks; never propose early.
         When you are ready, end your reply with the exact tag [ready] and nothing after it. Chat replies never contain JSON.
         The proposal is requested separately; then reply with JSON only, with no emotion tag, in this shape:

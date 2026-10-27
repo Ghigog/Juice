@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -257,9 +258,9 @@ class CoachChatTest {
     @Test
     fun aReopenedChatStartsWithTheSavedExpression() {
         ConversationStore(File(dir, "conversations.json")).save(
-            jim.id, listOf(ChatMessage("user", "hi"), ChatMessage("assistant", "Grr", Expression.ANGRY)),
+            jim.id, listOf(ChatMessage("user", "hi"), ChatMessage("assistant", "Grr", Expression.STERN)),
         )
-        assertEquals(Expression.ANGRY, chat {}.expression)
+        assertEquals(Expression.STERN, chat {}.expression)
     }
 
     @Test
@@ -271,7 +272,7 @@ class CoachChatTest {
         reply("""{"shared":[],"characters":{}}""")
         chat.send("go")
         waitFor { chat.proposal != null }
-        assertEquals(Expression.ANGRY, chat.expression)
+        assertEquals(Expression.STERN, chat.expression)
     }
 
     @Test
@@ -348,6 +349,33 @@ class CoachChatTest {
         waitForText("Hey")
         waitFor { rates.size == 3 }
         assertEquals(listOf(jim.mutterPitch, jim.mutterPitch, jim.mutterPitch), rates)
+    }
+
+    @Test
+    fun historyShowsTheWholeConversationAndCloses() {
+        val chat = chat {}
+        compose.setContent { CoachChat(chat, Hud()) }
+        sendAndWait(chat, "[happy] First reply", text = "my first message")
+        sendAndWait(chat, "[stern] Second reply", text = "my second message")
+        waitForText("Second reply")
+        compose.onNodeWithTag(TAG_COACH_HISTORY).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_COACH_HISTORY_BUTTON).performClick()
+        compose.onNodeWithTag(TAG_COACH_HISTORY).assertIsDisplayed()
+        listOf(jim.openingLine, "my first message", "First reply", "my second message").forEach { waitForText(it) }
+        compose.onNodeWithContentDescription("Close history").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_COACH_HISTORY).assertDoesNotExist()
+    }
+
+    @Test
+    fun theBoxShowsOnlyTheLatestLine() {
+        val chat = chat {}
+        compose.setContent { CoachChat(chat, Hud()) }
+        sendAndWait(chat, "[happy] First reply")
+        sendAndWait(chat, "[sad] Second reply")
+        waitForText("Second reply")
+        assertEquals(0, compose.onAllNodes(hasText("First reply", substring = true)).fetchSemanticsNodes().size)
+        assertEquals(Expression.SAD, chat.expression)
     }
 
     @Test

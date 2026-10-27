@@ -20,7 +20,7 @@ class ConversationStore(private val file: File) {
             ChatMessage(
                 m.getValue("role").jsonPrimitive.content,
                 m.getValue("content").jsonPrimitive.content,
-                Expression.entries.firstOrNull { e -> e.name.equals(saved, ignoreCase = true) } ?: Expression.NEUTRAL,
+                Expression.named(saved) ?: Expression.NEUTRAL,
             )
         }.orEmpty()
 
