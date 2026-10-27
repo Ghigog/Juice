@@ -119,7 +119,7 @@ internal fun CentreCard(
     val current = remember { mutableStateListOf<Offset>() }
     var tint by remember { mutableStateOf<Tint?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
-    var editing by remember(item?.id) { mutableStateOf(false) }
+    val editing = item != null && state.titleEdit?.itemId == item.id
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }
@@ -253,7 +253,7 @@ internal fun CentreCard(
             }
             if (outcome != false && titleBounds.contains(down.position)) {
                 current.clear()
-                editing = true
+                item?.let(state::beginTitleEdit)
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
             }
@@ -378,9 +378,8 @@ internal fun CentreCard(
                 }
                 Spacer(Modifier.height(24.dp))
                 if (editing) {
-                    TitleField(item.title) { title ->
-                        state.setTitle(item, title)
-                        editing = false
+                    TitleField(item.title, onChange = state::changeTitleEdit) {
+                        state.commitTitleEdit()
                     }
                 } else {
                     Text(
@@ -504,18 +503,18 @@ private fun ParsingChip(onDeviceOnly: Boolean) {
 }
 
 @Composable
-private fun TitleField(title: String, onDone: (String) -> Unit) {
+private fun TitleField(title: String, onChange: (String) -> Unit, onDone: () -> Unit) {
     var text by remember(title) { mutableStateOf(title) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     BasicTextField(
         value = text,
-        onValueChange = { text = it },
+        onValueChange = { text = it; onChange(it) },
         singleLine = false,
         textStyle = TextStyle(fontFamily = SpaceGrotesk, fontSize = 25.sp, lineHeight = 30.sp, fontWeight = FontWeight.Medium, color = Color.White),
         cursorBrush = SolidColor(Color.White),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onDone(text) }),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
