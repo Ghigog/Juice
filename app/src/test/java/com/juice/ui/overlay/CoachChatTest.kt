@@ -191,10 +191,10 @@ class CoachChatTest {
     @Test
     fun anUnreachableCoachClosesTheChatAndKeepsTheCheckInCard() {
         show(checkIn)
-        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("retry-after", "60"))
         compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("hello")
         compose.onNodeWithTag(TAG_COACH_SEND).performClick()
-        waitForText("could not be reached")
+        waitForText("${jim.name} could not be reached. Groq's rate limit was hit (429).")
         assertEquals(ItemStatus.Active, runBlocking { repository.get("checkin-jim")?.status })
         assertEquals(listOf("checkin-jim"), state.items.map { it.id })
     }
@@ -249,7 +249,7 @@ class CoachChatTest {
     fun anErrorLeavesTheExpressionUnchanged() {
         val chat = chat {}
         sendAndWait(chat, "[happy] Nice")
-        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setResponseCode(401))
         chat.send("again")
         waitFor { !chat.busy }
         assertEquals(Expression.HAPPY, chat.expression)
@@ -403,7 +403,7 @@ class CoachChatTest {
         var failed = 0
         val chat = chat { failed++ }
         chat.start()
-        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setResponseCode(401))
         chat.send("hi")
         waitFor { !chat.open }
         chat.cancel()

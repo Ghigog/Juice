@@ -10,6 +10,7 @@ import com.juice.core.memory.MemoryPrompt
 import com.juice.core.memory.MemoryUpdate
 import com.juice.core.memory.MemoryUpdateResult
 import com.juice.core.model.Item
+import com.juice.intake.GroqClient
 import com.juice.memory.MemoryStore
 import java.io.IOException
 
@@ -21,6 +22,7 @@ sealed interface CoachReply {
     data class Proposal(val text: String, val expression: Expression, val tasks: List<CoachTask>) : CoachReply
     /** The coach signalled [READY_TAG] but its proposal failed validation; the conversation continues. */
     data class Rejected(val text: String, val expression: Expression, val reason: String) : CoachReply
+    /** [message] says why, in words the player can read. */
     data class Error(val message: String) : CoachReply
 }
 
@@ -74,7 +76,7 @@ class CoachConversation(
                 CoachFinish.CloudRequired -> CoachReply.CloudRequired
             }
         } catch (e: Exception) {
-            CoachReply.Error(e.message ?: "Coach unreachable")
+            CoachReply.Error(GroqClient.reason(e))
         }
     }
 
@@ -94,7 +96,7 @@ class CoachConversation(
                 is CoachProposalResult.Rejected -> CoachFinish.Rejected(result.reason)
             }
         } catch (e: Exception) {
-            CoachFinish.Error(e.message ?: "Coach unreachable")
+            CoachFinish.Error(GroqClient.reason(e))
         }
     }
 
@@ -118,6 +120,7 @@ class CoachConversation(
                 "You keep short notes about the player for the characters.",
                 listOf(ChatMessage("user", MemoryPrompt.updatePrompt(current, conversation))),
                 jsonMode = true,
+                retry = false,
             )
             val result = MemoryUpdate.validate(json, Characters.all.map { it.id }.toSet() + character.id)
             if (result is MemoryUpdateResult.Valid) memoryStore.save(result.memory)

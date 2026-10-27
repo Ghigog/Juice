@@ -299,13 +299,14 @@ private fun History(chat: CoachChatState, hud: Hud, animate: Boolean, onClose: (
     LaunchedEffect(Unit) { list.scrollToItem(shown.lastIndex.coerceAtLeast(0)) }
     var raised by remember { mutableStateOf(!animate) }
     LaunchedEffect(Unit) { raised = true }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        // The scrim is a sibling behind the sheet, not its parent, so its click doesn't merge the sheet into one node.
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        )
         AnimatedVisibility(
             visible = raised,
             enter = if (animate) slideInVertically(spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) { it } else EnterTransition.None,

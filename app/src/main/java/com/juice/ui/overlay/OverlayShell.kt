@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -163,6 +164,8 @@ internal fun tapIsInCarouselGap(y: Float, itemSpans: List<IntRange>): Boolean {
 private const val CAROUSEL_ITEM_DP = 56
 private const val CAROUSEL_GAP_DP = 8
 private const val BANNER_MILLIS = 2200L
+/** A longer banner, such as why a coach could not be reached, stays up long enough to read. */
+private const val BANNER_MILLIS_PER_CHAR = 60L
 private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
 private val BACKDROP_DP = 280.dp
@@ -417,7 +420,7 @@ fun OverlayShell(
                 )
             }
             val needsCloud = stringResource(R.string.coach_needs_cloud)
-            val unreachable = stringResource(R.string.coach_unreachable)
+            val unreachable = chat?.let { stringResource(R.string.coach_unreachable, it.character.name, it.reason) }.orEmpty()
             LaunchedEffect(chat?.notice) {
                 when (chat?.notice) {
                     CoachNotice.CloudRequired -> effects.banner(needsCloud)
@@ -1113,7 +1116,7 @@ private fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
     val banner = effects.banner
     LaunchedEffect(banner) {
         if (banner != null) {
-            delay(BANNER_MILLIS)
+            delay(maxOf(BANNER_MILLIS, banner.second.length * BANNER_MILLIS_PER_CHAR))
             effects.clearBanner(banner.first)
         }
     }
@@ -1123,9 +1126,10 @@ private fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
         Box(
             Modifier
                 .width(310.dp)
-                .height(40.dp)
+                .heightIn(min = 40.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(hud.accent)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
                 .testTag(TAG_BANNER),
             contentAlignment = Alignment.Center,
         ) {
