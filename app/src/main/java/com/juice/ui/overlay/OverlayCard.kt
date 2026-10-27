@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -38,6 +39,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,6 +114,7 @@ internal fun CentreCard(
     effects: OverlayEffects,
     reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    onEditingChange: (Boolean) -> Unit = {},
 ) {
     val recognizer = remember { GestureRecognizer() }
     val scope = rememberCoroutineScope()
@@ -120,6 +123,9 @@ internal fun CentreCard(
     var tint by remember { mutableStateOf<Tint?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
     val editing = item != null && state.titleEdit?.itemId == item.id
+    val reportEditing by rememberUpdatedState(onEditingChange)
+    LaunchedEffect(editing) { reportEditing(editing) }
+    DisposableEffect(Unit) { onDispose { reportEditing(false) } }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }

@@ -515,10 +515,12 @@ internal fun CardRow(
     cardPops: CardPops = remember { CardPops() },
 ) {
     val list = state.items
+    var editing by remember { mutableStateOf(false) }
     Row(modifier) {
         if (list.isNotEmpty()) {
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(112.dp).fillMaxHeight())
-            Spacer(Modifier.width(8.dp))
+            // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(if (editing) 0.dp else 112.dp).fillMaxHeight())
+            if (!editing) Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance).then(cardPops.element(0))) {
             HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
@@ -534,6 +536,7 @@ internal fun CardRow(
                     effects = effects,
                     reservoir = reservoir,
                     modifier = Modifier.fillMaxSize(),
+                    onEditingChange = { editing = it },
                 )
                 Floats(effects, hud, Modifier.fillMaxSize())
             }
