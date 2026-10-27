@@ -605,7 +605,8 @@ class OverlayShellTest {
         compose.onNodeWithTag(stepTag("a"), useUnmergedTree = true).performTouchInput { click() }
         settle()
         assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
-        assertEquals(ItemStatus.Active, statusOf("p"))
+        // Nothing was saved, so the repository never saw the Project.
+        assertEquals(null, statusOf("p"))
     }
 
     @Test
