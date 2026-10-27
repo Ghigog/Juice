@@ -584,6 +584,32 @@ class OverlayShellTest {
     }
 
     @Test
+    fun tapOnAStepTicksOnlyThatStep() {
+        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack"), Step("b", "Book"), Step("c", "Drive"))))
+        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
+        settle()
+        assertEquals(listOf(false, true, false), state.items.single().steps.map { it.done })
+    }
+
+    @Test
+    fun tapOnTheLastOpenStepCompletesTheProject() {
+        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack", done = true), Step("b", "Book"))))
+        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
+        idle()
+        assertEquals(ItemStatus.Completed, statusOf("p"))
+    }
+
+    @Test
+    fun tapOnADoneStepChangesNothing() {
+        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack", done = true), Step("b", "Book"))))
+        compose.onNodeWithTag(stepTag("a"), useUnmergedTree = true).performTouchInput { click() }
+        settle()
+        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
+        // Nothing was saved, so the repository never saw the Project.
+        assertEquals(null, statusOf("p"))
+    }
+
+    @Test
     fun crossOnAStepRemovesIt() {
         show(project)
         drawOnStep("a", check = false)

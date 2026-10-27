@@ -263,6 +263,15 @@ internal fun CentreCard(
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
             }
+            // A quick tap on a step ticks it, like a check drawn over it.
+            if (outcome == true && !stillLifted && strokes.isEmpty()) {
+                val tapped = item?.steps?.firstOrNull { stepBounds[it.id]?.contains(down.position) == true }
+                if (tapped != null) {
+                    current.clear()
+                    actOnStep(item, tapped, complete = true)
+                    return@awaitEachGesture
+                }
+            }
             var lifted = outcome == true
             while (!lifted) {
                 val change = awaitPointerEvent().changes.first()
