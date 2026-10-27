@@ -1,6 +1,7 @@
 package com.juice.coach
 
 import com.juice.core.character.Expression
+import com.juice.intake.GroqClient
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -19,7 +20,7 @@ data class ChatMessage(val role: String, val content: String, val expression: Ex
 class CoachClient(
     private val apiKey: String,
     private val baseUrl: String = "https://api.groq.com/openai/v1",
-    private val model: String = "llama-3.3-70b-versatile",
+    private val model: String = GroqClient.MODEL,
 ) {
     /** Returns the model's reply to [messages] under [systemPrompt]; [jsonMode] forces a JSON object reply. */
     fun chat(systemPrompt: String, messages: List<ChatMessage>, jsonMode: Boolean = false): String {
@@ -41,7 +42,7 @@ class CoachClient(
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
-            if (conn.responseCode !in 200..299) throw IOException("Groq HTTP ${conn.responseCode}")
+            if (conn.responseCode !in 200..299) throw GroqClient.httpError(conn)
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             return try {
                 Json.parseToJsonElement(response).jsonObject["choices"]!!.jsonArray[0]
