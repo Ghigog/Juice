@@ -65,6 +65,18 @@ class OverlayServiceTest {
         assertEquals(0, flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND)
     }
 
+    // Without FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS the window paints black bars behind the status
+    // and navigation bars, so the overlay looked like it was not full screen.
+    @Test
+    @Suppress("DEPRECATION")
+    fun overlayDrawsTransparentSystemBarBackgrounds() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val window = overlayDialog(context, View(context)) {}.window!!
+        assertTrue(window.attributes.flags and WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS != 0)
+        assertEquals(android.graphics.Color.TRANSPARENT, window.statusBarColor)
+        assertEquals(android.graphics.Color.TRANSPARENT, window.navigationBarColor)
+    }
+
     @Test
     fun backGoesToTheOverlayInsteadOfClosingTheDialog() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
