@@ -263,6 +263,13 @@ internal fun CentreCard(
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
             }
+            // Tapping an open step of a Project ticks it off.
+            val tapped = item.steps.firstOrNull { !it.done && stepBounds[it.id]?.contains(down.position) == true }
+            if (outcome == true && !stillLifted && tapped != null) {
+                current.clear()
+                actOnStep(item, tapped, complete = true)
+                return@awaitEachGesture
+            }
             var lifted = outcome == true
             while (!lifted) {
                 val change = awaitPointerEvent().changes.first()
@@ -466,7 +473,7 @@ internal fun CentreCard(
     }
 }
 
-/** One step of a Project; a done step stays listed, struck through. */
+/** One step of a Project, ticked off by a tap or a ✓; a done step stays listed, struck through. */
 @Composable
 private fun StepRow(step: Step, modifier: Modifier = Modifier) {
     Text(

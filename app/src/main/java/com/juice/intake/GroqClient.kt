@@ -84,7 +84,8 @@ class GroqClient(
             - "Task": an actionable item.
             - "Goal": a task with a specific date, time, or target metric.
             - "Routine": a habit that repeats on a cadence ("every day", "every Sunday", "weekly on Friday"). A recurring phrase is a Routine, not a Goal.
-            - "Project": an item with multiple sub-steps.
+            - "Project": a list of several concrete, actionable tasks the user spelled out ("get nails, glue and a ladder at the warehouse tomorrow"). Each sub_item is one of those tasks, as the user named it; the title sums them up ("Warehouse run").
+            An abstract idea, plan or dream ("I'd like to make a game where you play as a pig") is a Note, not a Project: never split one idea into fragments or invent steps the user did not list.
 
             Schema:
             {
@@ -98,6 +99,7 @@ class GroqClient(
 
             Rules:
             - "cadence" is only for Routine; use null for every other type. A Routine has a null deadline.
+            - "sub_items" is only for Project; use null for every other type.
         """.trimIndent()
     }
 }

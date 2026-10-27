@@ -575,6 +575,24 @@ class OverlayShellTest {
     }
 
     @Test
+    fun tapOnAStepTicksItOff() {
+        show(project)
+        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
+        settle()
+        assertEquals(listOf(false, true), state.items.single().steps.map { it.done })
+        assertEquals(ItemStatus.Active, statusOf("p"))
+    }
+
+    @Test
+    fun tappingTheLastOpenStepCompletesTheProject() {
+        show(project.copy(steps = listOf(Step("a", "Pack", done = true), Step("b", "Book van"))))
+        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
+        settle()
+        idle()
+        assertEquals(ItemStatus.Completed, statusOf("p"))
+    }
+
+    @Test
     fun crossOnAStepRemovesIt() {
         show(project)
         drawOnStep("a", check = false)
