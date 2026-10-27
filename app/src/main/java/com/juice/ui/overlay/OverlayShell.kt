@@ -376,7 +376,7 @@ fun OverlayShell(
                     }
                     Spacer(Modifier.height(12.dp))
                 }
-                Capture(
+                if (!state.editingTitle) Capture(
                     hud,
                     writing = writing,
                     onWritingChange = { writing = it },

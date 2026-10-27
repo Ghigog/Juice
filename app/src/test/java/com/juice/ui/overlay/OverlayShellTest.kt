@@ -648,6 +648,20 @@ class OverlayShellTest {
     }
 
     @Test
+    fun captureFieldIsHiddenWhileTheTitleIsEdited() {
+        val item = Item("a", ItemType.Note, "cal sam")
+        runBlocking { repository.save(item) }
+        show(item)
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertExists()
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { click() }
+        idle()
+        compose.onAllNodesWithTag(TAG_CAPTURE_FIELD).assertCountEquals(0)
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performImeAction()
+        idle()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertExists()
+    }
+
+    @Test
     fun editingATitleHidesTheCarouselAndConfirmingBringsItBackWithTheSameNoteCentred() {
         val items = arrayOf(Item("a", ItemType.Note, "cal sam"), Item("b", ItemType.Note, "Buy milk"), Item("c", ItemType.Note, "Pay rent"))
         items.forEach { runBlocking { repository.save(it) } }
