@@ -571,6 +571,7 @@ internal fun guardedShowOverlay(
  * (Window.setBackgroundBlurRadius). That blur needs a translucent window theme. Back, whether a
  * key or a predictive back gesture, calls [onBack] instead of closing the dialog.
  */
+@Suppress("DEPRECATION") // statusBarColor and navigationBarColor, still read before Android 15
 internal fun overlayDialog(context: Context, content: View, onBack: () -> Unit): Dialog =
     object : Dialog(context, android.R.style.Theme_Translucent_NoTitleBar) {
         @Deprecated("Also called for the predictive back gesture")
@@ -582,6 +583,12 @@ internal fun overlayDialog(context: Context, content: View, onBack: () -> Unit):
             // After setContentView, so these replace what the theme set up.
             attributes = overlayLayoutParams()
             setDecorFitsSystemWindows(false)
+            // Without this flag the window paints black behind the status and navigation bars.
+            addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            statusBarColor = android.graphics.Color.TRANSPARENT
+            navigationBarColor = android.graphics.Color.TRANSPARENT
+            isStatusBarContrastEnforced = false
+            isNavigationBarContrastEnforced = false
         }
     }
 
