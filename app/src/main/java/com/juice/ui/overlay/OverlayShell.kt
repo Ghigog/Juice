@@ -68,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -99,6 +100,7 @@ import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -331,7 +333,7 @@ fun OverlayShell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) { detectTapGestures { actions.onClose() } }
+                    .pointerInput(Unit) { detectTapGestures { if (!state.commitTitleEdit()) actions.onClose() } }
                     .semantics { contentDescription = closeLabel }
                     .testTag(TAG_CLOSE),
             )
@@ -343,6 +345,11 @@ fun OverlayShell(
             Column(
                 Modifier
                     .fillMaxSize()
+                    // Under the coach chat the main view stays composed (keeping the carousel position and writing mode) but invisible.
+                    .then(
+                        if (state.coachChat?.open == true) Modifier.alpha(0f).clearAndSetSemantics {}
+                        else Modifier,
+                    )
                     .then(
                         // Outside the field and the plus button, a tap ends writing mode.
                         if (writing) Modifier.pointerInput(Unit) { detectTapGestures { leaveWriting() } }
@@ -803,7 +810,8 @@ private fun Carousel(
             .pointerInput(held) {
                 if (held == null) detectTapGestures { tap ->
                     val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
-                    if (!tapIsInCarouselGap(tap.y, spans)) actions.onClose()
+                    val committed = state.commitTitleEdit()
+                    if (!committed && !tapIsInCarouselGap(tap.y, spans)) actions.onClose()
                 }
             }
             .testTag(TAG_CAROUSEL),

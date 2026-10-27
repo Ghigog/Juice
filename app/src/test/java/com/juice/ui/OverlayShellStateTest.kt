@@ -244,6 +244,36 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun commitTitleEditSavesTheTrimmedDraftAndEndsEditing() {
+        val note = Item("n", ItemType.Note, "cal sam")
+        val state = state(note)
+        state.beginTitleEdit(note)
+        state.changeTitleEdit(" Call Sam ")
+        assertEquals(true, state.commitTitleEdit())
+        assertEquals("Call Sam", state.items.single().title)
+        assertEquals(null, state.titleEdit)
+    }
+
+    @Test
+    fun commitTitleEditIgnoresEmptyOrUnchangedDrafts() {
+        val note = Item("n", ItemType.Note, "cal sam")
+        val state = state(note)
+        state.beginTitleEdit(note)
+        state.changeTitleEdit("  ")
+        assertEquals(true, state.commitTitleEdit())
+        assertEquals("cal sam", state.items.single().title)
+        state.beginTitleEdit(note)
+        assertEquals(true, state.commitTitleEdit())
+        assertEquals("cal sam", state.items.single().title)
+        assertEquals(null, state.titleEdit)
+    }
+
+    @Test
+    fun commitTitleEditReturnsFalseWhenNothingIsBeingEdited() {
+        assertEquals(false, state(Item("n", ItemType.Note, "cal sam")).commitTitleEdit())
+    }
+
+    @Test
     fun theTypePillStepsThroughTheTypes() {
         val note = Item("n", ItemType.Note, "Call Sam")
         val state = state(note)

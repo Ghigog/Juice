@@ -447,6 +447,23 @@ class OverlayShellTest {
         assertEquals(1, closed)
     }
 
+    @Test
+    fun tappingBackgroundWhileEditingTheTitleSavesItAndKeepsTheOverlayOpen() {
+        var closed = 0
+        val item = Item("a", ItemType.Note, "cal sam")
+        runBlocking { repository.save(item) }
+        show(item, actions = OverlayActions(onClose = { closed++ }))
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { click() }
+        idle()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextClearance()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextInput("Call Sam")
+        compose.onNodeWithTag(TAG_CLOSE).performTouchInput { click(Offset(width * 0.5f, height - 2f)) }
+        idle()
+        assertEquals(0, closed)
+        compose.onAllNodesWithTag(TAG_TITLE_FIELD).assertCountEquals(0)
+        assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
+    }
+
     private fun threeItems() = arrayOf(
         Item("a", ItemType.Task, "Call Sam"), Item("b", ItemType.Task, "Buy milk"), Item("c", ItemType.Task, "Pay rent"),
     )

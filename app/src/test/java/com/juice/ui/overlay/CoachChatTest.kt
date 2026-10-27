@@ -139,6 +139,18 @@ class CoachChatTest {
     }
 
     @Test
+    fun theChatReplacesTheMainViewAndClosingItBringsTheMainViewBack() {
+        show(meet)
+        compose.onNodeWithTag(TAG_COACH_CHAT).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_SETTINGS).assertDoesNotExist()
+        compose.runOnIdle { state.coachChat!!.cancel() }
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_SETTINGS).assertIsDisplayed()
+    }
+
+    @Test
     fun confirmingTheProposalCreatesRoutineCardsForTheCoachAndRecordsTheConversation() {
         show(meet)
         compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("I walk a little")
