@@ -145,6 +145,16 @@ internal fun frothBubbles(origins: List<Offset>, seed: Long, maxDistance: Float,
     }
 }
 
+/** Each card's explosion is seeded by its rank on top of this, so cards differ but a given rank always bursts the same. */
+private const val CARD_EXPLOSION_SEED = 470L
+
+/** The juice bursting from the card of [rank] (top to bottom) whose centre is [centre]. */
+internal fun cardExplosionBubbles(centre: Offset, rank: Int, maxDistance: Float, maxRadius: Float): List<FrothBubble> =
+    frothBubbles(listOf(centre), CARD_EXPLOSION_SEED + rank, maxDistance, maxRadius)
+
+/** Whether a card's explosion is drawn at pop [progress]: only between its pop starting and finishing. */
+internal fun cardExplosionVisible(progress: Float): Boolean = progress > 0f && progress < 1f
+
 /** Where a [bubble] is, and how wide, when the pop is at [progress]: it flies out and shrinks away. */
 internal fun FrothBubble.at(progress: Float): Pair<Offset, Float> {
     val p = progress.coerceIn(0f, 1f)

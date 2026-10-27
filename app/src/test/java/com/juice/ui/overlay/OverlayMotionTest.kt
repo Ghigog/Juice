@@ -2,6 +2,7 @@ package com.juice.ui.overlay
 
 import androidx.compose.ui.geometry.Offset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -68,6 +69,29 @@ class OverlayMotionTest {
             assertEquals(0f, it.at(1f).second, 0.001f)
             assertEquals(it.origin, it.at(0f).first)
         }
+    }
+
+    @Test
+    fun cardExplosionIsDeterministicPerRankAndDiffersBetweenRanks() {
+        val centre = Offset(40f, 300f)
+        val first = cardExplosionBubbles(centre, rank = 2, maxDistance = 60f, maxRadius = 8f)
+        assertEquals(first, cardExplosionBubbles(centre, rank = 2, maxDistance = 60f, maxRadius = 8f))
+        assertTrue(first != cardExplosionBubbles(centre, rank = 3, maxDistance = 60f, maxRadius = 8f))
+    }
+
+    @Test
+    fun cardExplosionStartsAtTheCardCentre() {
+        val centre = Offset(40f, 300f)
+        val bubbles = cardExplosionBubbles(centre, rank = 0, maxDistance = 60f, maxRadius = 8f)
+        assertTrue(bubbles.isNotEmpty())
+        bubbles.forEach { assertEquals(centre, it.at(0f).first) }
+    }
+
+    @Test
+    fun cardExplosionIsVisibleOnlyWhileTheCardPops() {
+        assertFalse(cardExplosionVisible(0f))
+        assertTrue(cardExplosionVisible(0.5f))
+        assertFalse(cardExplosionVisible(1f))
     }
 
     @Test
