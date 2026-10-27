@@ -800,7 +800,8 @@ private fun Carousel(
             .pointerInput(held) {
                 if (held == null) detectTapGestures { tap ->
                     val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
-                    if (!tapIsInCarouselGap(tap.y, spans) && !state.commitTitleEdit()) actions.onClose()
+                    val committed = state.commitTitleEdit()
+                    if (!committed && !tapIsInCarouselGap(tap.y, spans)) actions.onClose()
                 }
             }
             .testTag(TAG_CAROUSEL),
