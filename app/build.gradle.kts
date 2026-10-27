@@ -68,6 +68,8 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // Print a failing test's full message, so a CI log says why it failed.
+        unitTests.all { it.testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL } }
     }
 
     buildFeatures {
