@@ -67,22 +67,7 @@ class IntakeTest {
         assertEquals("note fallback: bad type", reasons.last())
     }
 
-    @Test fun modelNoteWithoutDeadlineKeepsTheRulesTypeAndDeadline() {
-        val rules = ParsedItem(ItemType.Goal, "call the dentist", deadline = now.plusSeconds(60))
-        val model = ParsedItem(ItemType.Note, "Call the dentist")
-        assertEquals(model.copy(type = ItemType.Goal, deadline = rules.deadline), model.improvingOn(rules))
-        val task = model.copy(type = ItemType.Task)
-        assertEquals(ItemType.Goal, task.improvingOn(rules).type)
-    }
 
-    @Test fun modelResultIsKeptWhenItHasADeadlineOrIsNotNoteOrTask() {
-        val rules = ParsedItem(ItemType.Goal, "x", deadline = now.plusSeconds(60))
-        val timed = ParsedItem(ItemType.Task, "x", deadline = now.plusSeconds(5))
-        assertEquals(timed, timed.improvingOn(rules))
-        val project = ParsedItem(ItemType.Project, "x")
-        assertEquals(project, project.improvingOn(rules))
-        assertEquals(ParsedItem(ItemType.Note, "x"), ParsedItem(ItemType.Note, "x").improvingOn(ParsedItem(ItemType.Note, "x")))
-    }
 
     @Test fun titlesAreCapped() {
         val item = validate(json(title = "a".repeat(500)))
@@ -114,11 +99,6 @@ class IntakeTest {
         }
     }
 
-    @Test fun modelNoteBecomesTaskWhenTheRulesFoundALeadingVerb() {
-        val rules = RulesFallback.classify("get the car washed")
-        val model = ParsedItem(ItemType.Note, "Car wash", completionCondition = "washed")
-        assertEquals(model.copy(type = ItemType.Task), model.improvingOn(rules))
-    }
 
     @Test fun simplePhrasesResolveToAFutureDeadline() {
         val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
@@ -226,14 +206,58 @@ class IntakeTest {
         assertEquals(1, reasons.size)
     }
 
-    @Test fun improvingOnKeepsTheRulesRoutine() {
-        val rules = routine("go to the library every Sunday")
-        for (type in listOf(ItemType.Note, ItemType.Task, ItemType.Goal)) {
-            val improved = ParsedItem(type, "Library").improvingOn(rules)
-            assertEquals(ItemType.Routine, improved.type)
-            assertEquals(rules.cadence, improved.cadence)
-        }
-        val project = ParsedItem(ItemType.Project, "p")
-        assertEquals(project, project.improvingOn(rules))
+
+    private val D = java.time.DayOfWeek.entries.toTypedArray().associateBy { it.name.take(3) }
+    private val tuesday = java.time.ZonedDateTime.parse("2026-03-03T10:00:00Z[UTC]")
+
+    @Test fun routineRuleReadsRepeatsIncludingEveryNWeeks() {
+        val trash = routine("take out the trash every Tue/Thu")
+        assertEquals(ItemType.Routine, trash.type)
+        assertEquals(cadence(D.getValue("TUE"), D.getValue("THU")), trash.cadence)
+        val towels = routine("put the towels to wash every two weeks on a Friday")
+        assertEquals(ItemType.Routine, towels.type)
+        assertEquals(com.juice.core.routine.Cadence(setOf(D.getValue("FRI")), null, 2), towels.cadence)
+        assertEquals(3, routine("water plants every 3 weeks on Monday").cadence?.intervalWeeks)
+    }
+
+    @Test fun projectRuleReadsListsWithAndWithoutAColon() {
+        val item = RulesFallback.classify("get tape, rope and boxes when I go to the warehouse tomorrow", tuesday)
+        assertEquals(ItemType.Project, item.type)
+        assertEquals(listOf("Get tape", "Get rope", "Get boxes"), item.subItems)
+        assertEquals(Instant.parse("2026-03-04T23:59:00Z"), item.deadline)
+        val verbs = RulesFallback.classify("call mum, email Sam and book flights")
+        assertEquals(listOf("Call mum", "Email Sam", "Book flights"), verbs.subItems)
+        assertEquals(ItemType.Task, RulesFallback.classify("get milk and eggs").type)
+    }
+
+    @Test fun taskNoteAndGoalRules() {
+        assertEquals(ItemType.Task, routine("Make a game where you play as a little pig").type)
+        assertEquals(ItemType.Task, routine("Call the dentist").type)
+        assertEquals(ItemType.Note, routine("I'd like to make a game where you play as a little pig").type)
+        assertEquals(ItemType.Note, routine("one day I will learn the cello").type)
+        assertEquals(ItemType.Goal, routine("the report is due friday").type)
+        assertEquals(ItemType.Task, routine("grab a coffee").type)
+    }
+
+    @Test fun rulesAlwaysDecideTheTypeAndTheModelSuppliesTitleStepsAndDeadline() {
+        val note = routine("I'd like to make a game where you play as a little pig")
+        val invented = ParsedItem(ItemType.Project, "Pig game", deadline = now.plusSeconds(60), subItems = listOf("Design", "Code"))
+        assertEquals(ParsedItem(ItemType.Note, "Pig game"), invented.improvingOn(note))
+
+        val rules = RulesFallback.classify("get tape, rope and boxes at the warehouse tomorrow", tuesday)
+        val merged = ParsedItem(ItemType.Task, "Warehouse run").improvingOn(rules)
+        assertEquals(ItemType.Project, merged.type)
+        assertEquals("Warehouse run", merged.title)
+        assertEquals(listOf("Get tape", "Get rope", "Get boxes"), merged.subItems)
+        assertEquals(rules.deadline, merged.deadline)
+
+        val sunday = routine("go to the library every Sunday")
+        val routineMerged = ParsedItem(ItemType.Goal, "Library", deadline = now).improvingOn(sunday)
+        assertEquals(ItemType.Routine, routineMerged.type)
+        assertEquals(sunday.cadence, routineMerged.cadence)
+        assertNull(routineMerged.deadline)
+
+        val task = ParsedItem(ItemType.Goal, "Dentist", deadline = now).improvingOn(routine("call the dentist"))
+        assertEquals(ParsedItem(ItemType.Task, "Dentist", deadline = now), task)
     }
 }

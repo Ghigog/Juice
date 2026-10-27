@@ -8,8 +8,9 @@ import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 /**
- * Local classifier for offline, API failure and on-device-only mode: a cadence phrase ("every Sunday")
- * makes a Routine, a date or time phrase makes a Goal, "Title: a, b and c" makes a Project, a leading action verb ("find my passport") makes a Task, anything else is a Note.
+ * Local classifier for offline, API failure and on-device-only mode, and the final say on a card's type: the first of [typeRules] to match wins.
+ * A list ("Title: a, b and c", "get a, b and c") makes a Project, a cadence phrase ("every Sunday") a Routine,
+ * a date or time phrase a Goal, a leading action verb ("find my passport") a Task, anything else a Note.
  */
 object RulesFallback {
     /** Spans of time; a bare "week" or "month" needs "this", "next" or "end of" to count. */
@@ -29,10 +30,30 @@ object RulesFallback {
             """$PERIOD|$WITHIN)\b""",
         RegexOption.IGNORE_CASE,
     )
+    private val verbs = listOf(
+        "buy", "call", "send", "email", "finish", "do", "write", "fix", "book", "pay", "order", "reply", "clean", "plan",
+        "review", "ship", "pick", "make", "record", "submit", "check", "update", "cancel", "renew", "schedule", "prepare",
+        "draft", "read", "text", "ask", "return", "file", "tidy", "wash", "find", "go", "get", "take", "bring", "look",
+        "set", "try", "remember", "put", "move", "change", "open", "stop", "start", "see", "meet", "visit", "grab",
+        "fetch", "collect", "drop", "cook", "bake", "water", "feed", "walk", "run", "practice", "study", "learn",
+        "install", "download", "upload", "sign", "apply", "register", "contact", "message", "rent", "sell", "donate",
+        "repair", "replace", "build", "create", "design", "test", "deploy", "organise", "organize", "sort", "pack",
+        "unpack", "load", "empty", "vacuum", "sweep", "mop", "iron", "fold", "charge", "print", "scan", "share",
+        "post", "invite", "thank", "confirm", "arrange", "deliver", "throw", "hang", "water", "rinse", "wipe",
+    )
     private val leadingVerb = Regex(
-        """^(?:(?:please|pls|to)\s+)*(?:buy|call|send|email|finish|do|write|fix|book|pay|order|reply|clean|plan|review|ship|pick|make|record|""" +
-            """submit|check|update|cancel|renew|schedule|prepare|draft|read|text|ask|return|file|tidy|wash|""" +
-            """find|go|get|take|bring|look|set|try|remember|put|move|change|open|stop|start|see|meet|visit)\b""",
+        """^(?:(?:please|pls|to)\s+)*(${verbs.joinToString("|")})\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    /** Where a shopping-style list ends and the rest of the sentence ("when I go to…", "tomorrow") begins. */
+    private val listEnd = Regex(
+        """\s+(?:when|while|at|from|in|on|by|before|after|for|if|once|every|daily|weekly|today|tonight|tomorrow|next|this|within)\b.*$""",
+        RegexOption.IGNORE_CASE,
+    )
+    private const val MAX_LIST_ITEM_WORDS = 4
+    private const val MIN_PLAIN_LIST_ITEMS = 3
+    private val intervalCadence = Regex(
+        """\bevery\s+(?:(\d+|two|three|four)\s+weeks?|other(?:\s+week)?|second\s+week)\b""",
         RegexOption.IGNORE_CASE,
     )
     private val clockTime = Regex("""\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b""", RegexOption.IGNORE_CASE)
@@ -40,29 +61,68 @@ object RulesFallback {
     private const val WEEKDAY = """(?:mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b"""
     private val dailyPhrase = Regex("""\b(?:every ?day|daily)\b""", RegexOption.IGNORE_CASE)
     private val weekdayCadence = Regex(
-        """\b(?:every|weekly on)\s+($WEEKDAY(?:\s*(?:,|&|\band\b)\s*$WEEKDAY)*)""",
+        """\b(?:every|weekly on)\s+($WEEKDAY(?:\s*(?:,|/|&|\band\b)\s*$WEEKDAY)*)""",
         RegexOption.IGNORE_CASE,
     )
+    private val weekdayAnywhere = Regex("""\b$WEEKDAY""", RegexOption.IGNORE_CASE)
     private val weekdayName = Regex(WEEKDAY, RegexOption.IGNORE_CASE)
     private val listSplit = Regex(""",|\band\b""", RegexOption.IGNORE_CASE)
     private val period = Regex("""\b($PERIOD)\b""", RegexOption.IGNORE_CASE)
     private val within = Regex("""\b$WITHIN\b""", RegexOption.IGNORE_CASE)
 
+    private class Input(val text: String, val title: String, val now: ZonedDateTime?)
+
+    /** The type rules, checked in order; the first to answer decides. To add a rule, add an entry here and its test. */
+    private val typeRules: List<(Input) -> ParsedItem?> = listOf(
+        ::projectRule, // several concrete tasks in a list
+        ::routineRule, // "every …" or another repeat
+        ::goalRule, // a date or time
+        ::taskRule, // starts with a verb
+        { ParsedItem(ItemType.Note, it.title) }, // anything else, "I'd like to…" and "one day…" included
+    )
+
     /** [now] resolves simple phrases like "by 6pm" or "tomorrow" into a deadline. */
     fun classify(rawText: String, now: ZonedDateTime? = null): ParsedItem {
         val text = rawText.trim()
-        val title = text.take(IntakeValidator.MAX_TITLE_LENGTH)
-        projectOf(text)?.let { return it }
-        cadenceOf(text)?.let { return ParsedItem(ItemType.Routine, title, cadence = it) }
-        if (dateOrTimePhrase.containsMatchIn(text)) {
-            return ParsedItem(ItemType.Goal, title, deadline = now?.let { deadlineIn(text, it) }?.toInstant())
-        }
-        val type = if (leadingVerb.containsMatchIn(text)) ItemType.Task else ItemType.Note
-        return ParsedItem(type, title)
+        val input = Input(text, text.take(IntakeValidator.MAX_TITLE_LENGTH), now)
+        return typeRules.firstNotNullOf { it(input) }
     }
+
+    private fun projectRule(i: Input): ParsedItem? {
+        val (title, steps) = colonList(i.text) ?: plainList(i.text) ?: return null
+        return ParsedItem(
+            ItemType.Project,
+            title?.take(IntakeValidator.MAX_TITLE_LENGTH) ?: i.title,
+            deadline = deadlineOf(i),
+            subItems = steps.take(IntakeValidator.MAX_SUB_ITEMS),
+        )
+    }
+
+    private fun routineRule(i: Input): ParsedItem? =
+        cadenceOf(i.text)?.let { ParsedItem(ItemType.Routine, i.title, cadence = it) }
+
+    private fun goalRule(i: Input): ParsedItem? =
+        if (dateOrTimePhrase.containsMatchIn(i.text)) ParsedItem(ItemType.Goal, i.title, deadline = deadlineOf(i)) else null
+
+    private fun taskRule(i: Input): ParsedItem? =
+        if (leadingVerb.containsMatchIn(i.text)) ParsedItem(ItemType.Task, i.title) else null
+
+    private fun deadlineOf(i: Input) = i.now?.let { deadlineIn(i.text, it) }?.toInstant()
 
     /** "every day", "daily", "every Mon and Thu" or "weekly on Friday", with an optional clock time. */
     private fun cadenceOf(text: String): Cadence? {
+        intervalCadence.find(text)?.let { m ->
+            val days = weekdayAnywhere.findAll(text, m.range.last).map { dayOfWeek(it.value) }.toSet()
+            if (days.isEmpty()) return null
+            val interval = when (val n = m.groupValues[1].lowercase()) {
+                "" -> 2
+                "two" -> 2
+                "three" -> 3
+                "four" -> 4
+                else -> n.toInt()
+            }
+            return if (interval >= 1) Cadence(days, clockTimeIn(text), interval) else null
+        }
         val days = if (dailyPhrase.containsMatchIn(text)) {
             DayOfWeek.entries.toSet()
         } else {
@@ -86,17 +146,31 @@ object RulesFallback {
         return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
     }
 
-    /** "Launch: write copy, record demo and ship" is a Project with three steps. */
-    private fun projectOf(text: String): ParsedItem? {
+    /** "Launch: write copy, record demo and ship" is a Project titled "Launch" with three steps. */
+    private fun colonList(text: String): Pair<String?, List<String>>? {
         val colon = text.indexOf(':')
         if (colon <= 0) return null
         val steps = text.substring(colon + 1).split(listSplit).map { it.trim() }.filter { it.isNotEmpty() }
         if (steps.size < 2) return null
-        return ParsedItem(
-            ItemType.Project,
-            text.substring(0, colon).trim().take(IntakeValidator.MAX_TITLE_LENGTH),
-            subItems = steps.take(IntakeValidator.MAX_SUB_ITEMS).map { s -> s.replaceFirstChar { it.uppercase() } },
-        )
+        return text.substring(0, colon).trim() to steps.map { s -> s.replaceFirstChar { it.uppercase() } }
+    }
+
+    /**
+     * A list with no colon: "get tape, rope and boxes at the warehouse" gives "Get tape", "Get rope", "Get boxes";
+     * "call mum, email Sam and book flights" keeps each step's own verb.
+     */
+    private fun plainList(text: String): Pair<String?, List<String>>? {
+        val verb = leadingVerb.find(text) ?: return null
+        val rest = text.substring(verb.range.last + 1).replace(listEnd, "").trimEnd('.', '!', ' ')
+        val items = rest.split(listSplit).map { it.trim() }.filter { it.isNotEmpty() }
+        if (items.any { it.split(Regex("""\s+""")).size > MAX_LIST_ITEM_WORDS }) return null
+        val head = verb.groupValues[1].lowercase()
+        // Each item after the first leading with its own verb: the list is already steps.
+        if (items.size >= 2 && items.drop(1).all { leadingVerb.containsMatchIn(it) }) {
+            return null to (listOf("$head ${items.first()}") + items.drop(1)).map { s -> s.replaceFirstChar { it.uppercase() } }
+        }
+        if (items.size < MIN_PLAIN_LIST_ITEMS) return null
+        return null to items.map { "$head $it".replaceFirstChar { c -> c.uppercase() } }
     }
 
     /** The day and clock time named in [text], or null when it names neither. Always in the future. */
