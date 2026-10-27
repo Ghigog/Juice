@@ -780,7 +780,7 @@ private fun Carousel(
     SideEffect {
         cardPops.visibleCentres = {
             val info = listState.layoutInfo
-            val x = carouselRoot.x + (listStartPx + info.viewportSize.width) / 2f
+            val x = carouselRoot.x + listStartPx + info.viewportSize.width / 2f
             info.visibleItemsInfo.map { Offset(x, carouselRoot.y + it.offset + it.size / 2f) }
         }
     }
