@@ -49,4 +49,25 @@ class CadenceTest {
     fun emptyDaysIsInvalid() {
         Cadence(emptySet())
     }
+
+    private val fortnightlyFridays = Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 2)
+
+    @Test fun nextDueAfterSkipsByTheInterval() {
+        assertEquals(LocalDate.of(2026, 11, 6), fortnightlyFridays.nextDueAfter(LocalDate.of(2026, 10, 23)))
+    }
+
+    @Test fun nextDueAfterKeepsLaterDaysOfTheSameWeek() {
+        val cadence = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.FRIDAY), intervalWeeks = 2)
+        assertEquals(LocalDate.of(2026, 10, 23), cadence.nextDueAfter(LocalDate.of(2026, 10, 20)))
+        assertEquals(LocalDate.of(2026, 11, 3), cadence.nextDueAfter(LocalDate.of(2026, 10, 23)))
+    }
+
+    @Test fun intervalLabel() {
+        assertEquals("Every 2 weeks on Fri", fortnightlyFridays.label())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun intervalBelowOneIsInvalid() {
+        Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 0)
+    }
 }
