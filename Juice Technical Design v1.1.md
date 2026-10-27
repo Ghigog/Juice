@@ -109,7 +109,7 @@ Later platforms: reconsider Kotlin Multiplatform or Flutter once the Android cor
 ```
 
 ### 5.2 Blur
-- **Background blur** is a settings toggle. When on, the overlay uses Android 12+ window blur (`blurBehindRadius`). When off, or when unsupported or battery saver is active, it falls back to a dark semi-opaque scrim with the same glass styling.
+- **Background blur** is a settings toggle. When on, the overlay uses Android 12+ window background blur (`Window.setBackgroundBlurRadius`, see docs/overlay-blur-flicker.md). When off, or when unsupported or battery saver is active, it falls back to a dark semi-opaque scrim with the same glass styling.
 - Default: on where supported, off under battery saver. Blur is costly on low-end GPUs, so the toggle matters.
 
 ### 5.3 Liquid shader (AGSL)
