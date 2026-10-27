@@ -90,6 +90,9 @@ class OverlayService : Service() {
     private var overlay: View? = null
     private var starting = false
     private var handBack: HandBack? = null
+
+    // Whether the overlay's own backdrop slice is drawn; the stage's flying slice covers it while it is not.
+    private val overlaySliceShown = mutableStateOf(true)
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val backdrop = mutableStateOf(Backdrop.SCRIM)
     // The blur radius last set on the overlay window, which ramps up with the reveal.
@@ -206,8 +209,8 @@ class OverlayService : Service() {
         view.accent = FlavourTheme.of(flavour).accent
     }
 
-    /** Shows the handle; with [flyFrom] the slice flies in from there first and [onLanded] is called once the handle takes touches. */
-    private fun showHandle(flyFrom: SliceSpot? = null, onLanded: () -> Unit = {}) {
+    /** Shows the handle; with [flyFrom] the slice flies in from there first and [onLanded] is called once the handle takes touches; [onStageDrawn] is called once the stage has drawn the slice. */
+    private fun showHandle(flyFrom: SliceSpot? = null, onStageDrawn: () -> Unit = {}, onLanded: () -> Unit = {}) {
         val density = resources.displayMetrics.density
         val view = SliceHandleView(
             this,
@@ -231,7 +234,7 @@ class OverlayService : Service() {
         view.slices = SliceLogoPainter.sliceCount(openItems)
         val (x, y) = handleCentre()
         handle = view
-        if (flyFrom == null) view.show(x, y) else view.flyHome(x, y, flyFrom, animate = !settings.reduceMotion, onLanded)
+        if (flyFrom == null) view.show(x, y) else view.flyHome(x, y, flyFrom, animate = !settings.reduceMotion, onStageDrawn, onLanded)
     }
 
     /**
@@ -250,7 +253,8 @@ class OverlayService : Service() {
             show = {
                 handOverToOverlay(
                     fly = { onArrived -> flying.flyTo(target, animate = !settings.reduceMotion, onArrived) },
-                    show = ::showOverlay,
+                    show = { showOverlay(); overlaySliceShown.value = false },
+                    showOverlaySlice = { overlaySliceShown.value = true },
                     whenOverlayDrawn = { action -> overlay?.whenDrawn(action) ?: action() },
                     dismissStage = { flying.dismissStage(); if (handle === flying) handle = null },
                 )
@@ -295,7 +299,8 @@ class OverlayService : Service() {
         val bounds = windowManager.maximumWindowMetrics.bounds
         val from = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
         val back = HandBack(
-            fly = { onLanded -> showHandle(from, onLanded) },
+            fly = { onStageDrawn, onLanded -> showHandle(from, onStageDrawn, onLanded) },
+            hideOverlaySlice = { overlaySliceShown.value = false },
             finish = { handBack = null; removeOverlay() },
         )
         handBack = back
@@ -303,6 +308,7 @@ class OverlayService : Service() {
     }
 
     private fun showOverlay() {
+        overlaySliceShown.value = true
         val reservoir = ThirstReservoirView(this)
         val effects = OverlayEffects()
         val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
@@ -434,6 +440,7 @@ class OverlayService : Service() {
                     hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
                     onRevealProgress = ::rampBlur,
+                    sliceShown = overlaySliceShown.value,
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
