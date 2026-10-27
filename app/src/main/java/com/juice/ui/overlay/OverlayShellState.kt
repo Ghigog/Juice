@@ -70,6 +70,9 @@ class OverlayShellState(
     var undo by mutableStateOf<Undo?>(null)
         private set
 
+    /** True while a card's title is being edited; the shell hides the capture field meanwhile. */
+    var editingTitle by mutableStateOf(false)
+
     /** The coach chat shown over the carousel, if one is open. */
     var coachChat by mutableStateOf<CoachChatState?>(null)
         private set

@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -120,6 +121,10 @@ internal fun CentreCard(
     var tint by remember { mutableStateOf<Tint?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
     var editing by remember(item?.id) { mutableStateOf(false) }
+    DisposableEffect(editing) {
+        state.editingTitle = editing
+        onDispose { state.editingTitle = false }
+    }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }
