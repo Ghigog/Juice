@@ -38,6 +38,9 @@ import kotlinx.coroutines.withContext
 /** The last ✓/✗, kept for [OverlayShellState.UNDO_WINDOW_MILLIS] so it can be taken back. */
 data class Undo(val item: Item, val dismissed: Boolean)
 
+/** The title being edited: which card, and the text typed so far. */
+data class TitleEdit(val itemId: String, val text: String)
+
 /** State of the overlay: the Active items shown in the carousel and the pending undo. */
 class OverlayShellState(
     private val repository: ItemRepository,
@@ -69,6 +72,30 @@ class OverlayShellState(
         private set
     var undo by mutableStateOf<Undo?>(null)
         private set
+
+    /** The open title editor, if any; held here so a tap outside the card can save it. */
+    var titleEdit by mutableStateOf<TitleEdit?>(null)
+        private set
+
+    fun beginTitleEdit(item: Item) {
+        titleEdit = TitleEdit(item.id, item.title)
+    }
+
+    fun changeTitleEdit(text: String) {
+        titleEdit = titleEdit?.copy(text = text)
+    }
+
+    fun endTitleEdit() {
+        titleEdit = null
+    }
+
+    /** Saves the open title edit and ends it; false when no title is being edited. */
+    fun commitTitleEdit(): Boolean {
+        val edit = titleEdit ?: return false
+        items.firstOrNull { it.id == edit.itemId }?.let { setTitle(it, edit.text) }
+        titleEdit = null
+        return true
+    }
 
     /** The coach chat shown over the carousel, if one is open. */
     var coachChat by mutableStateOf<CoachChatState?>(null)
