@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -113,6 +114,7 @@ internal fun CentreCard(
     effects: OverlayEffects,
     reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    onEditingChange: (Boolean) -> Unit = {},
 ) {
     val recognizer = remember { GestureRecognizer() }
     val scope = rememberCoroutineScope()
@@ -125,6 +127,9 @@ internal fun CentreCard(
         state.editingTitle = editing
         onDispose { state.editingTitle = false }
     }
+    val reportEditing by rememberUpdatedState(onEditingChange)
+    LaunchedEffect(editing) { reportEditing(editing) }
+    DisposableEffect(Unit) { onDispose { reportEditing(false) } }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }

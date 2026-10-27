@@ -645,6 +645,27 @@ class OverlayShellTest {
     }
 
     @Test
+    fun editingATitleHidesTheCarouselAndConfirmingBringsItBackWithTheSameNoteCentred() {
+        val items = arrayOf(Item("a", ItemType.Note, "cal sam"), Item("b", ItemType.Note, "Buy milk"), Item("c", ItemType.Note, "Pay rent"))
+        items.forEach { runBlocking { repository.save(it) } }
+        show(*items)
+        val carouselWidth = { compose.onNodeWithTag(TAG_CAROUSEL).fetchSemanticsNode().boundsInRoot.width }
+        assertTrue(carouselWidth() > 0f)
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { click() }
+        idle()
+        assertEquals(0f, carouselWidth())
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextClearance()
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performTextInput("Call Sam")
+        compose.onNodeWithTag(TAG_TITLE_FIELD).performImeAction()
+        idle()
+        assertTrue(carouselWidth() > 0f)
+        compose.onNodeWithTag(TAG_CENTRE_CARD).assertIsDisplayed()
+        assertEquals("Call Sam", state.items.first().title)
+        compose.onAllNodesWithText("Call Sam").onLast().assertIsDisplayed()
+        compose.onAllNodesWithText("Buy milk").onFirst().assertIsDisplayed()
+    }
+
+    @Test
     fun draggingFromTheTitleDoesNotEditIt() {
         val item = Item("a", ItemType.Note, "cal sam")
         runBlocking { repository.save(item) }
