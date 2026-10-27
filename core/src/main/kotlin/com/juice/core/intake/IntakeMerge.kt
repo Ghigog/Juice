@@ -15,18 +15,13 @@ fun IntakeCard.mergeParse(parsed: ParsedItem): IntakeCard {
 }
 
 /**
- * Keeps the rules' Routine when the model answered Note, Task or Goal for text the rules read as one.
- * Keeps the rules' Task when the model answered Note, so a verb-led note is never lost among notes.
- * Otherwise keeps the rules' type and deadline when the model answered Note or Task with no deadline but the
- * [rules] found one in the same text, so the model never comes out worse than the rules.
+ * The rules always decide the type (and a Routine's cadence); the model only supplies the title, the steps and the
+ * deadline. Only a Project has steps, a Routine and a Note have no deadline, and a Project the model gave no
+ * steps keeps the rules' own.
  */
-fun ParsedItem.improvingOn(rules: ParsedItem): ParsedItem =
-    if (rules.type == ItemType.Routine && type in setOf(ItemType.Note, ItemType.Task, ItemType.Goal)) {
-        copy(type = ItemType.Routine, deadline = null, cadence = rules.cadence)
-    } else if (rules.type == ItemType.Task && type == ItemType.Note) {
-        copy(type = ItemType.Task)
-    } else if (deadline == null && rules.deadline != null && type in setOf(ItemType.Note, ItemType.Task)) {
-        copy(type = rules.type, deadline = rules.deadline)
-    } else {
-        this
-    }
+fun ParsedItem.improvingOn(rules: ParsedItem): ParsedItem = copy(
+    type = rules.type,
+    deadline = if (rules.type in setOf(ItemType.Routine, ItemType.Note)) null else deadline ?: rules.deadline,
+    subItems = if (rules.type == ItemType.Project) subItems.ifEmpty { rules.subItems } else emptyList(),
+    cadence = rules.cadence,
+)

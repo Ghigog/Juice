@@ -106,6 +106,8 @@ class GroqClient(
             }
 
             Rules:
+            - The app decides the type from the wording, so concentrate on "title", "sub_items" and "deadline".
+            - Never invent steps: "sub_items" holds only steps the person actually wrote, otherwise null.
             - "cadence" is only for Routine; use null for every other type. A Routine has a null deadline.
         """.trimIndent()
     }
