@@ -203,6 +203,8 @@ fun OverlayShell(
     onDraining: () -> Unit = {},
     /** Reports how far the ground has grown, 0..1: rising on open, falling on the drain at close. */
     onRevealProgress: (Float) -> Unit = {},
+    /** Whether the backdrop slice is drawn; the host hides it while the handle's stage window draws the slice instead. */
+    sliceShown: Boolean = true,
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -310,7 +312,7 @@ fun OverlayShell(
                 slices = SliceLogoPainter.sliceCount(state.items.size),
                 active = centre.coerceAtMost(state.items.lastIndex),
                 spin = spin,
-                shown = { reveal.value >= 1f },
+                shown = sliceShown,
             )
             // The ground sits in front of the slice, so the slice is dimmed by it; it grows from the reveal origin.
             Box(
@@ -584,7 +586,7 @@ const val BACKDROP_HIDDEN = "hidden"
  * plain vector draw; the ground in front of it supplies any dimming or softening.
  */
 @Composable
-private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum, shown: () -> Boolean) {
+private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum, shown: Boolean) {
     val painter = remember { SliceLogoPainter() }
     val style = SliceStyle.of(hud.flavour)
     var turn by remember { mutableFloatStateOf(0f) }
@@ -603,11 +605,11 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
                 .align(Alignment.TopEnd)
                 .offset(BACKDROP_DP / 4, -BACKDROP_DP / 4)
                 .size(BACKDROP_DP)
-                .semantics { stateDescription = if (shown()) BACKDROP_SHOWN else BACKDROP_HIDDEN }
+                .semantics { stateDescription = if (shown) BACKDROP_SHOWN else BACKDROP_HIDDEN }
                 .testTag(TAG_BACKDROP_SLICE)
                 // Hidden while the stage's flying slice opens or closes the overlay, so one slice is on screen.
                 .graphicsLayer {
-                    alpha = if (shown()) 1f else 0f
+                    alpha = if (shown) 1f else 0f
                     rotationZ = turn
                 },
         ) {

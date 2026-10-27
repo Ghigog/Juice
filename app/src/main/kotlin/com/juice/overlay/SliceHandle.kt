@@ -183,7 +183,7 @@ internal class SliceHandleView(
      * handle's own window, which takes touches, is added once it has landed, then [onLanded] is called.
      * Without [animate] it lands at once.
      */
-    fun flyHome(x: Float, y: Float, from: SliceSpot, animate: Boolean, onLanded: () -> Unit) {
+    fun flyHome(x: Float, y: Float, from: SliceSpot, animate: Boolean, onStageDrawn: () -> Unit, onLanded: () -> Unit) {
         centreX = x
         centreY = y
         place()
@@ -198,10 +198,12 @@ internal class SliceHandleView(
         }
         if (!animate) {
             land()
+            onStageDrawn()
             return
         }
         stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices)
         stage.visibility = VISIBLE
+        stage.whenDrawn(onStageDrawn)
         flight = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = FLIGHT_MILLIS
             interpolator = DecelerateInterpolator(1.5f)

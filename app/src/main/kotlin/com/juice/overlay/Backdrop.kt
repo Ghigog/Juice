@@ -40,31 +40,40 @@ internal fun blurRadiusFor(progress: Float): Int = (BLUR_RADIUS_PX * progress.co
 
 /**
  * The swipe-open hand-over: the overlay is shown as the slice starts flying to the backdrop, so
- * the ground grows while it flies. The stage is dismissed once the flight is done and the overlay
- * has drawn its first frame. A throwing [show] stops the hand-over before the flight starts; the
+ * the ground grows while it flies. When the slice arrives the overlay's own slice is shown
+ * ([showOverlaySlice]); the stage is dismissed once the flight is done, the overlay has drawn its
+ * first frame and a frame with its slice visible is drawn, so the two windows overlap and one
+ * slice is always on screen. A throwing [show] stops the hand-over before the flight starts; the
  * caller's guard cleans up.
  */
 internal fun handOverToOverlay(
     fly: (onArrived: () -> Unit) -> Unit,
     show: () -> Unit,
+    showOverlaySlice: () -> Unit,
     whenOverlayDrawn: (action: () -> Unit) -> Unit,
     dismissStage: () -> Unit,
 ) {
-    var pending = 2
+    var pending = 3
     val oneDone = { if (--pending == 0) dismissStage() }
     show()
     whenOverlayDrawn(oneDone)
-    fly(oneDone)
+    fly {
+        oneDone()
+        showOverlaySlice()
+        whenOverlayDrawn(oneDone)
+    }
 }
 
 /**
  * The close hand-over, the open played backwards: when the ground starts to drain ([draining]) the
- * slice flies from the backdrop to the handle; once the drain is done ([drained]) and the slice
+ * slice flies from the backdrop to the handle; the overlay's slice is hidden ([hideOverlaySlice])
+ * only once the stage has drawn the flying slice. Once the drain is done ([drained]) and the slice
  * has landed, [finish] removes the overlay and the handle takes touches. A drain that never
  * started (reduced motion) finishes at once without a flight.
  */
 internal class HandBack(
-    private val fly: (onLanded: () -> Unit) -> Unit,
+    private val fly: (onStageDrawn: () -> Unit, onLanded: () -> Unit) -> Unit,
+    private val hideOverlaySlice: () -> Unit,
     private val finish: () -> Unit,
 ) {
     private var pending = 0
@@ -74,7 +83,7 @@ internal class HandBack(
         if (flying) return
         flying = true
         pending = 2
-        fly(::oneDone)
+        fly(hideOverlaySlice, ::oneDone)
     }
 
     fun drained() {

@@ -70,38 +70,56 @@ class BackdropTest {
     }
 
     @Test
-    fun handOverShowsTheOverlayAsTheFlightStartsAndDismissesTheStageOnceBothFlightAndFirstFrameAreDone() {
+    fun handOverShowsTheOverlaySliceOnArrivalAndDismissesTheStageAfterThatFrame() {
         val calls = mutableListOf<String>()
         var arrive = {}
-        var drawn = {}
+        val frames = mutableListOf<() -> Unit>()
         handOverToOverlay(
             fly = { arrive = it; calls += "fly" },
             show = { calls += "show" },
-            whenOverlayDrawn = { drawn = it; calls += "await-frame" },
+            showOverlaySlice = { calls += "slice" },
+            whenOverlayDrawn = { frames += it; calls += "await-frame" },
             dismissStage = { calls += "dismiss" },
         )
         assertEquals(listOf("show", "await-frame", "fly"), calls)
-        drawn()
+        frames[0]()
         assertEquals(listOf("show", "await-frame", "fly"), calls)
         arrive()
-        assertEquals(listOf("show", "await-frame", "fly", "dismiss"), calls)
+        assertEquals(listOf("show", "await-frame", "fly", "slice", "await-frame"), calls)
+        frames[1]()
+        assertEquals(listOf("show", "await-frame", "fly", "slice", "await-frame", "dismiss"), calls)
     }
 
     @Test
-    fun handOverDismissesOnceWhicheverFinishesLast() {
+    fun handOverKeepsTheStageUntilTheSliceFrameEvenIfTheFirstFrameIsLate() {
         val calls = mutableListOf<String>()
         var arrive = {}
-        var drawn = {}
+        val frames = mutableListOf<() -> Unit>()
         handOverToOverlay(
             fly = { arrive = it },
             show = {},
-            whenOverlayDrawn = { drawn = it },
+            showOverlaySlice = {},
+            whenOverlayDrawn = { frames += it },
             dismissStage = { calls += "dismiss" },
         )
         arrive()
+        frames[1]()
         assertEquals(emptyList(), calls)
-        drawn()
+        frames[0]()
         assertEquals(listOf("dismiss"), calls)
+    }
+
+    @Test
+    fun handOverDismissesAtOnceWhenEverythingCompletesSynchronously() {
+        var dismissed = 0
+        handOverToOverlay(
+            fly = { it() },
+            show = {},
+            showOverlaySlice = {},
+            whenOverlayDrawn = { it() },
+            dismissStage = { dismissed++ },
+        )
+        assertEquals(1, dismissed)
     }
 
     @Test
@@ -111,6 +129,7 @@ class BackdropTest {
             handOverToOverlay(
                 fly = { flew = true },
                 show = { throw IllegalStateException("no window") },
+                showOverlaySlice = {},
                 whenOverlayDrawn = {},
                 dismissStage = {},
             )
@@ -122,7 +141,7 @@ class BackdropTest {
     fun handBackFliesWhenTheDrainStartsAndFinishesOnceBothDrainAndLandingAreDone() {
         val calls = mutableListOf<String>()
         var land = {}
-        val back = HandBack(fly = { land = it; calls += "fly" }, finish = { calls += "finish" })
+        val back = HandBack(fly = { _, landed -> land = landed; calls += "fly" }, hideOverlaySlice = {}, finish = { calls += "finish" })
         back.draining()
         assertEquals(listOf("fly"), calls)
         back.drained()
@@ -132,10 +151,25 @@ class BackdropTest {
     }
 
     @Test
+    fun handBackHidesTheOverlaySliceOnlyOnceTheStageHasDrawn() {
+        val calls = mutableListOf<String>()
+        var drawn = {}
+        val back = HandBack(
+            fly = { stageDrawn, _ -> drawn = stageDrawn; calls += "fly" },
+            hideOverlaySlice = { calls += "hide" },
+            finish = {},
+        )
+        back.draining()
+        assertEquals(listOf("fly"), calls)
+        drawn()
+        assertEquals(listOf("fly", "hide"), calls)
+    }
+
+    @Test
     fun handBackFinishesOnceWhicheverEndsLast() {
         val calls = mutableListOf<String>()
         var land = {}
-        val back = HandBack(fly = { land = it }, finish = { calls += "finish" })
+        val back = HandBack(fly = { _, landed -> land = landed }, hideOverlaySlice = {}, finish = { calls += "finish" })
         back.draining()
         land()
         assertEquals(emptyList(), calls)
@@ -147,7 +181,7 @@ class BackdropTest {
     fun handBackWithoutADrainFinishesAtOnceWithoutAFlight() {
         var flew = false
         var finished = 0
-        HandBack(fly = { flew = true }, finish = { finished++ }).drained()
+        HandBack(fly = { _, _ -> flew = true }, hideOverlaySlice = {}, finish = { finished++ }).drained()
         assertEquals(false, flew)
         assertEquals(1, finished)
     }

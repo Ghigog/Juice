@@ -1,6 +1,9 @@
 package com.juice.ui.overlay
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.juice.RegisterComposeActivity
 import android.content.Context
@@ -99,12 +102,13 @@ class OverlayShellTest {
         actions: OverlayActions = OverlayActions(),
         reduceMotion: Boolean = true,
         onRevealProgress: (Float) -> Unit = {},
+        sliceShown: () -> Boolean = { true },
         reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
     ) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, reservoir = reservoir) }
+        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, sliceShown = sliceShown(), reservoir = reservoir) }
         idle()
     }
 
@@ -134,14 +138,19 @@ class OverlayShellTest {
     private fun backdropState() = compose.onNodeWithTag(TAG_BACKDROP_SLICE).fetchSemanticsNode().config[SemanticsProperties.StateDescription]
 
     @Test
-    fun theBackdropSliceIsHiddenAtAPartialRevealAndShownAtFullReveal() {
-        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false)
-        compose.mainClock.advanceTimeBy(REVEAL_MILLIS / 2L)
+    fun theBackdropSliceFollowsTheHostNotTheReveal() {
+        var shown by mutableStateOf(false)
+        show(Item("a", ItemType.Task, "Call Sam"), reduceMotion = false, sliceShown = { shown })
+        assertEquals(BACKDROP_HIDDEN, backdropState())
+        shown = true
+        compose.mainClock.advanceTimeBy(16)
+        compose.waitForIdle()
+        // Shown while the reveal is still growing.
+        assertEquals(BACKDROP_SHOWN, backdropState())
+        shown = false
+        compose.mainClock.advanceTimeBy(16)
         compose.waitForIdle()
         assertEquals(BACKDROP_HIDDEN, backdropState())
-        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong())
-        compose.waitForIdle()
-        assertEquals(BACKDROP_SHOWN, backdropState())
     }
 
     @Test
