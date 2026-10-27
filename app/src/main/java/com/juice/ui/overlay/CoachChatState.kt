@@ -1,5 +1,6 @@
 package com.juice.ui.overlay
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -101,7 +102,10 @@ class CoachChatState(
                     proposalRejected = true
                 }
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
-                is CoachReply.Error -> fail(CoachNotice.Unreachable)
+                is CoachReply.Error -> {
+                    Log.w("CoachChat", "Coach unreachable: ${reply.message}")
+                    fail(CoachNotice.Unreachable)
+                }
             }
             busy = false
         }

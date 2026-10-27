@@ -19,7 +19,7 @@ import kotlinx.serialization.json.put
 class GroqClient(
     private val apiKey: String,
     private val baseUrl: String = "https://api.groq.com/openai/v1",
-    private val model: String = "llama-3.3-70b-versatile",
+    private val model: String = MODEL,
 ) {
     /** Returns the model's JSON text for [rawText], with [now] injected into the system prompt. */
     fun parse(rawText: String, now: ZonedDateTime): String = complete(systemPrompt(now), rawText)
@@ -46,7 +46,7 @@ class GroqClient(
             conn.setRequestProperty("Authorization", "Bearer $apiKey")
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
-            if (conn.responseCode !in 200..299) throw IOException("Groq HTTP ${conn.responseCode}")
+            if (conn.responseCode !in 200..299) throw httpError(conn)
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             return try {
                 Json.parseToJsonElement(response).jsonObject["choices"]!!.jsonArray[0]
@@ -64,6 +64,15 @@ class GroqClient(
 
     companion object {
         private const val TIMEOUT_MS = 10_000
+
+        /** The Groq model every cloud call uses. Groq retires models (llama-3.3-70b-versatile went on 16 Aug 2026); change it here only. */
+        const val MODEL = "openai/gpt-oss-120b"
+
+        /** An [IOException] naming the HTTP status and Groq's own error text, so a failure says why. */
+        fun httpError(conn: HttpURLConnection): IOException {
+            val detail = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull().orEmpty()
+            return IOException("Groq HTTP ${conn.responseCode}${if (detail.isBlank()) "" else ": ${detail.take(300)}"}")
+        }
 
         /** Asks for the persona of a coach about the hobby in the user message. */
         val PERSONA_PROMPT = """
