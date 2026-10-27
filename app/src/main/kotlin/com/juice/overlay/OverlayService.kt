@@ -1,6 +1,7 @@
 package com.juice.overlay
 
 import java.time.LocalDate
+import android.app.Dialog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,7 +15,6 @@ import android.graphics.PixelFormat
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
-import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -88,6 +88,7 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var handle: SliceHandleView? = null
     private var overlay: View? = null
+    private var overlayDialog: Dialog? = null
     private var starting = false
     private var handBack: HandBack? = null
 
@@ -95,7 +96,7 @@ class OverlayService : Service() {
     private val overlaySliceShown = mutableStateOf(true)
     private var overlayLifecycle: OverlayLifecycleOwner? = null
     private val backdrop = mutableStateOf(Backdrop.SCRIM)
-    // The blur radius last set on the overlay window, which ramps up with the reveal.
+    // The blur radius the overlay window should have, which ramps up with the reveal.
     private var blurRadius = 0
     private val closeRequest = CloseRequest(reduceMotion = { settings.reduceMotion }, finish = ::closeOverlay)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -265,17 +266,23 @@ class OverlayService : Service() {
         )
     }
 
-    /** Sets the window blur to follow the reveal [progress]; a scrim has none, and an unchanged radius is not re-applied. */
+    /** Sets the window blur to follow the reveal [progress]; an unchanged radius is not re-applied. */
     private fun rampBlur(progress: Float) {
-        val view = overlay ?: return
+        if (overlayDialog == null) return
         val radius = blurRadiusFor(progress)
         if (radius == blurRadius) return
         // Tracked even under the scrim, so a later switch to blur starts from the right radius.
         blurRadius = radius
-        if (backdrop.value != Backdrop.BLUR) return
-        val params = view.layoutParams as WindowManager.LayoutParams
-        params.blurBehindRadius = radius
-        windowManager.updateViewLayout(view, params)
+        applyBlur()
+    }
+
+    /**
+     * The blur is the overlay window's own background blur, drawn by its render thread with each
+     * frame. Unlike FLAG_BLUR_BEHIND it needs no window relayout, and no shared system dim layer
+     * that the window manager drops whenever it judges the window not visible for a pass.
+     */
+    private fun applyBlur() {
+        overlayDialog?.window?.setBackgroundBlurRadius(windowBlurRadius(backdrop.value, blurRadius))
     }
 
     /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
@@ -344,22 +351,7 @@ class OverlayService : Service() {
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)
         val writingBack = WritingBack()
-        val root = object : FrameLayout(this) {
-            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-                if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                    if (event.action == KeyEvent.ACTION_UP) writingBack.back(closeRequest::request)
-                    return true
-                }
-                return super.dispatchKeyEvent(event)
-            }
-
-            // The system can drop the blur behind an overlay without telling the blur listener
-            // (seen after the overlay loses and regains focus); set it again on the way back.
-            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
-                super.onWindowFocusChanged(hasWindowFocus)
-                if (hasWindowFocus) applyBackdrop()
-            }
-        }.apply {
+        val root = FrameLayout(this).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             addView(composeView, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -453,11 +445,17 @@ class OverlayService : Service() {
                 )
             }
         }
-        val params = overlayLayoutParams()
+        val dialog = overlayDialog(this, root) { writingBack.back(closeRequest::request) }
+        // Compose looks for its owners from the window's root view, which is the dialog's decor.
+        dialog.window!!.decorView.apply {
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+        }
+        overlayDialog = dialog
         backdrop.value = chooseBackdrop()
         blurRadius = 0
-        withBackdrop(params, backdrop.value, blurRadius)
-        windowManager.addView(root, params)
+        applyBlur()
+        dialog.show()
         overlay = root
         windowManager.addCrossWindowBlurEnabledListener(mainExecutor, blurListener)
     }
@@ -485,11 +483,11 @@ class OverlayService : Service() {
 
     /** Blur behind the overlay when it is on, supported and battery saver is off; otherwise the scrim. */
     private fun applyBackdrop() {
-        val view = overlay ?: return
-        backdrop.value = chooseBackdrop()
-        val params = view.layoutParams as WindowManager.LayoutParams
-        withBackdrop(params, backdrop.value, blurRadius)
-        windowManager.updateViewLayout(view, params)
+        if (overlayDialog == null) return
+        val next = chooseBackdrop()
+        if (next == backdrop.value) return
+        backdrop.value = next
+        applyBlur()
     }
 
     private fun chooseBackdrop() = Backdrop.choose(
@@ -505,7 +503,8 @@ class OverlayService : Service() {
 
     private fun removeOverlay() {
         if (overlay != null) windowManager.removeCrossWindowBlurEnabledListener(blurListener)
-        overlay?.let(windowManager::removeView)
+        overlayDialog?.dismiss()
+        overlayDialog = null
         overlay = null
         handBack = null
         closeRequest.reset()
@@ -567,16 +566,31 @@ internal fun guardedShowOverlay(
     }
 }
 
-/** Blur of [radius] behind the window for [Backdrop.BLUR], none otherwise. */
-internal fun withBackdrop(params: WindowManager.LayoutParams, backdrop: Backdrop, radius: Int) {
-    if (backdrop == Backdrop.BLUR) {
-        params.flags = params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-        params.blurBehindRadius = radius
-    } else {
-        params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
-        params.blurBehindRadius = 0
+/**
+ * The overlay window, as a dialog so it has a PhoneWindow and with it the public background blur
+ * (Window.setBackgroundBlurRadius). That blur needs a translucent window theme. Back, whether a
+ * key or a predictive back gesture, calls [onBack] instead of closing the dialog.
+ */
+internal fun overlayDialog(context: Context, content: View, onBack: () -> Unit): Dialog =
+    object : Dialog(context, android.R.style.Theme_Translucent_NoTitleBar) {
+        @Deprecated("Also called for the predictive back gesture")
+        override fun onBackPressed() = onBack()
+    }.apply {
+        setCancelable(false)
+        setContentView(content)
+        window!!.apply {
+            // After setContentView, so these replace what the theme set up.
+            attributes = overlayLayoutParams()
+            setDecorFitsSystemWindows(false)
+        }
     }
-}
+
+/**
+ * The window background blur for [backdrop] at [radius]. Under blur it never drops to 0 while the
+ * window is up, since a 0 radius tears down the blur drawable and the next frame rebuilds it.
+ */
+internal fun windowBlurRadius(backdrop: Backdrop, radius: Int): Int =
+    if (backdrop == Backdrop.BLUR) radius.coerceAtLeast(1) else 0
 
 /** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
 @androidx.compose.runtime.Composable

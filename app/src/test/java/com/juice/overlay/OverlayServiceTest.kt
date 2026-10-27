@@ -1,6 +1,7 @@
 package com.juice.overlay
 
 import com.juice.RegisterComposeActivity
+import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
@@ -44,12 +45,48 @@ class OverlayServiceTest {
     }
 
     @Test
-    fun blurIsPartOfTheParamsTheWindowIsAddedWith() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
-        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND != 0)
-        assertTrue(params.blurBehindRadius > 0)
-        withBackdrop(params, Backdrop.SCRIM, BLUR_RADIUS_PX)
-        assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+    fun overlayIsAnOverlayDialogWithTheOverlayParams() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val attrs = overlayDialog(context, View(context)) {}.window!!.attributes
+        assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, attrs.type)
+        assertEquals(WindowManager.LayoutParams.MATCH_PARENT, attrs.width)
+        assertEquals(WindowManager.LayoutParams.MATCH_PARENT, attrs.height)
+        assertTrue(attrs.flags and WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED != 0)
+        assertEquals(0, attrs.fitInsetsTypes)
+    }
+
+    // The blur is the window's own background blur. FLAG_BLUR_BEHIND hands it to a system dim
+    // layer that the window manager drops and re-adds on its own (docs/overlay-blur-flicker.md).
+    @Test
+    fun overlayWindowDoesNotUseBlurBehindOrDim() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val flags = overlayDialog(context, View(context)) {}.window!!.attributes.flags
+        assertEquals(0, flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        assertEquals(0, flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+    }
+
+    @Test
+    fun backGoesToTheOverlayInsteadOfClosingTheDialog() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var backs = 0
+        val dialog = overlayDialog(context, View(context)) { backs++ }
+        var cancelled = false
+        dialog.setOnCancelListener { cancelled = true }
+        @Suppress("DEPRECATION")
+        dialog.onBackPressed()
+        assertEquals(1, backs)
+        assertEquals(false, cancelled)
+    }
+
+    @Test
+    fun blurNeverDropsToZeroWhileBlurred() {
+        assertEquals(1, windowBlurRadius(Backdrop.BLUR, 0))
+        assertEquals(BLUR_RADIUS_PX, windowBlurRadius(Backdrop.BLUR, BLUR_RADIUS_PX))
+    }
+
+    @Test
+    fun scrimHasNoBlur() {
+        assertEquals(0, windowBlurRadius(Backdrop.SCRIM, BLUR_RADIUS_PX))
     }
 
     @Test
@@ -74,27 +111,5 @@ class OverlayServiceTest {
         val calls = mutableListOf<String>()
         guardedShowOverlay({ calls += "show" }, { calls += "cleanup" }, { calls += "strip" })
         assertEquals(listOf("show"), calls)
-    }
-
-    // applyBackdrop() re-applies withBackdrop() to the window's own params, so a re-run with an
-    // unchanged backdrop must leave the blur flag and radius as they were. This rules out
-    // updateViewLayout dropping FLAG_BLUR_BEHIND from our side (docs/overlay-blur-flicker.md).
-    @Test
-    fun reapplyingTheSameBackdropKeepsTheBlurParams() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
-        val flags = params.flags
-        val radius = params.blurBehindRadius
-        withBackdrop(params, Backdrop.BLUR, BLUR_RADIUS_PX)
-        assertEquals(flags, params.flags)
-        assertEquals(radius, params.blurBehindRadius)
-    }
-
-    @Test
-    fun scrimAndBackAgainRestoresTheBlurParams() {
-        val params = overlayLayoutParams().also { withBackdrop(it, Backdrop.BLUR, BLUR_RADIUS_PX) }
-        val blurred = params.flags to params.blurBehindRadius
-        withBackdrop(params, Backdrop.SCRIM, BLUR_RADIUS_PX)
-        withBackdrop(params, Backdrop.BLUR, BLUR_RADIUS_PX)
-        assertEquals(blurred, params.flags to params.blurBehindRadius)
     }
 }
