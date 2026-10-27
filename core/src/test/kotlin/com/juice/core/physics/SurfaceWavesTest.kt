@@ -47,22 +47,22 @@ class SurfaceWavesTest {
     }
 
     @Test
-    fun largeKickPeaksHigherThanSmallTilt() {
-        val kicked = SurfaceWaves().apply { kick(1f) }
-        val tilted = SurfaceWaves().apply { tiltX = 0.1f; tiltY = 0.1f }
-        assertTrue(peakAfterKick(kicked, 60) > peakAfterKick(tilted, 60))
+    fun largeKickPeaksHigherThanSmallKick() {
+        val large = SurfaceWaves().apply { kick(1f) }
+        val small = SurfaceWaves().apply { kick(0.1f) }
+        assertTrue(peakAfterKick(large, 60) > peakAfterKick(small, 60))
     }
 
     @Test
-    fun tiltBiasesTheSurface() {
-        val waves = SurfaceWaves().apply { tiltX = 1f }
-        repeat(300) { waves.step(dt) }
+    fun kickDirectionSetsWhichSideRisesFirst() {
+        val waves = SurfaceWaves().apply { kick(-1f) }
+        repeat(5) { waves.step(dt) }
         assertTrue(waves.heights.last() > 0f && waves.heights.first() < 0f)
     }
 
     @Test
     fun valuesStayBoundedWithHugeFrameTime() {
-        val waves = SurfaceWaves().apply { tiltX = 1f; tiltY = 1f }
+        val waves = SurfaceWaves()
         waves.kick(100f)
         repeat(100) { waves.step(1f) }
         assertTrue(waves.heights.all { it.isFinite() && it in -1f..1f })

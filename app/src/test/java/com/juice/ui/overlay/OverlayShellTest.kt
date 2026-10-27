@@ -1,5 +1,7 @@
 package com.juice.ui.overlay
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import com.juice.RegisterComposeActivity
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
@@ -97,11 +99,12 @@ class OverlayShellTest {
         actions: OverlayActions = OverlayActions(),
         reduceMotion: Boolean = true,
         onRevealProgress: (Float) -> Unit = {},
+        reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
     ) {
         state = OverlayShellState(repository, scope, items.toList())
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress) }
+        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, reservoir = reservoir) }
         idle()
     }
 
@@ -240,8 +243,26 @@ class OverlayShellTest {
         var closedOverlay = false
         compose.runOnIdle { writingBack.back { closedOverlay = true } }
         idle()
+        idle()
         compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
         assertEquals(false, closedOverlay)
+    }
+
+    @Test
+    fun theRoutinesButtonOpensWhenOneReservoirViewIsHostedByEveryCentreCard() {
+        // The service has a single reservoir View; two AndroidViews hosting it at once crash with "already has a parent".
+        val shared = android.view.View(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        show(Item("a", ItemType.Task, "Call Sam"), reservoir = { modifier ->
+            androidx.compose.ui.viewinterop.AndroidView(factory = { shared }, modifier = modifier)
+        })
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        idle()
+        idle()
+        compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_ROUTINES_CLOSE).performClick()
+        idle()
+        idle()
+        compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
     }
 
     @Test
@@ -267,6 +288,7 @@ class OverlayShellTest {
             compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertIsDisplayed()
             assertEquals(listOf("a"), state.routines.items.map { it.id })
             compose.onNodeWithTag(TAG_ROUTINES_CLOSE).performClick()
+            idle()
             idle()
             compose.onAllNodesWithTag(TAG_ROUTINES_SCREEN).assertCountEquals(0)
         }
