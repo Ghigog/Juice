@@ -333,7 +333,7 @@ fun OverlayShell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) { detectTapGestures { actions.onClose() } }
+                    .pointerInput(Unit) { detectTapGestures { if (!state.commitTitleEdit()) actions.onClose() } }
                     .semantics { contentDescription = closeLabel }
                     .testTag(TAG_CLOSE),
             )
@@ -810,7 +810,8 @@ private fun Carousel(
             .pointerInput(held) {
                 if (held == null) detectTapGestures { tap ->
                     val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
-                    if (!tapIsInCarouselGap(tap.y, spans)) actions.onClose()
+                    val committed = state.commitTitleEdit()
+                    if (!committed && !tapIsInCarouselGap(tap.y, spans)) actions.onClose()
                 }
             }
             .testTag(TAG_CAROUSEL),
