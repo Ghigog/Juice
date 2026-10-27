@@ -88,7 +88,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -256,6 +258,7 @@ fun OverlayShell(
     val currentOnClosed by rememberUpdatedState(onClosed)
     val currentOnDraining by rememberUpdatedState(onDraining)
     val cardPops = remember { CardPops() }
+    var canvasOrigin by remember { mutableStateOf(Offset.Zero) }
     // Cancelled with the composition, so tearing the overlay down mid-close never calls onClosed.
     LaunchedEffect(closing) {
         if (closing) {
@@ -263,6 +266,7 @@ fun OverlayShell(
                 // The visible cards pop top to bottom, then the centre card and the capture field, each with its sound;
                 // the froth (the shared pop) starts with the centre card.
                 val visible = cardPops.visibleIndices()
+                cardPops.centres = cardPops.visibleCentres().map { it - canvasOrigin }
                 cardPops.popping = visible
                 val total = elementPopStartMillis(visible.size, 1) + CARD_POP_MILLIS
                 coroutineScope {
@@ -342,6 +346,7 @@ fun OverlayShell(
             Box(
                 Modifier
                     .fillMaxSize()
+                    .onGloballyPositioned { canvasOrigin = it.positionInRoot() }
                     .onSizeChanged { contentSize = it },
             ) {
             Column(
@@ -465,12 +470,30 @@ fun OverlayShell(
             }
             if (ringPreview > 0) SwipeRing(settings, hud)
             }
+            if (cardPops.centres.isNotEmpty()) {
+                // Each card explodes where it was, drawn here because the card and the carousel clip to their own bounds.
+                val explosions = remember(cardPops.centres, contentSize) {
+                    val w = contentSize.width.toFloat()
+                    cardPops.centres.mapIndexed { rank, centre ->
+                        cardExplosionBubbles(centre, rank, maxDistance = w * 0.2f, maxRadius = w * 0.03f)
+                    }
+                }
+                Canvas(Modifier.fillMaxSize()) {
+                    explosions.forEachIndexed { rank, bubbles ->
+                        val p = cardPopProgress(cardPops.elapsed.value, rank)
+                        if (cardExplosionVisible(p)) bubbles.forEach { bubble ->
+                            val (centre, radius) = bubble.at(p)
+                            drawCircle(hud.accent.copy(alpha = 0.7f), radius, centre)
+                        }
+                    }
+                }
+            }
             if (pop.value > 0f) {
-                // Froth bursts from the carousel, the centre card and the capture field.
+                // Froth bursts from the centre card and the capture field.
                 val bubbles = remember(contentSize) {
                     val w = contentSize.width.toFloat()
                     val h = contentSize.height.toFloat()
-                    val origins = listOf(Offset(w * 0.2f, h * 0.5f), Offset(w * 0.65f, h * 0.45f), Offset(w * 0.5f, h * 0.9f))
+                    val origins = listOf(Offset(w * 0.65f, h * 0.45f), Offset(w * 0.5f, h * 0.9f))
                     frothBubbles(origins, FROTH_SEED, maxDistance = w * 0.35f, maxRadius = w * 0.04f)
                 }
                 Canvas(Modifier.fillMaxSize()) {
@@ -490,10 +513,19 @@ fun OverlayShell(
 
 private const val FROTH_SEED = 44L
 
+/** The carousel's list is inset this far from its left edge. */
+private val CAROUSEL_LIST_START = 12.dp
+
 /** The carousel's cards popping away on close: which of them are on screen, top to bottom, and how far the popping has run. */
 internal class CardPops {
     var visibleIndices: () -> List<Int> = { emptyList() }
     var popping by mutableStateOf<List<Int>>(emptyList())
+
+    /** The visible cards' centres in root coordinates, top to bottom; read once when closing starts. */
+    var visibleCentres: () -> List<Offset> = { emptyList() }
+
+    /** The popping cards' centres in the shell's drawing coordinates, taken when closing started. */
+    var centres by mutableStateOf<List<Offset>>(emptyList())
     val elapsed = Animatable(0f)
 
     /** A pop for a non-card element once the cards are gone: slot 0 is the centre card, slot 1 the capture field. */
@@ -745,6 +777,15 @@ private fun Carousel(
 ) {
     val listState = rememberLazyListState()
     SideEffect { cardPops.visibleIndices = { listState.layoutInfo.visibleItemsInfo.map { it.index } } }
+    var carouselRoot by remember { mutableStateOf(Offset.Zero) }
+    val listStartPx = with(LocalDensity.current) { CAROUSEL_LIST_START.toPx() }
+    SideEffect {
+        cardPops.visibleCentres = {
+            val info = listState.layoutInfo
+            val x = carouselRoot.x + listStartPx + info.viewportSize.width / 2f
+            info.visibleItemsInfo.map { Offset(x, carouselRoot.y + it.offset + it.size / 2f) }
+        }
+    }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val centreIndex by remember {
@@ -798,6 +839,7 @@ private fun Carousel(
     // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
     BoxWithConstraints(
         modifier
+            .onGloballyPositioned { carouselRoot = it.positionInRoot() }
             .pointerInput(spin) {
                 // Initial pass and never consumes: a touch stops the spin without disturbing taps or reordering.
                 awaitEachGesture {
@@ -825,7 +867,7 @@ private fun Carousel(
             contentPadding = PaddingValues(top = pad, bottom = pad),
             verticalArrangement = Arrangement.spacedBy(CAROUSEL_GAP_DP.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize().nestedScroll(spinConnection).padding(start = 12.dp),
+            modifier = Modifier.fillMaxSize().nestedScroll(spinConnection).padding(start = CAROUSEL_LIST_START),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 val isCentre = index == centreIndex
