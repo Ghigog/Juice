@@ -60,6 +60,10 @@ class CoachChatState(
     var notice by mutableStateOf<CoachNotice?>(null)
         private set
 
+    /** Why the coach could not be reached, when [notice] is [CoachNotice.Unreachable]. */
+    var reason by mutableStateOf("")
+        private set
+
     /** Titles of the tasks the proposal changes or removes, by id. */
     var titles by mutableStateOf(emptyMap<String, String>())
         private set
@@ -104,6 +108,7 @@ class CoachChatState(
                 CoachReply.CloudRequired -> fail(CoachNotice.CloudRequired)
                 is CoachReply.Error -> {
                     Log.w("CoachChat", "Coach unreachable: ${reply.message}")
+                    reason = reply.message
                     fail(CoachNotice.Unreachable)
                 }
             }

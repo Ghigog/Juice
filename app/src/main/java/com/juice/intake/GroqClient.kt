@@ -1,8 +1,11 @@
 package com.juice.intake
 
 import java.io.IOException
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.serialization.json.Json
@@ -68,10 +71,30 @@ class GroqClient(
         /** The Groq model every cloud call uses. Groq retires models (llama-3.3-70b-versatile went on 16 Aug 2026); change it here only. */
         const val MODEL = "openai/gpt-oss-120b"
 
-        /** An [IOException] naming the HTTP status and Groq's own error text, so a failure says why. */
-        fun httpError(conn: HttpURLConnection): IOException {
-            val detail = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull().orEmpty()
-            return IOException("Groq HTTP ${conn.responseCode}${if (detail.isBlank()) "" else ": ${detail.take(300)}"}")
+        /** A [GroqHttpException] naming the HTTP status and Groq's own error, so a failure says why. */
+        fun httpError(conn: HttpURLConnection): GroqHttpException {
+            val body = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull().orEmpty()
+            val error = runCatching { Json.parseToJsonElement(body).jsonObject["error"]?.jsonObject }.getOrNull()
+            val code = error?.get("code")?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }
+            val detail = error?.get("message")?.let { runCatching { it.jsonPrimitive.content }.getOrNull() } ?: body
+            val retryAfter = conn.getHeaderField("retry-after")?.toDoubleOrNull()?.let { (it * 1000).toLong() }
+            return GroqHttpException(conn.responseCode, code, detail, retryAfter)
+        }
+
+        /** Why a Groq call failed, in a short sentence the player can read. */
+        fun reason(e: Throwable): String = when (e) {
+            is GroqHttpException -> when {
+                e.status == 429 -> "Groq's rate limit was hit (429). Wait a minute and try again."
+                e.status == 401 || e.status == 403 -> "Groq rejected the API key (${e.status})."
+                e.code == "json_validate_failed" -> "The coach's answer wasn't valid JSON (${e.status})."
+                e.status == 404 || e.code == "model_decommissioned" || e.code == "model_not_found" ->
+                    "Groq no longer offers the model (${e.status})."
+                e.status >= 500 -> "Groq is having trouble (${e.status}). Try again soon."
+                else -> "Groq error ${e.status}${if (e.detail.isBlank()) "" else ": ${e.detail.take(160)}"}"
+            }
+            is SocketTimeoutException -> "Groq took too long to answer."
+            is UnknownHostException, is ConnectException -> "No internet connection."
+            else -> e.message ?: e.javaClass.simpleName
         }
 
         /** Asks for the persona of a coach about the hobby in the user message. */
@@ -112,3 +135,11 @@ class GroqClient(
         """.trimIndent()
     }
 }
+
+/** Groq answered with a non-2xx [status]; [code] and [detail] are Groq's own, [retryAfterMs] its Retry-After. */
+class GroqHttpException(
+    val status: Int,
+    val code: String?,
+    val detail: String,
+    val retryAfterMs: Long? = null,
+) : IOException("Groq HTTP $status${if (detail.isBlank()) "" else ": ${detail.take(300)}"}")

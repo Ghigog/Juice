@@ -114,5 +114,5 @@
     <string name="creator_progress">Summoning your coach…</string>
     <string name="creator_error">Could not summon a coach: %1$s</string>
     <string name="coach_needs_cloud">The coach needs cloud access. Turn off On-device only and try again.</string>
-    <string name="coach_unreachable">The coach could not be reached. Try again later.</string>
+    <string name="coach_unreachable">%1$s could not be reached. %2$s</string>
 </resources>

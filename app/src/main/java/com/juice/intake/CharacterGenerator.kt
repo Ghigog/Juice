@@ -26,7 +26,7 @@ class CharacterGenerator(
         val json = try {
             llm(topic)
         } catch (e: IOException) {
-            return GenerationResult.Failure(e.message ?: "Could not reach the model")
+            return GenerationResult.Failure(GroqClient.reason(e))
         }
         val persona = (GeneratedPersona.parse(json) as? GeneratedPersonaResult.Valid)?.persona ?: GeneratedPersona.fallbackPersona(topic)
         return GenerationResult.Success(persona.toCharacter(newId(), topic))
