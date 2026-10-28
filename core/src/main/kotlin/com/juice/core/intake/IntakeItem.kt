@@ -15,6 +15,12 @@ data class ParsedItem(
     val cadence: Cadence? = null,
 )
 
+/** What a [ChipSpan] marks in the title. */
+enum class ChipKind { Verb, Deadline, Interval, Weekday }
+
+/** The words the classifier acted on: [range] indexes the trimmed, truncated title. */
+data class ChipSpan(val kind: ChipKind, val range: IntRange)
+
 /** The card fields a user can touch before the parse lands. */
 enum class IntakeField { Type, Title, CompletionCondition, Deadline, SubItems }
 

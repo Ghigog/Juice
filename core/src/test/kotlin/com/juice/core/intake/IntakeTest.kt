@@ -260,4 +260,38 @@ class IntakeTest {
         val task = ParsedItem(ItemType.Goal, "Dentist", deadline = now).improvingOn(routine("call the dentist"))
         assertEquals(ParsedItem(ItemType.Task, "Dentist", deadline = now), task)
     }
+
+    private fun spans(text: String): Triple<ItemType, List<ChipKind>, List<String>> {
+        val type = RulesFallback.classify(text).type
+        val spans = RulesFallback.spansOf(text, type)
+        val title = text.trim()
+        return Triple(type, spans.map { it.kind }, spans.map { title.substring(it.range) })
+    }
+
+    @Test fun spansCoverTheMatchedWords() {
+        assertEquals(Triple(ItemType.Task, listOf(ChipKind.Verb), listOf("call")), spans("call the dentist"))
+        assertEquals(Triple(ItemType.Task, listOf(ChipKind.Verb), listOf("call")), spans("please call the dentist"))
+        assertEquals(Triple(ItemType.Goal, listOf(ChipKind.Deadline), listOf("Tuesday")), spans("take out the trash on Tuesday"))
+        assertEquals(Triple(ItemType.Goal, listOf(ChipKind.Deadline), listOf("next week")), spans("  plan trip next week"))
+    }
+
+    @Test fun routineSpansMarkIntervalAndEachWeekday() {
+        assertEquals(
+            Triple(ItemType.Routine, listOf(ChipKind.Interval, ChipKind.Weekday, ChipKind.Weekday), listOf("every 2 weeks", "Mon", "Thu")),
+            spans("water plants every 2 weeks on Mon and Thu"),
+        )
+        assertEquals(
+            Triple(ItemType.Routine, listOf(ChipKind.Interval, ChipKind.Weekday), listOf("every other week", "Fri")),
+            spans("clean every other week on Fri"),
+        )
+        assertEquals(
+            Triple(ItemType.Routine, listOf(ChipKind.Interval, ChipKind.Weekday, ChipKind.Weekday), listOf("every", "Mon", "Thu")),
+            spans("bins every Mon and Thu"),
+        )
+        assertEquals(Triple(ItemType.Routine, listOf(ChipKind.Interval), listOf("every day")), spans("walk every day"))
+    }
+
+    @Test fun noteHasNoSpans() {
+        assertEquals(Triple(ItemType.Note, emptyList(), emptyList()), spans("one day I'd like a boat"))
+    }
 }
