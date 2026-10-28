@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -151,6 +152,7 @@ const val TAG_TYPE_PILL = "type_pill"
 const val TAG_TYPE_OPTION_PREFIX = "type_option_"
 const val TAG_CLOSE = "close_handle"
 const val TAG_CAROUSEL = "carousel"
+const val TAG_CAROUSEL_CARD_PREFIX = "carousel_card_"
 const val TAG_RECAP = "recap_button"
 const val TAG_ROUTINES = "routines_button"
 const val TAG_SETTINGS = "settings_button"
@@ -189,6 +191,9 @@ private const val WIGGLE_MILLIS = 110
 private const val WIGGLE_DEGREES = 1.5f
 private const val WIGGLE_DP = 1.5f
 private const val HELD_ALPHA = 0.4f
+
+/** How far the focal carousel card must be swiped sideways to pick it up or put a held card down. */
+private val CAROUSEL_SWIPE = 24.dp
 
 /** Scale of a card whose centre is [distance] px from the focal dot, falling off over [reach] px. */
 internal fun focalScale(distance: Float, reach: Float): Float =
@@ -978,10 +983,33 @@ private fun Carousel(
                         }
                         .roundedClip(RoundedCornerShape(16.dp))
                         .background(JuiceColors.white(if (isCentre) 0.24f else 0.12f))
+                        // Swipe the focal card right to pick it up, scroll, then swipe it left to put the held card down there.
+                        .pointerInput(isCentre, item.id) {
+                            if (!isCentre) return@pointerInput
+                            var dx = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dx = 0f },
+                                onHorizontalDrag = { change, amount ->
+                                    change.consume()
+                                    dx += amount
+                                },
+                                onDragEnd = {
+                                    val far = abs(dx) >= CAROUSEL_SWIPE.toPx()
+                                    if (far && dx > 0 && state.held == null) {
+                                        state.pickUp(item)
+                                        actions.feedback(FeedbackEvent.SNAP)
+                                    } else if (far && dx < 0 && state.held != null) {
+                                        state.drop()
+                                        actions.feedback(FeedbackEvent.CAPTURE)
+                                    }
+                                },
+                            )
+                        }
                         .clickable {
                             scope.launch { listState.animateScrollToItem(index) }
                         }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .testTag(TAG_CAROUSEL_CARD_PREFIX + item.id),
                 ) {
                     val typeColor = JuiceColors.of(item.type)
                     Row(verticalAlignment = Alignment.CenterVertically) {

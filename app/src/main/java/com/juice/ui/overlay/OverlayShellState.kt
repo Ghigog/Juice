@@ -450,20 +450,6 @@ class OverlayShellState(
     }
 }
 
-enum class Swipe { LEFT, RIGHT }
-
-/**
- * The direction of a mostly-horizontal swipe, or null when [stroke] is too short or too tall to be one
- * (a drawn ✓ or ✗ is as high as it is wide). [minDistance] is the least sideways travel.
- */
-fun swipeOf(stroke: List<GesturePoint>, minDistance: Double): Swipe? {
-    if (stroke.size < 2) return null
-    val dx = stroke.last().x - stroke.first().x
-    val height = stroke.maxOf { it.y } - stroke.minOf { it.y }
-    if (abs(dx) < minDistance || height > abs(dx) * 0.35) return null
-    return if (dx > 0) Swipe.RIGHT else Swipe.LEFT
-}
-
 /** The creator card opened: [busy] while a coach is being made, [error] when that failed. */
 class CreatorState {
     var busy by mutableStateOf(false)

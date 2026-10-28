@@ -27,8 +27,6 @@ import com.juice.memory.MemoryStore
 import com.juice.ui.overlay.CoachChatState
 import com.juice.ui.overlay.OverlayShellState
 import java.io.File
-import com.juice.ui.overlay.Swipe
-import com.juice.ui.overlay.swipeOf
 import com.juice.core.gesture.GesturePoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -571,17 +569,6 @@ class OverlayShellStateTest {
         val routine = repository.byCharacter(created.id).single { it.type == ItemType.Routine }
         assertEquals(ItemType.Routine, routine.type)
         assertEquals(created.id, routine.characterId)
-    }
-
-    private fun stroke(vararg p: Pair<Double, Double>) = p.map { GesturePoint(it.first, it.second) }
-
-    @Test
-    fun aLongFlatStrokeIsASwipeAndADrawnCheckOrCrossIsNot() {
-        assertEquals(Swipe.RIGHT, swipeOf(stroke(0.0 to 10.0, 100.0 to 15.0), 50.0))
-        assertEquals(Swipe.LEFT, swipeOf(stroke(100.0 to 10.0, 0.0 to 5.0), 50.0))
-        assertNull(swipeOf(stroke(0.0 to 10.0, 20.0 to 10.0), 50.0))
-        assertNull(swipeOf(stroke(0.0 to 50.0, 40.0 to 90.0, 100.0 to 0.0), 50.0))
-        assertNull(swipeOf(stroke(0.0 to 0.0, 100.0 to 100.0), 50.0))
     }
 
     // Due Tuesday, Thursday and Saturday; today (Sunday) none of them is due.

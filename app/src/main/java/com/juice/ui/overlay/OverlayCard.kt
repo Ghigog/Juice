@@ -109,7 +109,6 @@ const val STROKE_PAUSE_MILLIS = 420L
 const val STAR_STROKE_PAUSE_MILLIS = 400L
 
 /** A swipe has to cross this share of the card's width. */
-private const val SWIPE_FRACTION = 0.3f
 const val FLY_MILLIS = 300
 
 private enum class Tint { OK, X, BAD, STAR }
@@ -305,22 +304,6 @@ internal fun CentreCard(
                 change.consume()
                 current += change.position
                 lifted = !change.pressed
-            }
-            // A long sideways swipe picks the card up, or puts a held one down; anything else is a drawing.
-            val swipe = if (strokes.isEmpty()) {
-                swipeOf(current.map { GesturePoint(it.x.toDouble(), it.y.toDouble()) }, (size.width * SWIPE_FRACTION).toDouble())
-            } else null
-            if (swipe == Swipe.RIGHT && state.held == null) {
-                current.clear()
-                state.pickUp(item)
-                actions.feedback(FeedbackEvent.SNAP)
-                return@awaitEachGesture
-            }
-            if (swipe == Swipe.LEFT && state.held != null) {
-                current.clear()
-                state.drop()
-                actions.feedback(FeedbackEvent.CAPTURE)
-                return@awaitEachGesture
             }
             if (current.size > 1) strokes += current.toList()
             current.clear()

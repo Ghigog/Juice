@@ -817,9 +817,9 @@ class OverlayShellTest {
         compose.onAllNodesWithTag(TAG_TITLE_FIELD).assertCountEquals(0)
     }
 
-    private fun swipeCentre(toRight: Boolean) {
-        compose.onNodeWithTag(TAG_CENTRE_CARD).performTouchInput {
-            val (from, to) = if (toRight) 0.2f to 0.8f else 0.8f to 0.2f
+    private fun swipeCarouselCard(id: String, toRight: Boolean) {
+        compose.onNodeWithTag(TAG_CAROUSEL_CARD_PREFIX + id).performTouchInput {
+            val (from, to) = if (toRight) 0.1f to 0.9f else 0.9f to 0.1f
             down(Offset(width * from, height * 0.5f))
             moveTo(Offset(width * (from + to) / 2, height * 0.5f))
             moveTo(Offset(width * to, height * 0.5f))
@@ -829,14 +829,34 @@ class OverlayShellTest {
     }
 
     @Test
-    fun swipingRightHoldsTheCardAndSwipingLeftDropsItAtTheFocalCard() {
+    fun swipingTheFocalCarouselCardRightHoldsItAndLeftDropsItAtTheFocalCard() {
         show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"), Item("c", ItemType.Task, "C"))
-        swipeCentre(toRight = true)
+        swipeCarouselCard("a", toRight = true)
         assertEquals("a", state.held)
         state.moveTarget(2)
-        swipeCentre(toRight = false)
+        swipeCarouselCard("a", toRight = false)
         assertEquals(null, state.held)
         assertEquals(listOf("b", "c", "a"), state.items.map { it.id })
+    }
+
+    @Test
+    fun swipingACarouselCardAwayFromTheFocalDotDoesNotPickItUp() {
+        show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"))
+        swipeCarouselCard("b", toRight = true)
+        assertEquals(null, state.held)
+    }
+
+    @Test
+    fun swipingTheCentreCardRightNoLongerPicksItUp() {
+        show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"))
+        compose.onNodeWithTag(TAG_CENTRE_CARD).performTouchInput {
+            down(Offset(width * 0.2f, height * 0.5f))
+            moveTo(Offset(width * 0.5f, height * 0.5f))
+            moveTo(Offset(width * 0.8f, height * 0.5f))
+            up()
+        }
+        idle()
+        assertEquals(null, state.held)
     }
 
     @Test
