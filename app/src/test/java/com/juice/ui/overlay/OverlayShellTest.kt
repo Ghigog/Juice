@@ -275,6 +275,20 @@ class OverlayShellTest {
     }
 
     @Test
+    fun theCaptureFieldIsHiddenWhileTheRoutinesViewIsOpenAndReturnsAfter() {
+        show()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        idle()
+        idle()
+        compose.onAllNodesWithTag(TAG_CAPTURE_FIELD).assertCountEquals(0)
+        compose.onNodeWithTag(TAG_ROUTINES_CLOSE).performClick()
+        idle()
+        idle()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
     fun theRoutinesButtonWithNoRoutinesShowsTheEmptyMessage() {
         show()
         compose.onNodeWithTag(TAG_ROUTINES).performClick()
