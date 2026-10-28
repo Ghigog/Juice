@@ -3,6 +3,7 @@ package com.juice.coach
 import com.juice.intake.GroqClient
 import com.juice.intake.GroqHttpException
 import java.io.IOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlin.test.AfterTest
@@ -60,6 +61,13 @@ class CoachClientTest {
         assertEquals(3, server.requestCount)
     }
 
+    @Test fun aRefusedConnectionIsTriedAgain() {
+        val closed = MockWebServer().apply { start(); shutdown() }
+        val refused = CoachClient("key", closed.url("/").toString().trimEnd('/'), sleep = { waits += it })
+        assertFailsWith<ConnectException> { refused.chat("system", hi) }
+        assertEquals(listOf(1_000L, 2_000L), waits)
+    }
+
     @Test fun itGivesUpAfterThreeAttempts() {
         repeat(3) { error(500) }
         assertEquals(500, assertFailsWith<GroqHttpException> { client.chat("system", hi) }.status)
@@ -97,7 +105,11 @@ class CoachClientTest {
         assertEquals("Groq is having trouble (503). Try again soon.", GroqClient.reason(GroqHttpException(503, null, "")))
         assertEquals("Groq error 413: Request too large", GroqClient.reason(GroqHttpException(413, null, "Request too large")))
         assertEquals("Groq took too long to answer.", GroqClient.reason(SocketTimeoutException()))
-        assertEquals("No internet connection.", GroqClient.reason(UnknownHostException()))
+        assertEquals(
+            "Couldn't look up Groq's server. A VPN, ad blocker or Private DNS setting can cause this.",
+            GroqClient.reason(UnknownHostException()),
+        )
+        assertEquals("The connection to Groq failed: Connection reset", GroqClient.reason(ConnectException("Connection reset")))
         assertEquals("offline", GroqClient.reason(IOException("offline")))
     }
 }
