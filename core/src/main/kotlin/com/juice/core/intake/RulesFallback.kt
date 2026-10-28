@@ -40,6 +40,8 @@ object RulesFallback {
         "repair", "replace", "build", "create", "design", "test", "deploy", "organise", "organize", "sort", "pack",
         "unpack", "load", "empty", "vacuum", "sweep", "mop", "iron", "fold", "charge", "print", "scan", "share",
         "post", "invite", "thank", "confirm", "arrange", "deliver", "throw", "hang", "water", "rinse", "wipe",
+        "join", "attend", "enrol", "enroll", "subscribe", "reserve", "request", "remind", "follow", "watch", "speak",
+        "talk", "discuss", "volunteer", "complete", "add", "remove", "delete",
     )
     private val leadingVerb = Regex(
         """^(?:(?:please|pls|to)\s+)*(${verbs.joinToString("|")})\b""",

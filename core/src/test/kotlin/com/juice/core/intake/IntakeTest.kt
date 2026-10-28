@@ -101,6 +101,15 @@ class IntakeTest {
     }
 
 
+    @Test fun joinAndRelatedVerbsGiveTaskWhenLeadingButNoteMidSentence() {
+        for (verb in listOf("join", "attend", "enrol", "enroll", "subscribe", "reserve", "request", "remind", "follow", "watch", "speak",
+            "talk", "discuss", "volunteer", "complete", "add", "remove", "delete")) {
+            assertEquals(ItemType.Task, RulesFallback.classify("$verb the gym").type, verb)
+        }
+        assertEquals(Triple(ItemType.Task, listOf(ChipKind.Verb), listOf("join")), spans("please join the book club"))
+        assertEquals(ItemType.Note, RulesFallback.classify("I want to join the gym").type)
+    }
+
     @Test fun simplePhrasesResolveToAFutureDeadline() {
         val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
         assertEquals(Instant.parse("2026-03-02T18:00:00Z"), RulesFallback.classify("send invoice by 6pm", now).deadline)
