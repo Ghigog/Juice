@@ -1,7 +1,7 @@
 package com.juice.intake
 
 import java.io.IOException
-import java.net.ConnectException
+import java.net.SocketException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
@@ -93,7 +93,9 @@ class GroqClient(
                 else -> "Groq error ${e.status}${if (e.detail.isBlank()) "" else ": ${e.detail.take(160)}"}"
             }
             is SocketTimeoutException -> "Groq took too long to answer."
-            is UnknownHostException, is ConnectException -> "No internet connection."
+            // Neither means the phone is offline: a DNS hiccup, a VPN or Private DNS, or a dropped connection all land here.
+            is UnknownHostException -> "Couldn't look up Groq's server. A VPN, ad blocker or Private DNS setting can cause this."
+            is SocketException -> "The connection to Groq failed${e.message?.let { ": $it" }.orEmpty()}"
             else -> e.message ?: e.javaClass.simpleName
         }
 

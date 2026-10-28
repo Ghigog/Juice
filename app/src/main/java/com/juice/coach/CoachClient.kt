@@ -5,7 +5,9 @@ import com.juice.intake.GroqClient
 import com.juice.intake.GroqHttpException
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.net.URL
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
@@ -83,7 +85,7 @@ class CoachClient(
     private fun waitBeforeRetry(e: IOException, attempt: Int): Long? {
         val retryable = when (e) {
             is GroqHttpException -> e.status == 429 || e.status >= 500 || e.code == "json_validate_failed"
-            is SocketTimeoutException -> true
+            is SocketTimeoutException, is SocketException, is UnknownHostException -> true
             else -> false
         }
         if (!retryable) return null
