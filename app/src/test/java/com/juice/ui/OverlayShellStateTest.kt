@@ -274,14 +274,25 @@ class OverlayShellStateTest {
     }
 
     @Test
-    fun theTypePillStepsThroughTheTypes() {
-        val note = Item("n", ItemType.Note, "Call Sam")
-        val state = state(note)
-        state.cycleType(state.items.single())
-        state.cycleType(state.items.single())
-        assertEquals(ItemType.Goal, state.items.single().type)
-        repeat(2) { state.cycleType(state.items.single()) }
-        assertEquals(ItemType.Note, state.items.single().type)
+    fun settingTheTypeToRoutineGivesADailyCadenceDueToday() {
+        val task = Item("t", ItemType.Task, "Stretch")
+        val state = state(task)
+        state.setType(task, ItemType.Routine)
+        val routine = state.items.single()
+        assertEquals(ItemType.Routine, routine.type)
+        assertEquals(DayOfWeek.values().toSet(), routine.cadence?.days)
+        assertEquals(null, routine.cadence?.time)
+        assertEquals(sunday, routine.nextDueOn)
+    }
+
+    @Test
+    fun settingARoutineToTaskClearsItsCadence() {
+        val routine = Item("r", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.MONDAY)), nextDueOn = LocalDate.now())
+        val state = state(routine)
+        state.setType(routine, ItemType.Task)
+        assertEquals(ItemType.Task, state.items.single().type)
+        assertEquals(null, state.items.single().cadence)
+        assertEquals(null, state.items.single().nextDueOn)
     }
 
     @Test
