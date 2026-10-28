@@ -115,7 +115,8 @@ internal class SliceHandleView(
     private val radius: () -> Float,
     private val reduceMotion: () -> Boolean,
     private val feedback: (FeedbackEvent) -> Unit,
-    private val onMoved: (x: Float, y: Float) -> Unit,
+    /** Saves a move dropped at ([x], [y]) and returns where the handle lands, clear of the system bars. */
+    private val onMoved: (x: Float, y: Float) -> Pair<Float, Float>,
     private val onDismiss: () -> Unit,
     onOpen: () -> Unit,
 ) : View(context) {
@@ -317,10 +318,10 @@ internal class SliceHandleView(
                     Release.OPEN -> performClick()
                     Release.MOVED -> {
                         feedback(FeedbackEvent.CAPTURE)
-                        centreX = x
-                        centreY = y
+                        val (lx, ly) = onMoved(x, y)
+                        centreX = lx
+                        centreY = ly
                         place()
-                        onMoved(x, y)
                         takeBack()
                     }
                     Release.NONE -> returnHome(x, y)
@@ -451,6 +452,9 @@ internal class SliceHandleView(
 
         /** How close to the screen's edge the handle's centre may sit: its window stays whole on screen. */
         const val EDGE_DP = LOGO_DP / 2 + PAD_DP
+
+        /** How close to a system bar or cutout the handle's centre may sit: the logo stays clear of it. */
+        const val LOGO_HALF_DP = LOGO_DP / 2
         private const val MOVE_SLOP_DP = 6f
         private const val HOLD_MILLIS = 420L
         private const val SPRING_MILLIS = 320L

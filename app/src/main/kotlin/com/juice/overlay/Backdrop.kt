@@ -1,5 +1,6 @@
 package com.juice.overlay
 
+import com.juice.ui.overlay.backdropSliceDp
 import kotlin.math.roundToInt
 
 /** What sits behind the overlay content: the blurred screen, or a dark semi-opaque scrim. */
@@ -23,12 +24,12 @@ internal data class SliceSpot(val x: Float, val y: Float, val size: Float) {
 }
 
 /**
- * Where the overlay's backdrop slice sits: top-right, 280dp, its centre 70dp past the corner.
- * Must match SliceBackdrop in OverlayShell.kt (BACKDROP_DP and its quarter-size offset).
+ * Where the overlay's backdrop slice sits: top-right, [backdropSliceDp] across, its centre a quarter
+ * of that past the corner. Must match SliceBackdrop in OverlayShell.kt.
  */
-internal fun backdropSliceSpot(screenWidthPx: Int, density: Float): SliceSpot {
-    val size = 280f * density
-    val past = 70f * density
+internal fun backdropSliceSpot(screenWidthPx: Int, screenHeightPx: Int, density: Float): SliceSpot {
+    val size = backdropSliceDp(screenHeightPx / density) * density
+    val past = size / 4
     return SliceSpot(screenWidthPx - size / 2 + past, size / 2 - past, size)
 }
 

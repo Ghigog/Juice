@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,11 +43,13 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
@@ -81,8 +85,11 @@ fun RecapScreen(
     actions: OverlayActions,
     onClose: () -> Unit,
     systemBars: PaddingValues = PaddingValues(0.dp),
+    /** The gap under the status bar: smaller on a phone on its side. */
+    topGap: Dp = 38.dp,
     modifier: Modifier = Modifier,
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     var items by remember { mutableStateOf<List<Item>?>(null) }
     LaunchedEffect(Unit) {
         actions.feedback(FeedbackEvent.RECAP_OPEN)
@@ -98,7 +105,12 @@ fun RecapScreen(
         modifier
             .fillMaxSize()
             .background(JuiceColors.Ink)
-            .padding(top = systemBars.calculateTopPadding() + 38.dp, start = 14.dp, end = 14.dp, bottom = systemBars.calculateBottomPadding())
+            .padding(
+                top = systemBars.calculateTopPadding() + topGap,
+                start = systemBars.calculateStartPadding(layoutDirection) + 14.dp,
+                end = systemBars.calculateEndPadding(layoutDirection) + 14.dp,
+                bottom = systemBars.calculateBottomPadding(),
+            )
             .testTag(TAG_RECAP_SCREEN),
     ) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
