@@ -141,6 +141,9 @@ const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
+
+/** Prefix of the type menu entries; the item type name follows. */
+const val TAG_TYPE_OPTION_PREFIX = "type_option_"
 const val TAG_CLOSE = "close_handle"
 const val TAG_CAROUSEL = "carousel"
 const val TAG_RECAP = "recap_button"
