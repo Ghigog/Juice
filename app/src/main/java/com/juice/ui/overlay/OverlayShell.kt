@@ -141,6 +141,9 @@ const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
+
+/** Prefix of the type menu entries; the item type name follows. */
+const val TAG_TYPE_OPTION_PREFIX = "type_option_"
 const val TAG_CLOSE = "close_handle"
 const val TAG_CAROUSEL = "carousel"
 const val TAG_RECAP = "recap_button"
@@ -219,6 +222,8 @@ fun OverlayShell(
     var settingsOpen by remember { mutableStateOf(false) }
     var recapOpen by remember { mutableStateOf(false) }
     var routinesOpen by remember { mutableStateOf(false) }
+    // Held here so the draft survives Capture leaving composition while Routines is open.
+    var captureDraft by remember { mutableStateOf("") }
     var centre by remember { mutableStateOf(0) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
@@ -387,8 +392,10 @@ fun OverlayShell(
                     }
                     Spacer(Modifier.height(12.dp))
                 }
-                if (!state.editingTitle) Capture(
+                if (!state.editingTitle && !routinesOpen) Capture(
                     hud,
+                    draft = captureDraft,
+                    onDraftChange = { captureDraft = it },
                     writing = writing,
                     onWritingChange = { writing = it },
                     onLeave = ::leaveWriting,
@@ -1032,17 +1039,18 @@ fun PlainReservoir(hud: Hud, modifier: Modifier) {
 @Composable
 private fun Capture(
     hud: Hud,
+    draft: String,
+    onDraftChange: (String) -> Unit,
     writing: Boolean,
     onWritingChange: (Boolean) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier,
     onSubmit: (String) -> Unit,
 ) {
-    var draft by remember { mutableStateOf("") }
     fun submit() {
         if (draft.isBlank()) return
         onSubmit(draft)
-        draft = ""
+        onDraftChange("")
         onLeave()
     }
     val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
@@ -1052,7 +1060,7 @@ private fun Capture(
     ) {
         BasicTextField(
             value = draft,
-            onValueChange = { draft = it },
+            onValueChange = onDraftChange,
             singleLine = !writing,
             textStyle = LocalTextStyle.current.copy(fontSize = if (writing) 20.sp else 15.sp),
             cursorBrush = SolidColor(Color.White),
