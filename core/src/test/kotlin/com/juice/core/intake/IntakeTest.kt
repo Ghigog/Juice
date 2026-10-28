@@ -294,4 +294,55 @@ class IntakeTest {
     @Test fun noteHasNoSpans() {
         assertEquals(Triple(ItemType.Note, emptyList(), emptyList()), spans("one day I'd like a boat"))
     }
+
+    @Test fun lateParseKeepsEditedCadence() {
+        val edited = com.juice.core.routine.Cadence(setOf(java.time.DayOfWeek.FRIDAY), intervalWeeks = 2)
+        val parsed = com.juice.core.routine.Cadence(setOf(java.time.DayOfWeek.SUNDAY))
+        val card = IntakeCard(ItemType.Routine, "t", cadence = edited, editedFields = setOf(IntakeField.Cadence))
+        assertEquals(edited, card.mergeParse(ParsedItem(ItemType.Routine, "t", cadence = parsed)).cadence)
+    }
+
+    private val wednesday = java.time.ZonedDateTime.parse("2026-10-28T10:00:00Z[UTC]")
+
+    private fun spanOf(title: String, type: ItemType, kind: ChipKind) =
+        RulesFallback.spansOf(title, type).first { it.kind == kind }
+
+    @Test fun relativeDeadlineNamesTheResolvedDayWithDateWhenFarAway() {
+        val title = rewriteRelativeDeadline("take out the trash next week", wednesday)
+        assertEquals("take out the trash on Sunday 8 Nov", title)
+        assertEquals("plan on Sunday", rewriteRelativeDeadline("plan end of the week", wednesday).replace(" 1 Nov", ""))
+        assertEquals("call the dentist", rewriteRelativeDeadline("call the dentist", wednesday))
+    }
+
+    @Test fun deadlineDayReplacesTheWeekdayAfterOn() {
+        val title = "take out the trash on Tuesday"
+        val span = spanOf(title, ItemType.Goal, ChipKind.Deadline)
+        assertEquals("take out the trash on Thursday", withDeadlineDay(title, span, java.time.LocalDate.parse("2026-10-29"), wednesday))
+    }
+
+    @Test fun deadlineDayAddsOnWhenTheSpanHasNone() {
+        val title = "plan trip tomorrow"
+        val span = spanOf(title, ItemType.Goal, ChipKind.Deadline)
+        assertEquals("plan trip on Friday", withDeadlineDay(title, span, java.time.LocalDate.parse("2026-10-30"), wednesday))
+    }
+
+    @Test fun intervalIsWrittenIntoTheTitleAndClassifiedBack() {
+        val title = "water plants every Friday"
+        val span = spanOf(title, ItemType.Routine, ChipKind.Interval)
+        val two = withInterval(title, span, 2)
+        assertEquals("water plants every 2 weeks Friday", two)
+        val item = RulesFallback.classify(two)
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals(2, item.cadence?.intervalWeeks)
+        assertEquals(setOf(java.time.DayOfWeek.FRIDAY), item.cadence?.days)
+        val back = withInterval(two, spanOf(two, ItemType.Routine, ChipKind.Interval), 1)
+        assertEquals(title, back)
+    }
+
+    @Test fun weekdayKeepsTheStyleOfTheReplacedWord() {
+        val short = "bins every Mon"
+        assertEquals("bins every Thu", withWeekday(short, spanOf(short, ItemType.Routine, ChipKind.Weekday), java.time.DayOfWeek.THURSDAY))
+        val full = "bins every Monday"
+        assertEquals("bins every Thursday", withWeekday(full, spanOf(full, ItemType.Routine, ChipKind.Weekday), java.time.DayOfWeek.THURSDAY))
+    }
 }

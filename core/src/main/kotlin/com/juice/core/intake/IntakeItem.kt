@@ -22,7 +22,7 @@ enum class ChipKind { Verb, Deadline, Interval, Weekday }
 data class ChipSpan(val kind: ChipKind, val range: IntRange)
 
 /** The card fields a user can touch before the parse lands. */
-enum class IntakeField { Type, Title, CompletionCondition, Deadline, SubItems }
+enum class IntakeField { Type, Title, CompletionCondition, Deadline, SubItems, Cadence }
 
 /** A card as the user sees it. */
 data class IntakeCard(

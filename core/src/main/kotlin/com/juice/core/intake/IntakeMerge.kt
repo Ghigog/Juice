@@ -10,7 +10,7 @@ fun IntakeCard.mergeParse(parsed: ParsedItem): IntakeCard {
         deadline = if (touched(IntakeField.Deadline)) deadline else parsed.deadline,
         subItems = if (touched(IntakeField.SubItems)) subItems else parsed.subItems,
         // A user-set type that is not Routine drops the parsed cadence.
-        cadence = if (touched(IntakeField.Type) && type != ItemType.Routine) cadence else parsed.cadence,
+        cadence = if (touched(IntakeField.Cadence) || touched(IntakeField.Type) && type != ItemType.Routine) cadence else parsed.cadence,
     )
 }
 
