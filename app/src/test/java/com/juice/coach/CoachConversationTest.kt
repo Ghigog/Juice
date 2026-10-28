@@ -1,6 +1,7 @@
 package com.juice.coach
 
 import com.juice.core.character.Characters
+import com.juice.core.character.CoachVoice
 import com.juice.core.character.CoachTask
 import com.juice.core.character.Expression
 import com.juice.core.intake.ItemType
@@ -52,6 +53,29 @@ class CoachConversationTest {
         assertTrue("I want to get fit" in body)
         assertTrue("json_object" !in body)
     }
+
+    @Test fun sendSystemPromptHasCoachVoiceAfterPersonaAndKeepsContract() {
+        reply("Hi")
+        conversation().send("I want to get fit")
+        val system = systemPromptOf(server.takeRequest().body.readUtf8())
+        val persona = system.indexOf(Characters.Jim.personaPrompt.lines().first())
+        val voice = system.indexOf(CoachVoice.PROMPT.lines().first())
+        assertTrue(persona >= 0 && voice > persona)
+        assertTrue("[ready]" in system)
+        assertTrue("\"tasks\"" in system)
+    }
+
+    @Test fun finishSendsCoachVoiceToo() {
+        reply("""{"tasks":[{"action":"add","title":"Walk","cadence":{"days":"daily"}}]}""")
+        conversation().finish()
+        assertTrue(CoachVoice.PROMPT.lines().first() in systemPromptOf(server.takeRequest().body.readUtf8()))
+    }
+
+    private fun systemPromptOf(body: String): String =
+        kotlinx.serialization.json.Json.parseToJsonElement(body).let { it as kotlinx.serialization.json.JsonObject }
+            .getValue("messages").let { it as kotlinx.serialization.json.JsonArray }[0]
+            .let { it as kotlinx.serialization.json.JsonObject }.getValue("content")
+            .let { (it as kotlinx.serialization.json.JsonPrimitive).content }
 
     @Test fun onDeviceOnlyOrNoKeyIsCloudRequiredWithoutARequest() {
         assertEquals(CoachReply.CloudRequired, conversation(onDeviceOnly = true).send("hi"))

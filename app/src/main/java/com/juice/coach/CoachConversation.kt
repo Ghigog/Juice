@@ -2,6 +2,7 @@ package com.juice.coach
 
 import com.juice.core.character.Character
 import com.juice.core.character.CoachProposal
+import com.juice.core.character.CoachVoice
 import com.juice.core.character.CoachProposalResult
 import com.juice.core.character.CoachTask
 import com.juice.core.character.Characters
@@ -101,7 +102,7 @@ class CoachConversation(
     }
 
     private fun systemPrompt(): String = buildString {
-        append(character.personaPrompt)
+        append(character.personaPrompt).append("\n\n").append(CoachVoice.PROMPT)
         val tasks = coachTasks()
         if (tasks.isNotEmpty()) {
             append("\n\nThe player's current coach tasks (use these ids to change or remove):\n")
