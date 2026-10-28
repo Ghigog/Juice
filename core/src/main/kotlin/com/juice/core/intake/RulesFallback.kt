@@ -99,7 +99,7 @@ object RulesFallback {
                 (dayWord.find(text) ?: period.find(text) ?: within.find(text))?.let { ChipSpan(ChipKind.Deadline, it.range) },
             )
             ItemType.Routine -> routineSpans(text)
-            ItemType.Note, ItemType.Project -> emptyList()
+            ItemType.Note, ItemType.Project, ItemType.List -> emptyList()
         }
         return spans.filter { it.range.last < IntakeValidator.MAX_TITLE_LENGTH }
     }

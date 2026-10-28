@@ -71,6 +71,18 @@ class ItemRepositoryTest {
     }
 
     @Test
+    fun aLandedListIsStoredWithThreeOpenStepsAndNoDeadline() = runBlocking {
+        repository.save(Item("l", ItemType.Note, "Chores"))
+        var n = 0
+        repository.land("l", ParsedItem(ItemType.List, "Chores", deadline = java.time.Instant.now(), subItems = listOf("a", "b", "c"))) { "s${n++}" }
+        val list = repository.get("l")!!
+        assertEquals(ItemType.List, list.type)
+        assertEquals(null, list.deadline)
+        assertEquals(listOf("a", "b", "c"), list.steps.map { it.title })
+        assertEquals(false, list.steps.any { it.done })
+    }
+
+    @Test
     fun migrationTurnsChildTaskCardsIntoStepsOfTheirProject() {
         val helper = FrameworkSQLiteOpenHelperFactory().create(
             SupportSQLiteOpenHelper.Configuration.builder(ApplicationProvider.getApplicationContext())
