@@ -3,7 +3,12 @@ package com.juice.core.intake
 import com.juice.core.routine.Cadence
 import java.time.Instant
 
-enum class ItemType { Note, Task, Goal, Project, Routine }
+enum class ItemType {
+    Note, Task, List, Goal, Project, Routine;
+
+    /** A Project and a List keep their tasks as steps inside the card. */
+    val hasSteps get() = this == Project || this == List
+}
 
 /** A validated parser result. Only [IntakeValidator] and [RulesFallback] build these. */
 data class ParsedItem(

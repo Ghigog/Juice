@@ -134,7 +134,7 @@ class ItemRepository(
         applyParse(id, parsed, today)
         val item = get(id) ?: return null
         if (item.steps.isNotEmpty()) return item
-        val steps = if (item.type == ItemType.Project) parsed.toItems(id, newId).first().steps else emptyList()
+        val steps = if (item.type.hasSteps) parsed.toItems(id, newId).first().steps else emptyList()
         return item.copy(steps = steps).also { if (steps.isNotEmpty()) save(it) }
     }
 
@@ -155,7 +155,7 @@ class ItemRepository(
 /** The item a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items as steps. */
 fun ParsedItem.toItems(id: String, newId: () -> String, today: LocalDate = LocalDate.now()): List<Item> {
     val card = copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCard(id, newId)
-    val item = Item(card.id, card.type, card.title, deadline = deadline, completionCondition = completionCondition, steps = card.steps)
+    val item = Item(card.id, card.type, card.title, deadline = deadline.takeIf { card.type != ItemType.List }, completionCondition = completionCondition, steps = card.steps)
     return listOf(if (card.type == ItemType.Routine && cadence != null) item.asRoutine(cadence!!, today) else item)
 }
 

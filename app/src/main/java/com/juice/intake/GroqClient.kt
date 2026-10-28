@@ -118,11 +118,12 @@ class GroqClient(
             - "Task": an actionable item.
             - "Goal": a task with a specific date, time, or target metric.
             - "Routine": a habit that repeats on a cadence ("every day", "every Sunday", "weekly on Friday"). A recurring phrase is a Routine, not a Goal.
-            - "Project": an item with multiple sub-steps.
+            - "List": a series of tasks with no deadline, listed in sub_items.
+            - "Project": an item with multiple sub-steps, a deadline or an end goal.
 
             Schema:
             {
-              "type": "Note" | "Task" | "Goal" | "Project" | "Routine",
+              "type": "Note" | "Task" | "List" | "Goal" | "Project" | "Routine",
               "title": "string",
               "completion_condition": "string | null",
               "deadline": "ISO-8601 string with offset | null",
