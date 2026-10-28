@@ -97,7 +97,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
@@ -210,6 +209,8 @@ fun OverlayShell(
     onRevealProgress: (Float) -> Unit = {},
     /** Whether the backdrop slice is drawn; the host hides it while the handle's stage window draws the slice instead. */
     sliceShown: Boolean = true,
+    /** The backdrop slice's opening spin in degrees per second (sign = direction), from the pull that opened the overlay. */
+    initialSpin: Float = 0f,
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -243,7 +244,7 @@ fun OverlayShell(
         imeWasVisible = imeVisible
     }
     // The ground grows first, then the content rises in; both are fully shown on the first frame with reduced motion.
-    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion) }
+    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion).apply { kick(initialSpin) } }
     val reveal = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     val entrance = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
@@ -807,11 +808,6 @@ private fun Carousel(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
                 return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                if (isBigSwipe(available.y)) spinNow.kick(spinBoostFor(-available.y))
-                return Velocity.Zero
             }
         }
     }
