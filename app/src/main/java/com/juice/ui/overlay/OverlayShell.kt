@@ -142,6 +142,7 @@ const val TAG_MULTIPLIER = "multiplier_badge"
 const val TAG_UNDO = "undo"
 const val TAG_COMPLETE = "complete_button"
 const val TAG_DISMISS = "dismiss_button"
+const val TAG_CARD_TITLE = "card_title"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
 
