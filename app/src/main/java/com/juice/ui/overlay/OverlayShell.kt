@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.ime
@@ -100,6 +102,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -142,6 +145,9 @@ const val TAG_DISMISS = "dismiss_button"
 const val TAG_CARD_TITLE = "card_title"
 const val TAG_TITLE_FIELD = "title_field"
 const val TAG_TYPE_PILL = "type_pill"
+
+/** Prefix of the type menu entries; the item type name follows. */
+const val TAG_TYPE_OPTION_PREFIX = "type_option_"
 const val TAG_CLOSE = "close_handle"
 const val TAG_CAROUSEL = "carousel"
 const val TAG_RECAP = "recap_button"
@@ -168,7 +174,16 @@ private const val BANNER_MILLIS = 2200L
 private const val BANNER_MILLIS_PER_CHAR = 60L
 private const val FLOAT_MILLIS = 1300
 private const val RING_PREVIEW_MILLIS = 1400L
-private val BACKDROP_DP = 280.dp
+private const val BACKDROP_MAX_DP = 280f
+
+/** Below this height (a phone on its side) the overlay tightens its gaps and floats the undo prompt over the cards. */
+internal val COMPACT_HEIGHT = 480.dp
+
+/**
+ * The backdrop slice's size, in dp, on a screen [screenHeightDp] tall: 280dp, but never more than half
+ * the height, so on a phone on its side it stays in the corner instead of covering the header.
+ */
+internal fun backdropSliceDp(screenHeightDp: Float): Float = minOf(BACKDROP_MAX_DP, screenHeightDp / 2)
 private const val WIGGLE_MILLIS = 110
 private const val WIGGLE_DEGREES = 1.5f
 private const val WIGGLE_DP = 1.5f
@@ -220,6 +235,8 @@ fun OverlayShell(
     var settingsOpen by remember { mutableStateOf(false) }
     var recapOpen by remember { mutableStateOf(false) }
     var routinesOpen by remember { mutableStateOf(false) }
+    // Held here so the draft survives Capture leaving composition while Routines is open.
+    var captureDraft by remember { mutableStateOf("") }
     var centre by remember { mutableStateOf(0) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
@@ -312,10 +329,22 @@ fun OverlayShell(
     }
 
     CompositionLocalProvider(LocalTextStyle provides TextStyle(fontFamily = SpaceGrotesk, color = Color.White)) {
-        Box(
+        BoxWithConstraints(
             modifier
                 .fillMaxSize(),
         ) {
+            val compact = maxHeight < COMPACT_HEIGHT
+            val layoutDirection = LocalLayoutDirection.current
+            val barStart = systemBars.calculateStartPadding(layoutDirection)
+            val barEnd = systemBars.calculateEndPadding(layoutDirection)
+            val topGap = if (compact) 10.dp else 38.dp
+            // The content keeps clear of the bars and cutout on every side; in landscape they sit at the sides.
+            val content = PaddingValues(
+                start = barStart + 14.dp,
+                end = barEnd + 14.dp,
+                top = barTop + topGap,
+                bottom = contentBottom + if (compact) 10.dp else 16.dp,
+            )
             SliceBackdrop(
                 hud,
                 slices = SliceLogoPainter.sliceCount(state.items.size),
@@ -367,29 +396,38 @@ fun OverlayShell(
                         if (writing) Modifier.pointerInput(Unit) { detectTapGestures { leaveWriting() } }
                         else Modifier,
                     )
-                    .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                    .padding(content),
             ) {
                 // The Routines view covers the main view and hosts its own carousel; the service has one reservoir View, which only one host can hold.
                 if (!writing && !routinesOpen) {
-                    Header(hud, entranceProgress, cardPops.element(0), onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true })
-                    Spacer(Modifier.height(12.dp))
-                    val list = state.items
-                    CardRow(
-                        state, hud, settings, actions, effects, reservoir, centre,
-                        onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entrance = entranceProgress, spin = spin, cardPops = cardPops,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress).then(cardPops.element(0))) {
+                    val undoToast = @Composable {
                         if (undo != null) UndoToast(undo, hud) {
                             state.undoLast()
                             actions.feedback(FeedbackEvent.UNDO)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    // On a short screen the undo prompt sits in the header's empty middle rather than keeping a row of its own.
+                    Header(
+                        hud, entranceProgress, cardPops.element(0),
+                        onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true },
+                        middle = if (compact) undoToast else null,
+                    )
+                    Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
+                    CardRow(
+                        state, hud, settings, actions, effects, reservoir, centre,
+                        onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
+                        entrance = entranceProgress, spin = spin, cardPops = cardPops,
+                    )
+                    if (!compact) {
+                        Spacer(Modifier.height(8.dp))
+                        Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress).then(cardPops.element(0))) { undoToast() }
+                    }
+                    Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
                 }
-                if (!state.editingTitle) Capture(
+                if (!state.editingTitle && !routinesOpen) Capture(
                     hud,
+                    draft = captureDraft,
+                    onDraftChange = { captureDraft = it },
                     writing = writing,
                     onWritingChange = { writing = it },
                     onLeave = ::leaveWriting,
@@ -408,7 +446,7 @@ fun OverlayShell(
                         .then(cardPops.element(1))
                         .background(overlayTint(blurred))
                         .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
-                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                        .padding(content),
                 )
             }
             state.creator?.let { creator ->
@@ -418,7 +456,7 @@ fun OverlayShell(
                         .fillMaxSize()
                         .background(overlayTint(blurred))
                         .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
-                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                        .padding(content),
                 )
             }
             val needsCloud = stringResource(R.string.coach_needs_cloud)
@@ -430,7 +468,7 @@ fun OverlayShell(
                     null -> {}
                 }
             }
-            Banner(effects, hud, Modifier.align(Alignment.TopCenter).padding(top = barTop + 92.dp))
+            Banner(effects, hud, Modifier.align(Alignment.TopCenter).padding(top = barTop + if (compact) 64.dp else 92.dp))
             AnimatedVisibility(settingsOpen, enter = fadeIn(), exit = fadeOut()) {
                 Box(
                     Modifier
@@ -451,8 +489,10 @@ fun OverlayShell(
                     onSwipeDistance = { ringPreview++ },
                     characters = characters,
                     modifier = Modifier
+                        .padding(top = barTop + if (compact) 16.dp else 120.dp, start = barStart, end = barEnd)
+                        // A phone-wide sheet, not a screen-wide one, when the screen is on its side.
+                        .widthIn(max = SHEET_MAX_WIDTH)
                         .fillMaxWidth()
-                        .padding(top = barTop + 120.dp)
                         .padding(bottom = barBottom),
                 )
             }
@@ -464,7 +504,7 @@ fun OverlayShell(
                         .fillMaxSize()
                         .background(overlayTint(blurred))
                         .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
-                        .padding(start = 14.dp, end = 14.dp, top = barTop + 38.dp, bottom = contentBottom + 16.dp),
+                        .padding(content),
                 )
             }
             if (recapOpen) {
@@ -472,6 +512,7 @@ fun OverlayShell(
                     hud, settings.reduceMotion, clock, actions,
                     onClose = { recapOpen = false },
                     systemBars = systemBars,
+                    topGap = topGap,
                 )
             }
             if (ringPreview > 0) SwipeRing(settings, hud)
@@ -518,6 +559,9 @@ fun OverlayShell(
 }
 
 private const val FROTH_SEED = 44L
+
+/** The settings sheet is no wider than this, so on a phone on its side it stays a sheet. */
+private val SHEET_MAX_WIDTH = 560.dp
 
 /** The carousel's list is inset this far from its left edge. */
 private val CAROUSEL_LIST_START = 12.dp
@@ -637,12 +681,14 @@ private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum
             last = now
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // Matches backdropSliceSpot, where the handle's slice flies to and from.
+        val side = backdropSliceDp(maxHeight.value).dp
         Canvas(
             Modifier
                 .align(Alignment.TopEnd)
-                .offset(BACKDROP_DP / 4, -BACKDROP_DP / 4)
-                .size(BACKDROP_DP)
+                .offset(side / 4, -side / 4)
+                .size(side)
                 .semantics { stateDescription = if (shown) BACKDROP_SHOWN else BACKDROP_HIDDEN }
                 .testTag(TAG_BACKDROP_SLICE)
                 // Hidden while the stage's flying slice opens or closes the overlay, so one slice is on screen.
@@ -672,9 +718,18 @@ private fun SwipeRing(settings: JuiceSettings, hud: Hud) {
 }
 
 @Composable
-private fun Header(hud: Hud, entrance: () -> Float, pop: Modifier, onRecap: () -> Unit, onRoutines: () -> Unit, onSettings: () -> Unit) {
+private fun Header(
+    hud: Hud,
+    entrance: () -> Float,
+    pop: Modifier,
+    onRecap: () -> Unit,
+    onRoutines: () -> Unit,
+    onSettings: () -> Unit,
+    /** Shown between the level and the multiplier, where a wide screen has room. */
+    middle: (@Composable () -> Unit)? = null,
+) {
     Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false).then(pop), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f)) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
                 Text(stringResource(R.string.overlay_level, hud.level), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -692,6 +747,9 @@ private fun Header(hud: Hud, entrance: () -> Float, pop: Modifier, onRecap: () -
             Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(JuiceColors.white(0.18f))) {
                 Box(Modifier.fillMaxWidth(hud.levelProgress).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(hud.accent))
             }
+        }
+        if (middle != null) {
+            Box(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 16.dp)) { middle() }
         }
         }
         MultiplierBadge(hud)
@@ -1033,17 +1091,18 @@ fun PlainReservoir(hud: Hud, modifier: Modifier) {
 @Composable
 private fun Capture(
     hud: Hud,
+    draft: String,
+    onDraftChange: (String) -> Unit,
     writing: Boolean,
     onWritingChange: (Boolean) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier,
     onSubmit: (String) -> Unit,
 ) {
-    var draft by remember { mutableStateOf("") }
     fun submit() {
         if (draft.isBlank()) return
         onSubmit(draft)
-        draft = ""
+        onDraftChange("")
         onLeave()
     }
     val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
@@ -1053,7 +1112,7 @@ private fun Capture(
     ) {
         BasicTextField(
             value = draft,
-            onValueChange = { draft = it },
+            onValueChange = onDraftChange,
             singleLine = !writing,
             textStyle = LocalTextStyle.current.copy(fontSize = if (writing) 20.sp else 15.sp),
             cursorBrush = SolidColor(Color.White),

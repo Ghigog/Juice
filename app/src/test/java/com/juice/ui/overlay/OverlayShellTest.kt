@@ -278,6 +278,20 @@ class OverlayShellTest {
     }
 
     @Test
+    fun theCaptureFieldIsHiddenWhileTheRoutinesViewIsOpenAndReturnsAfter() {
+        show()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        idle()
+        idle()
+        compose.onAllNodesWithTag(TAG_CAPTURE_FIELD).assertCountEquals(0)
+        compose.onNodeWithTag(TAG_ROUTINES_CLOSE).performClick()
+        idle()
+        idle()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
     fun theRoutinesButtonWithNoRoutinesShowsTheEmptyMessage() {
         show()
         compose.onNodeWithTag(TAG_ROUTINES).performClick()
@@ -644,13 +658,17 @@ class OverlayShellTest {
     }
 
     @Test
-    fun tappingTheTypePillChangesTheCardAndSavesIt() {
+    fun pickingATypeFromThePillMenuChangesTheCardAndSavesIt() {
         val item = Item("a", ItemType.Note, "Call Sam")
         runBlocking { repository.save(item) }
         show(item)
         compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
-        compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
         idle()
+        ItemType.entries.forEach { compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + it.name).assertExists() }
+        assertEquals(ItemType.Note, state.items.single().type)
+        compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + "Goal").performClick()
+        idle()
+        compose.onNodeWithTag(TAG_TYPE_PILL).assertTextEquals("GOAL")
         assertEquals(ItemType.Goal, state.items.single().type)
         assertEquals(ItemType.Goal, runBlocking { repository.get("a")?.type })
     }
