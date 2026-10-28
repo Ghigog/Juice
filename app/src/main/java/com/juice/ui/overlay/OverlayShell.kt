@@ -227,6 +227,8 @@ fun OverlayShell(
     sliceShown: Boolean = true,
     /** The backdrop slice's opening spin in degrees per second (sign = direction), from the pull that opened the overlay. */
     initialSpin: Float = 0f,
+    /** The backdrop slice's opening angle in degrees, so it carries on from the handle slice's angle. */
+    initialAngle: Float = 0f,
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -262,7 +264,7 @@ fun OverlayShell(
         imeWasVisible = imeVisible
     }
     // The ground grows first, then the content rises in; both are fully shown on the first frame with reduced motion.
-    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion).apply { kick(initialSpin) } }
+    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion).apply { seed(initialAngle); kick(initialSpin) } }
     val reveal = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     val entrance = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
