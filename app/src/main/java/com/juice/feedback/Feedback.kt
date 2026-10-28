@@ -10,6 +10,9 @@ enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT
 interface Feedback {
     fun play(event: FeedbackEvent, boosted: Boolean = false)
 
+    /** The completion cue, pitched up as the heat [multiplier] rises. */
+    fun playCompletion(multiplier: Double) = play(FeedbackEvent.CHECKMARK, boosted = false)
+
     /** Switches to the sounds of the player's flavour. */
     fun useSoundSet(soundSet: SoundSet) {}
 
@@ -22,6 +25,13 @@ interface Feedback {
 
 /** Satiated completions and the peak play +4 semitones up. */
 const val BOOSTED_RATE = 1.2599f
+
+/** The completion cue never rises past this: BOOSTED_RATE plus 3 semitones (7 up from normal). */
+const val MAX_COMPLETION_RATE = 1.4983f
+
+/** Playback rate for a completion at [multiplier]: 1.0 at the base 1×, one semitone per extra point, capped. */
+fun completionRate(multiplier: Double): Float =
+    if (multiplier <= 1.0) 1f else minOf(Math.pow(2.0, (multiplier - 1.0) / 12.0).toFloat(), MAX_COMPLETION_RATE)
 
 enum class Haptic { SELECTION_TICK, MEDIUM_IMPACT, DOUBLE_LOW_BUZZ, CONTINUOUS_LOW_RUMBLE, REJECT }
 
@@ -52,6 +62,12 @@ class FeedbackPlayer(
 
     override fun playGreeting(seed: Int) {
         if (settings().soundEnabled) sounds.playGreeting(seed)
+    }
+
+    override fun playCompletion(multiplier: Double) {
+        val current = settings()
+        if (current.soundEnabled) sounds.play(Cue.DONE, completionRate(multiplier))
+        if (current.hapticsEnabled) haptics.vibrate(Haptic.MEDIUM_IMPACT)
     }
 
     override fun play(event: FeedbackEvent, boosted: Boolean) {

@@ -21,6 +21,7 @@ class GameSessionTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val store = EconomyStore(context)
     private val events = mutableListOf<FeedbackEvent>()
+    private val completionMultipliers = mutableListOf<Double>()
     private var now = 0L
     private var satiated = 0
     private val soundSets = mutableListOf<SoundSet>()
@@ -29,6 +30,7 @@ class GameSessionTest {
         store,
         object : Feedback {
             override fun play(event: FeedbackEvent, boosted: Boolean) { events += event }
+            override fun playCompletion(multiplier: Double) { completionMultipliers += multiplier; events += FeedbackEvent.CHECKMARK }
             override fun useSoundSet(soundSet: SoundSet) { soundSets += soundSet }
         },
         clock = { now },
@@ -39,6 +41,15 @@ class GameSessionTest {
     )
     private val levelUps = mutableListOf<Pair<Int, Flavour?>>()
     private var chosen: Flavour? = null
+
+    @Test fun completionIsPlayedWithTheMultiplierBeforeIt() {
+        session.open()
+        val before = session.multiplier
+        session.complete(ItemType.PROJECT)
+        val afterFirst = session.multiplier
+        session.complete(ItemType.NOTE)
+        assertEquals(listOf(before, afterFirst), completionMultipliers)
+    }
 
     @Test fun completingUpdatesJuiceMeterAndPlaysFeedback() {
         session.open()

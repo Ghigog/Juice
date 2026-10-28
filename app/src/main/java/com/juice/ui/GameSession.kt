@@ -100,11 +100,12 @@ class GameSession(
     fun complete(type: ItemType): Long {
         val wasSatiated = state.meter > config.satiatedAbove
         val levelBefore = level
+        val multiplierBefore = multiplier
         val (next, completion) = economy.complete(state, type)
         state = next
         undoStack.addLast(completion)
         persist()
-        feedback.play(FeedbackEvent.CHECKMARK, boosted = wasSatiated)
+        feedback.playCompletion(multiplierBefore)
         if (!wasSatiated && state.meter > config.satiatedAbove) {
             feedback.play(FeedbackEvent.SATIATED_PEAK)
             onSatiated()
