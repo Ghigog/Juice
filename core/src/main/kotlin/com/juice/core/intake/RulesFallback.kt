@@ -244,7 +244,7 @@ object RulesFallback {
      * Spans rather than moments: "end of the week", "this weekend", "next month" mean the end of
      * that span; "in 3 days" or "within a week" count from now.
      */
-    private fun periodEnd(text: String, now: ZonedDateTime): ZonedDateTime? {
+    internal fun periodEnd(text: String, now: ZonedDateTime): ZonedDateTime? {
         within.find(text)?.let { m ->
             val n = m.groupValues[1].lowercase().let { if (it in setOf("a", "an", "one")) 1L else it.toLong() }
             val unit = when (m.groupValues[2].lowercase().removeSuffix("s")) {
