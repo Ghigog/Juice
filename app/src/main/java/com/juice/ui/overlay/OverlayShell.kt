@@ -459,7 +459,6 @@ fun OverlayShell(
                         .padding(content),
                 )
             }
-            ChipPickers(state)
             val needsCloud = stringResource(R.string.coach_needs_cloud)
             val unreachable = chat?.let { stringResource(R.string.coach_unreachable, it.character.name, it.reason) }.orEmpty()
             LaunchedEffect(chat?.notice) {
