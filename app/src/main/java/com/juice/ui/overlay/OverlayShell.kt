@@ -90,6 +90,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -227,6 +228,8 @@ fun OverlayShell(
     sliceShown: Boolean = true,
     /** The backdrop slice's opening spin in degrees per second (sign = direction), from the pull that opened the overlay. */
     initialSpin: Float = 0f,
+    /** The backdrop slice's opening angle in degrees, so it carries on from the handle slice's angle. */
+    initialAngle: Float = 0f,
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -262,7 +265,7 @@ fun OverlayShell(
         imeWasVisible = imeVisible
     }
     // The ground grows first, then the content rises in; both are fully shown on the first frame with reduced motion.
-    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion).apply { kick(initialSpin) } }
+    val spin = remember(settings.reduceMotion) { SpinMomentum(enabled = !settings.reduceMotion).apply { seed(initialAngle); kick(initialSpin) } }
     val reveal = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     val entrance = remember { Animatable(if (settings.reduceMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
@@ -867,6 +870,12 @@ private fun Carousel(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
                 return Offset.Zero
+            }
+
+            // Pre, not post: it fires even when the list is already at its first or last card.
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                spinNow.kick(spinForFling(available.y))
+                return Velocity.Zero
             }
         }
     }

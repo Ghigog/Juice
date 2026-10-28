@@ -28,6 +28,14 @@ internal fun spinForPull(vx: Float, vy: Float): Float {
 }
 
 /**
+ * The signed spin, in degrees per second, for a carousel flick released at [vy] px/s: the same sign
+ * and scale as dragging ([DRAG_DEG_PER_PX], so a downward flick turns like a downward drag), capped
+ * at [MAX_SPIN_BOOST_DEG_PER_SEC].
+ */
+internal fun spinForFling(vy: Float): Float =
+    (-vy * DRAG_DEG_PER_PX).coerceIn(-MAX_SPIN_BOOST_DEG_PER_SEC, MAX_SPIN_BOOST_DEG_PER_SEC)
+
+/**
  * The backdrop slice's rotation: still unless dragged, or spun by a [kick] (the opening pull) that
  * decays exponentially back to rest. Pure, so it can be stepped by a frame loop or a test. When not
  * [enabled] (reduce motion) it never turns.
@@ -61,11 +69,16 @@ internal class SpinMomentum(
         angle = ((angle + deg) % 360f + 360f) % 360f
     }
 
-    /** Adds a spin of [degPerSec] (sign = direction); a slower kick never cuts a faster spin in the same direction. */
+    /** Sets the spin to [degPerSec] (sign = direction), so a slower kick lets the spin ease down to it. */
     fun kick(degPerSec: Float) {
         if (!enabled) return
-        val v = degPerSec.coerceIn(-maxBoostDegPerSec, maxBoostDegPerSec)
-        if (sign(v) != sign(boost) || abs(v) > abs(boost)) boost = v
+        boost = degPerSec.coerceIn(-maxBoostDegPerSec, maxBoostDegPerSec)
+    }
+
+    /** Starts the slice at [deg] degrees, so it carries on from another slice's angle. */
+    fun seed(deg: Float) {
+        if (!enabled) return
+        angle = (deg % 360f + 360f) % 360f
     }
 
     /** Advances by [dtNanos] and returns the angle in degrees, in [0, 360). */

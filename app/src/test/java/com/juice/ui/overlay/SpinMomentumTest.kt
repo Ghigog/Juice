@@ -15,6 +15,17 @@ class SpinMomentumTest {
         return (m.angle - before + 360f) % 360f
     }
 
+    @Test fun flickSpinsLikeTheDragItReleases() {
+        assertEquals(-DRAG_DEG_PER_PX * 1000f, spinForFling(1000f), 0.001f)
+        assertEquals(DRAG_DEG_PER_PX * 1000f, spinForFling(-1000f), 0.001f)
+        assertEquals(0f, spinForFling(0f), 0f)
+    }
+
+    @Test fun flickSpinIsCapped() {
+        assertEquals(MAX_SPIN_BOOST_DEG_PER_SEC, spinForFling(-1_000_000f), 0f)
+        assertEquals(-MAX_SPIN_BOOST_DEG_PER_SEC, spinForFling(1_000_000f), 0f)
+    }
+
     @Test fun staysStillWhenNothingIsTouched() {
         val m = SpinMomentum()
         m.run(10)
@@ -81,5 +92,18 @@ class SpinMomentumTest {
         assertEquals(MAX_SPIN_BOOST_DEG_PER_SEC, spinForPull(1_000_000f, 0f), 0f)
         assertEquals(-MAX_SPIN_BOOST_DEG_PER_SEC, spinForPull(0f, -1_000_000f), 0f)
         assertEquals(0f, spinForPull(0f, 0f), 0f)
+    }
+
+    @Test fun seedStartsTheSliceAtAnAngle() {
+        val m = SpinMomentum().apply { seed(370f) }
+        assertEquals(10f, m.angle, 0.001f)
+        assertEquals(0f, SpinMomentum(enabled = false).apply { seed(90f) }.angle, 0f)
+    }
+
+    @Test fun aSlowerKickInTheSameDirectionEasesTheSpinDown() {
+        val m = SpinMomentum().apply { kick(500f); kick(100f) }
+        assertEquals(100f, m.boost, 0.001f)
+        m.run(15)
+        assertEquals(0f, m.boost, 0.0001f)
     }
 }
