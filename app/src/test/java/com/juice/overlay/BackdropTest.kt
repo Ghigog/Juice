@@ -40,11 +40,20 @@ class BackdropTest {
 
     @Test
     fun backdropSliceIsTheTopRightBoxShiftedSeventyDpOut() {
-        val spot = backdropSliceSpot(screenWidthPx = 1080, density = 2f)
+        val spot = backdropSliceSpot(screenWidthPx = 1080, screenHeightPx = 2400, density = 2f)
         assertEquals(560f, spot.size)
         // A 280dp box aligned top-right is centred 140dp in; the 70dp shift out leaves 70dp.
         assertEquals(1080f - 140f, spot.x)
         assertEquals(140f, spot.y)
+    }
+
+    @Test
+    fun inLandscapeTheBackdropSliceIsHalfTheScreenTall() {
+        // 400dp tall: a 200dp box, centred 100dp in and shifted 50dp out.
+        val spot = backdropSliceSpot(screenWidthPx = 1800, screenHeightPx = 800, density = 2f)
+        assertEquals(400f, spot.size)
+        assertEquals(1800f - 100f, spot.x)
+        assertEquals(100f, spot.y)
     }
 
     @Test

@@ -16,9 +16,11 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -356,7 +360,8 @@ internal fun CentreCard(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
             )
         } else {
-            Column(
+            // A short, wide card (a phone on its side) puts the title and steps beside the worth and buttons.
+            BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
@@ -367,98 +372,143 @@ internal fun CentreCard(
                         val s = 1f + flyY.value / 600f
                         scaleX = s
                         scaleY = s
-                    }
-                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp),
+                    },
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val wide = maxHeight < WIDE_CARD_MAX_HEIGHT && maxWidth >= WIDE_CARD_MIN_WIDTH
+                val header = @Composable {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        var typeMenuOpen by remember { mutableStateOf(false) }
+                        Box {
+                            Box(
+                                Modifier
+                                    .height(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(JuiceColors.of(item.type))
+                                    .clickable { typeMenuOpen = true }
+                                    .padding(horizontal = 12.dp)
+                                    .testTag(TAG_TYPE_PILL),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
+                            DropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
+                                ItemType.entries.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(if (type == item.type) "✓ ${type.name}" else type.name) },
+                                        onClick = {
+                                            typeMenuOpen = false
+                                            state.setType(item, type)
+                                            actions.feedback(FeedbackEvent.SNAP)
+                                        },
+                                        modifier = Modifier.testTag(TAG_TYPE_OPTION_PREFIX + type.name),
+                                    )
+                                }
+                            }
+                        }
+                        if (item.starredAt != null) {
+                            Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = 18.sp, modifier = Modifier.padding(start = 8.dp))
+                        }
+                        if (item.id in state.parsing) ParsingChip(onDeviceOnly)
+                    }
+                }
+                val title = @Composable {
+                    if (editing) {
+                        TitleField(item.title, onChange = state::changeTitleEdit) {
+                            state.commitTitleEdit()
+                        }
+                    } else {
+                        Text(
+                            item.title,
+                            fontSize = 25.sp,
+                            lineHeight = 30.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = (-0.5).sp,
+                            maxLines = if (wide) 3 else 5,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
+                        )
+                    }
+                }
+                val steps = @Composable { stepsModifier: Modifier ->
+                    Column(stepsModifier.clip(RectangleShape)) {
+                        item.steps.forEach { step ->
+                            StepRow(step, Modifier.onGloballyPositioned { stepBounds[step.id] = it.boundsInRoot().translate(-cardOrigin) })
+                        }
+                    }
+                }
+                val footer = @Composable {
+                    item.completionCondition?.let { done ->
+                        Text(
+                            stringResource(R.string.overlay_done_when, done),
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            color = JuiceColors.white(0.82f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                    Text(metaOf(state, item), fontSize = 14.sp, lineHeight = 20.sp, color = JuiceColors.white(0.82f))
+                    Spacer(Modifier.height(12.dp))
                     Box(
                         Modifier
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(JuiceColors.of(item.type))
-                            .clickable {
-                                state.cycleType(item)
-                                actions.feedback(FeedbackEvent.SNAP)
-                            }
-                            .padding(horizontal = 12.dp)
-                            .testTag(TAG_TYPE_PILL),
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(Color.Black.copy(alpha = 0.28f))
+                            .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Text(worthOf(item, hud), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = hud.accent)
                     }
-                    if (item.starredAt != null) {
-                        Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = 18.sp, modifier = Modifier.padding(start = 8.dp))
+                    Spacer(Modifier.height(16.dp))
+                    if (tapButtons) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            PillButton(
+                                stringResource(R.string.overlay_complete), hud.accent, JuiceColors.Ink,
+                                Modifier.weight(1f).testTag(TAG_COMPLETE),
+                            ) { act(complete = true) }
+                            PillButton(
+                                stringResource(R.string.overlay_dismiss), JuiceColors.white(0.16f), Color.White,
+                                Modifier.width(96.dp).testTag(TAG_DISMISS),
+                            ) { act(complete = false) }
+                        }
+                        Spacer(Modifier.height(14.dp))
                     }
-                    if (item.id in state.parsing) ParsingChip(onDeviceOnly)
+                    Text(
+                        hint ?: stringResource(R.string.overlay_card_hint),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = JuiceColors.white(0.72f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                Spacer(Modifier.height(24.dp))
-                if (editing) {
-                    TitleField(item.title, onChange = state::changeTitleEdit) {
-                        state.commitTitleEdit()
+                if (wide) {
+                    Row(
+                        Modifier.fillMaxSize().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            header()
+                            Spacer(Modifier.height(10.dp))
+                            title()
+                            Spacer(Modifier.height(6.dp))
+                            steps(Modifier.weight(1f))
+                        }
+                        Column(Modifier.width(WIDE_CARD_SIDE).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
+                            footer()
+                        }
                     }
                 } else {
-                    Text(
-                        item.title,
-                        fontSize = 25.sp,
-                        lineHeight = 30.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = (-0.5).sp,
-                        maxLines = 5,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Column(Modifier.weight(1f).clip(RectangleShape)) {
-                    item.steps.forEach { step ->
-                        StepRow(step, Modifier.onGloballyPositioned { stepBounds[step.id] = it.boundsInRoot().translate(-cardOrigin) })
+                    Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp)) {
+                        header()
+                        Spacer(Modifier.height(24.dp))
+                        title()
+                        Spacer(Modifier.height(12.dp))
+                        steps(Modifier.weight(1f))
+                        footer()
                     }
                 }
-                item.completionCondition?.let { done ->
-                    Text(
-                        stringResource(R.string.overlay_done_when, done),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        color = JuiceColors.white(0.82f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                Text(metaOf(state, item), fontSize = 14.sp, lineHeight = 20.sp, color = JuiceColors.white(0.82f))
-                Spacer(Modifier.height(12.dp))
-                Box(
-                    Modifier
-                        .height(30.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(Color.Black.copy(alpha = 0.28f))
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(worthOf(item, hud), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = hud.accent)
-                }
-                Spacer(Modifier.height(16.dp))
-                if (tapButtons) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PillButton(
-                            stringResource(R.string.overlay_complete), hud.accent, JuiceColors.Ink,
-                            Modifier.weight(1f).testTag(TAG_COMPLETE),
-                        ) { act(complete = true) }
-                        PillButton(
-                            stringResource(R.string.overlay_dismiss), JuiceColors.white(0.16f), Color.White,
-                            Modifier.width(96.dp).testTag(TAG_DISMISS),
-                        ) { act(complete = false) }
-                    }
-                    Spacer(Modifier.height(14.dp))
-                }
-                Text(
-                    hint ?: stringResource(R.string.overlay_card_hint),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = JuiceColors.white(0.72f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
         Canvas(Modifier.fillMaxSize()) {
@@ -474,6 +524,13 @@ internal fun CentreCard(
         }
     }
 }
+
+/** Below this height, and at least [WIDE_CARD_MIN_WIDTH] wide, the centre card lays out in two columns. */
+private val WIDE_CARD_MAX_HEIGHT = 300.dp
+private val WIDE_CARD_MIN_WIDTH = 480.dp
+
+/** The width of the wide card's right column: the worth, the buttons and the hint. */
+private val WIDE_CARD_SIDE = 240.dp
 
 /** One step of a Project; a done step stays listed, struck through. */
 @Composable
