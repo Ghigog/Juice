@@ -13,6 +13,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
@@ -665,6 +667,8 @@ class OverlayShellTest {
         compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
         idle()
         ItemType.entries.forEach { compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + it.name).assertExists() }
+        compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + "Note").assertIsSelected()
+        listOf("Task", "Goal", "Project", "Routine").forEach { compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + it).assertIsNotSelected() }
         assertEquals(ItemType.Note, state.items.single().type)
         compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + "Goal").performClick()
         idle()

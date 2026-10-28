@@ -8,6 +8,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -68,6 +71,9 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -408,10 +414,17 @@ internal fun CentreCard(
                             ) {
                                 Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                             }
-                            DropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
+                            DropdownMenu(
+                                expanded = typeMenuOpen,
+                                onDismissRequest = { typeMenuOpen = false },
+                                shape = RoundedCornerShape(14.dp),
+                                containerColor = JuiceColors.Sheet,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                            ) {
                                 ItemType.entries.forEach { type ->
-                                    DropdownMenuItem(
-                                        text = { Text(if (type == item.type) "✓ ${type.name}" else type.name) },
+                                    TypeMenuRow(
+                                        type = type,
+                                        current = type == item.type,
                                         onClick = {
                                             typeMenuOpen = false
                                             state.setType(item, type)
@@ -670,4 +683,31 @@ private fun worthOf(item: Item, hud: Hud): String {
     val m = hud.multiplierLabel
     return if (item.type == ItemType.Project) "${hud.baseXp(item.type)} x $m on finish"
     else "${hud.baseXp(item.type)} x $m = ${hud.worth(item.type)} Juice"
+}
+
+/** One row of the type pill's drop-down: type colour dot, small-caps name, and a check on the current type. */
+@Composable
+internal fun TypeMenuRow(type: ItemType, current: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    DropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(JuiceColors.of(type)))
+                Text(
+                    type.name.uppercase(),
+                    color = Color.White,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                if (current) Text("✓", color = JuiceColors.of(type), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        onClick = onClick,
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .background(if (current) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+            .semantics { selected = current },
+    )
 }
