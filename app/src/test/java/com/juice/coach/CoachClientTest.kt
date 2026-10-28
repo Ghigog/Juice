@@ -13,7 +13,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.SocketPolicy
 
 class CoachClientTest {
     private val server = MockWebServer().apply { start() }
@@ -62,10 +61,10 @@ class CoachClientTest {
         assertEquals(3, server.requestCount)
     }
 
-    @Test fun aDroppedConnectionIsTriedAgain() {
-        // HttpURLConnection also retries a dropped POST by itself, so queue more drops than any attempt can use.
-        repeat(10) { server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START)) }
-        assertFailsWith<IOException> { client.chat("system", hi) }
+    @Test fun aRefusedConnectionIsTriedAgain() {
+        val closed = MockWebServer().apply { start(); shutdown() }
+        val refused = CoachClient("key", closed.url("/").toString().trimEnd('/'), sleep = { waits += it })
+        assertFailsWith<ConnectException> { refused.chat("system", hi) }
         assertEquals(listOf(1_000L, 2_000L), waits)
     }
 
