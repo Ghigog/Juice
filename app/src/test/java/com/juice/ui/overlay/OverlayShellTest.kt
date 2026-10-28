@@ -8,7 +8,10 @@ import androidx.compose.ui.Modifier
 import com.juice.RegisterComposeActivity
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -665,6 +668,67 @@ class OverlayShellTest {
         idle()
         compose.onAllNodesWithText("Call Sam").onFirst().assertIsDisplayed()
         assertEquals("Call Sam", runBlocking { repository.get("a")?.title })
+    }
+
+    private fun cardTitle() = compose.onNodeWithTag(TAG_CARD_TITLE)
+
+    /** The words shown as chips in the centre card's title. */
+    private fun chipWords(): List<String> {
+        val text = cardTitle().fetchSemanticsNode().config[SemanticsProperties.Text].first()
+        return text.spanStyles.filter { it.item.background != androidx.compose.ui.graphics.Color.Unspecified }
+            .map { text.text.substring(it.start, it.end) }
+    }
+
+    private fun tapChip(word: String) {
+        val node = cardTitle().fetchSemanticsNode()
+        val text = node.config[SemanticsProperties.Text].first().text
+        val results = mutableListOf<TextLayoutResult>()
+        node.config[SemanticsActions.GetTextLayoutResult].action!!(results)
+        val start = text.indexOf(word)
+        val at = results.first().getPathForRange(start, start + word.length).getBounds().center
+        cardTitle().performTouchInput { click(at) }
+        idle()
+    }
+
+    @Test
+    fun aTaskTitleShowsItsVerbAsAChipAndTheRestPlain() {
+        show(Item("a", ItemType.Task, "call the dentist"))
+        assertEquals(listOf("call"), chipWords())
+    }
+
+    @Test
+    fun aNoteTitleHasNoChips() {
+        show(Item("a", ItemType.Note, "call the dentist maybe someday"))
+        assertEquals(emptyList<String>(), chipWords())
+    }
+
+    @Test
+    fun aRoutineTitleShowsEveryAndTheWeekdayAsSeparateChips() {
+        show(Item("a", ItemType.Routine, "water plants every Friday", cadence = Cadence(setOf(DayOfWeek.FRIDAY))))
+        assertEquals(listOf("every", "Friday"), chipWords())
+    }
+
+    @Test
+    fun tappingTheVerbChipOpensTheTitleEditor() {
+        show(Item("a", ItemType.Task, "call the dentist"))
+        tapChip("call")
+        compose.onNodeWithTag(TAG_TITLE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingTheDeadlineChipAndPickingADayRewritesIt() {
+        show(Item("a", ItemType.Goal, "take out the trash on Tuesday"))
+        tapChip("Tuesday")
+        compose.onNodeWithTag("chipPickerDay${(DayOfWeek.THURSDAY.value - LocalDate.now().dayOfWeek.value + 7) % 7}").performClick()
+        idle()
+        assertEquals(listOf("Thursday"), chipWords())
+    }
+
+    @Test
+    fun tappingTheTitleOutsideAChipStillEditsIt() {
+        show(Item("a", ItemType.Task, "call the dentist"))
+        tapChip("dentist")
+        compose.onNodeWithTag(TAG_TITLE_FIELD).assertIsDisplayed()
     }
 
     @Test

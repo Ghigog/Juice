@@ -65,7 +65,10 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
@@ -77,7 +80,10 @@ import com.juice.R
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.gesture.GestureRecognizer
 import com.juice.core.gesture.GestureResult
+import com.juice.core.intake.ChipKind
+import com.juice.core.intake.ChipSpan
 import com.juice.core.intake.ItemType
+import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
 import com.juice.core.model.Step
 import com.juice.feedback.FeedbackEvent
@@ -128,6 +134,11 @@ internal fun CentreCard(
     DisposableEffect(Unit) { onDispose { reportEditing(false) } }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
+    // The words that sorted the card, as chips; only shown when the classifier still agrees with the card's type.
+    val chips = remember(item?.title, item?.type) {
+        item?.let { titleChips(it) }.orEmpty()
+    }
+    var chipBounds by remember(chips) { mutableStateOf<List<Rect>>(emptyList()) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }
     val shake = remember { Animatable(0f) }
     val flyX = remember(item?.id) { Animatable(0f) }
@@ -259,7 +270,13 @@ internal fun CentreCard(
             }
             if (outcome != false && titleBounds.contains(down.position)) {
                 current.clear()
-                item?.let(state::beginTitleEdit)
+                val tappedChip = if (outcome == true && !stillLifted) {
+                    chips.zip(chipBounds).firstOrNull { (_, bounds) -> bounds.translate(titleBounds.topLeft).contains(down.position) }?.first
+                } else null
+                if (item != null) {
+                    if (tappedChip != null && tappedChip.span.kind != ChipKind.Verb) state.openChipPicker(item, tappedChip.span)
+                    else state.beginTitleEdit(item)
+                }
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
             }
@@ -398,14 +415,19 @@ internal fun CentreCard(
                     }
                 } else {
                     Text(
-                        item.title,
+                        titleText(item.title, chips),
                         fontSize = 25.sp,
                         lineHeight = 30.sp,
                         fontWeight = FontWeight.Medium,
                         letterSpacing = (-0.5).sp,
                         maxLines = 5,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
+                        onTextLayout = { layout ->
+                            chipBounds = chips.map { layout.getPathForRange(it.start, it.end).getBounds() }
+                        },
+                        modifier = Modifier
+                            .onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) }
+                            .testTag(TAG_CARD_TITLE),
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -461,6 +483,7 @@ internal fun CentreCard(
                 )
             }
         }
+        ChipPickers(state)
         Canvas(Modifier.fillMaxSize()) {
             val all = strokes + if (current.size > 1) listOf(current.toList()) else emptyList()
             all.forEach { stroke ->
@@ -473,6 +496,27 @@ internal fun CentreCard(
             }
         }
     }
+}
+
+/** A chip in the title: [span] with its text offsets [start] until [end] (end exclusive). */
+private class TitleChip(val span: ChipSpan, val start: Int, val end: Int)
+
+/** The chips of [item]'s title; none unless the rules still sort the title as the card's type. */
+private fun titleChips(item: Item): List<TitleChip> {
+    if (RulesFallback.classify(item.title).type != item.type) return emptyList()
+    // Spans are measured on the trimmed title.
+    val lead = item.title.length - item.title.trimStart().length
+    return RulesFallback.spansOf(item.title, item.type).map { TitleChip(it, it.range.first + lead, it.range.last + 1 + lead) }
+}
+
+private fun titleText(title: String, chips: List<TitleChip>) = buildAnnotatedString {
+    var at = 0
+    chips.sortedBy { it.start }.forEach { chip ->
+        append(title.substring(at, chip.start))
+        withStyle(SpanStyle(background = JuiceColors.white(0.24f))) { append(title.substring(chip.start, chip.end)) }
+        at = chip.end
+    }
+    append(title.substring(at))
 }
 
 /** One step of a Project; a done step stays listed, struck through. */
