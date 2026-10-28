@@ -400,4 +400,18 @@ class ItemRepositoryTest {
         repository.save(item("a"))
         assertEquals(now, repository.get("a")?.starredAt)
     }
+
+    @Test
+    fun aLandedGoalNamesTheDayOfItsRelativeDeadlineUnlessTheTitleWasEdited() = runBlocking {
+        val now = Instant.parse("2026-10-28T12:00:00Z")
+        val clocked = ItemRepository(db.itemDao(), clock = { now })
+        val parsed = ParsedItem(ItemType.Goal, "take out the trash next week", deadline = now.plusSeconds(86_400))
+        clocked.save(Item("a", ItemType.Note, "take out the trash next week"))
+        clocked.applyParse("a", parsed)
+        assertEquals(true, clocked.get("a")!!.title.startsWith("take out the trash on "))
+
+        clocked.save(Item("b", ItemType.Note, "take out the trash next week", editedFields = setOf(com.juice.core.intake.IntakeField.Title)))
+        clocked.applyParse("b", parsed)
+        assertEquals("take out the trash next week", clocked.get("b")!!.title)
+    }
 }

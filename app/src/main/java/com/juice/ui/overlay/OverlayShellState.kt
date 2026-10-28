@@ -11,6 +11,8 @@ import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
+import com.juice.core.intake.RulesFallback
+import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
@@ -22,9 +24,11 @@ import com.juice.data.CreateResult
 import com.juice.data.ItemRepository
 import com.juice.data.PendingCoachCardStore
 import com.juice.data.advance
+import com.juice.data.asRoutine
 import com.juice.data.toItems
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineDispatcher
@@ -67,6 +71,8 @@ class OverlayShellState(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** True for the Routines view's list: every Active Routine, finished for good by ✓/✗ instead of moving on. */
     private val listsRoutines: Boolean = false,
+    /** The time a title is read against: "tomorrow" in an edited title, "next week" in a landed one. */
+    private val clock: () -> Instant = Instant::now,
 ) {
     var items by mutableStateOf(initial)
         private set
@@ -218,11 +224,17 @@ class OverlayShellState(
     /** A Project completes through its steps, so ticking it while steps are open does nothing. */
     fun canComplete(item: Item): Boolean = item.type != ItemType.Project || stepsOf(item).isEmpty()
 
-    /** The user rewrites a title; it is saved as typed and a late parse never changes it. */
+    private fun now() = clock().atZone(ZoneId.systemDefault())
+
+    /** The user rewrites a title; it is saved as typed, the card is sorted again by what it now says, and a late parse never changes it. */
     fun setTitle(item: Item, title: String) {
         val edited = title.trim()
         if (edited.isEmpty() || edited == item.title) return
-        edit(item.id, IntakeField.Title) { it.copy(title = edited) }
+        val parsed = RulesFallback.classify(edited, now())
+        edit(item.id, IntakeField.Title) {
+            val retitled = it.copy(title = edited, type = parsed.type, deadline = parsed.deadline, cadence = null, nextDueOn = null)
+            parsed.cadence?.takeIf { parsed.type == ItemType.Routine }?.let { cadence -> retitled.asRoutine(cadence, today) } ?: retitled
+        }
     }
 
     /** Applies a user edit on screen and saves the whole card in one write, so quick edits land in order. */
@@ -234,9 +246,15 @@ class OverlayShellState(
 
     /** Swaps the captured card [id] for what its parse produced: the card, with a Project's sub-items as steps. */
     fun land(id: String, parsed: ParsedItem) {
-        val landed = parsed.toItems(id, newId).first()
         val at = items.indexOfFirst { it.id == id }
         if (at < 0) return
+        val old = items[at]
+        val built = parsed.toItems(id, newId).first()
+        val landed = when {
+            IntakeField.Title in old.editedFields -> built.copy(title = old.title)
+            built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))
+            else -> built
+        }
         items = items.take(at) + landed + items.drop(at + 1)
         scope.launch { repository.save(landed) }
     }

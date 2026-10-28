@@ -7,6 +7,7 @@ import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.mergeParse
+import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.routine.Cadence
@@ -112,7 +113,11 @@ class ItemRepository(
             item.type, item.title, item.completionCondition, item.deadline, editedFields = item.editedFields,
         )
         val merged = card.mergeParse(parsed)
-        val landed = item.copy(type = merged.type, deadline = merged.deadline, completionCondition = merged.completionCondition)
+        // A relative deadline names its day once, and never over a title the user wrote.
+        val title = if (IntakeField.Title !in item.editedFields && merged.type == ItemType.Goal) {
+            rewriteRelativeDeadline(item.title, clock().atZone(ZoneId.systemDefault()))
+        } else item.title
+        val landed = item.copy(title = title, type = merged.type, deadline = merged.deadline, completionCondition = merged.completionCondition)
         save(merged.cadence?.takeIf { merged.type == ItemType.Routine }?.let { landed.asRoutine(it, today) } ?: landed)
     }
 

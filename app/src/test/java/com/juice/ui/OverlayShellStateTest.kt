@@ -636,4 +636,50 @@ class OverlayShellStateTest {
         dueDay.observe()
         assertEquals(listOf("Stretch legs"), dueDay.items.filter { it.id == "l" }.map { it.title })
     }
+
+    private val noon = java.time.Instant.parse("2026-10-28T12:00:00Z")
+
+    private fun clockedState(vararg items: Item) = OverlayShellState(
+        repository, CoroutineScope(Dispatchers.Unconfined), items.toList(), today = LocalDate.of(2026, 10, 28), clock = { noon },
+    )
+
+    @Test
+    fun retitlingAGoalAsEveryFridayMakesItAFridayRoutineWithNoStaleDeadline() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon)
+        repository.save(goal)
+        val state = clockedState(goal)
+        state.setTitle(goal, "take out the trash every Friday")
+        val saved = repository.get("g")!!
+        assertEquals(ItemType.Routine, saved.type)
+        assertEquals(setOf(DayOfWeek.FRIDAY), saved.cadence?.days)
+        assertEquals(LocalDate.of(2026, 10, 30), saved.nextDueOn)
+        assertNull(saved.deadline)
+        assertNull(state.items.single().deadline)
+    }
+
+    @Test
+    fun retitlingATaskWithTomorrowMakesItAGoalDueTomorrow() = runBlocking {
+        val task = Item("t", ItemType.Task, "call the dentist")
+        repository.save(task)
+        val state = clockedState(task)
+        state.setTitle(task, "call the dentist tomorrow")
+        val saved = repository.get("t")!!
+        assertEquals(ItemType.Goal, saved.type)
+        assertEquals(LocalDate.of(2026, 10, 29), saved.deadline!!.atZone(java.time.ZoneId.systemDefault()).toLocalDate())
+        assertNull(saved.cadence)
+    }
+
+    @Test
+    fun aLandedGoalNamesTheDayOfARelativeDeadlineUnlessTheTitleWasEdited() = runBlocking {
+        val parsed = ParsedItem(ItemType.Goal, "take out the trash next week")
+        val fresh = Item("n", ItemType.Note, "take out the trash next week")
+        val plain = clockedState(fresh)
+        plain.land("n", parsed)
+        assertEquals(true, plain.items.single().title.startsWith("take out the trash on "))
+
+        val edited = fresh.copy(editedFields = setOf(com.juice.core.intake.IntakeField.Title))
+        val kept = clockedState(edited)
+        kept.land("n", parsed)
+        assertEquals("take out the trash next week", kept.items.single().title)
+    }
 }
