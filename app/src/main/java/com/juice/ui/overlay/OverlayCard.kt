@@ -669,7 +669,10 @@ internal fun PillButton(label: String, background: Color, content: Color, modifi
 }
 
 private fun metaOf(state: OverlayShellState, item: Item): String = when {
-    item.type == ItemType.Project -> state.stepsOf(item).size.let { left ->
+    item.type == ItemType.List -> state.stepsOf(item).size.let { left ->
+        "No deadline. $left ${if (left == 1) "task" else "tasks"} left."
+    }
+    item.type.hasSteps -> state.stepsOf(item).size.let { left ->
         if (left == 0) "All steps done. Tick it off." else "$left ${if (left == 1) "step" else "steps"} to go"
     }
     item.type == ItemType.Routine && item.cadence != null -> item.cadence!!.label() +
@@ -681,7 +684,7 @@ private fun metaOf(state: OverlayShellState, item: Item): String = when {
 
 private fun worthOf(item: Item, hud: Hud): String {
     val m = hud.multiplierLabel
-    return if (item.type == ItemType.Project) "${hud.baseXp(item.type)} x $m on finish"
+    return if (item.type.hasSteps) "${hud.baseXp(item.type)} x $m on finish"
     else "${hud.baseXp(item.type)} x $m = ${hud.worth(item.type)} Juice"
 }
 

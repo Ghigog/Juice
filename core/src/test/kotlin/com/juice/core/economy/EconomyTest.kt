@@ -1,6 +1,7 @@
 package com.juice.core.economy
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EconomyTest {
@@ -49,6 +50,15 @@ class EconomyTest {
     fun completionPastFullLeavesMeterAtOneHundred() {
         val (state, _) = economy.complete(EconomyState(0, 90.0), ItemType.GOAL)
         assertEquals(100.0, state.meter, 1e-9)
+    }
+
+    @Test
+    fun aListIsWorthMoreThanATaskAndLessThanAProject() {
+        val c = EconomyConfig()
+        assertTrue(c.baseXp.getValue(ItemType.TASK) < c.baseXp.getValue(ItemType.LIST))
+        assertTrue(c.baseXp.getValue(ItemType.LIST) < c.baseXp.getValue(ItemType.PROJECT))
+        assertTrue(c.fillPercent.getValue(ItemType.TASK) < c.fillPercent.getValue(ItemType.LIST))
+        assertTrue(c.fillPercent.getValue(ItemType.LIST) < c.fillPercent.getValue(ItemType.PROJECT))
     }
 
     @Test
