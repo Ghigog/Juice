@@ -11,11 +11,16 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
+import android.hardware.display.DisplayManager
+import android.os.Handler
 import android.graphics.PixelFormat
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import android.view.Display
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -125,12 +130,49 @@ class OverlayService : Service() {
     private val characterSettings by lazy { CharacterSettings(characters, scope, level = { Progression.levelFor(EconomyStore(this).load()?.state?.juice ?: 0L) }) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     private var openItems = 0
+    // Room the overlay keeps clear for the system bars and cutout; follows the screen as it rotates.
+    private val systemBars = mutableStateOf(PaddingValues(0.dp))
+    // The screen's size and insets the handle and the overlay were last laid out for.
+    private var screen: Pair<android.graphics.Rect, android.graphics.Insets>? = null
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == Display.DEFAULT_DISPLAY) onScreenChanged()
+        }
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WindowManager::class.java)
+        screen = currentScreen()
+        systemBars.value = systemBarsPadding()
+        // A turn of 180 degrees changes no configuration, only which side the bars and cutout are on.
+        getSystemService(DisplayManager::class.java).registerDisplayListener(displayListener, Handler(mainLooper))
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        onScreenChanged()
+    }
+
+    private fun currentScreen(): Pair<android.graphics.Rect, android.graphics.Insets> {
+        val metrics = windowManager.maximumWindowMetrics
+        return metrics.bounds to metrics.windowInsets.getInsetsIgnoringVisibility(SAFE_INSETS)
+    }
+
+    /**
+     * The screen rotated or changed size: the handle goes back to its saved place on the new
+     * screen, kept clear of the bars and cutout, and the overlay keeps clear of them where they now are.
+     */
+    private fun onScreenChanged() {
+        val now = currentScreen()
+        if (now == screen) return
+        screen = now
+        systemBars.value = systemBarsPadding()
+        handle?.let { view -> handleCentre().let { (x, y) -> view.moveTo(x, y) } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -161,6 +203,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener)
         removeHandle()
         removeOverlay()
         scope.cancel()
@@ -198,7 +241,17 @@ class OverlayService : Service() {
 
     private fun handleCentre(): Pair<Float, Float> {
         val bounds = windowManager.maximumWindowMetrics.bounds
-        return settings.handleCentre(bounds.width(), bounds.height())
+        return settings.handleCentre(bounds.width(), bounds.height(), handleEdges())
+    }
+
+    /** How far in the handle's centre must sit: its window on screen, its logo clear of the bars and cutout. */
+    private fun handleEdges(): HandleEdges {
+        val density = resources.displayMetrics.density
+        val insets = windowManager.maximumWindowMetrics.windowInsets.getInsetsIgnoringVisibility(SAFE_INSETS)
+        return HandleEdges.of(
+            SliceHandleView.EDGE_DP * density, SliceHandleView.LOGO_HALF_DP * density,
+            insets.left, insets.top, insets.right, insets.bottom,
+        )
     }
 
     /** The flavour the handle wears: the player's pick once unlocked, else the highest unlocked. */
@@ -221,9 +274,11 @@ class OverlayService : Service() {
             feedback = { handleFeedback.play(it) },
             onMoved = { x, y ->
                 val bounds = windowManager.maximumWindowMetrics.bounds
-                val (fx, fy) = handleFractions(x, y, bounds.width(), bounds.height(), SliceHandleView.EDGE_DP * density)
+                val edges = handleEdges()
+                val (fx, fy) = handleFractions(x, y, bounds.width(), bounds.height(), edges)
                 settings = settings.copy(handleX = fx, handleY = fy)
                 scope.launch { settingsRepository.update { it.copy(handleX = fx, handleY = fy) } }
+                handleLanding(x, y, bounds.width(), bounds.height(), edges)
             },
             onDismiss = {
                 removeHandle()
@@ -250,7 +305,7 @@ class OverlayService : Service() {
             return
         }
         val bounds = windowManager.maximumWindowMetrics.bounds
-        val target = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
+        val target = backdropSliceSpot(bounds.width(), bounds.height(), resources.displayMetrics.density)
         guardedShowOverlay(
             show = {
                 handOverToOverlay(
@@ -305,7 +360,7 @@ class OverlayService : Service() {
     private fun startHandBack() {
         if (overlay == null || handBack != null) return
         val bounds = windowManager.maximumWindowMetrics.bounds
-        val from = backdropSliceSpot(bounds.width(), resources.displayMetrics.density)
+        val from = backdropSliceSpot(bounds.width(), bounds.height(), resources.displayMetrics.density)
         val back = HandBack(
             fly = { onStageDrawn, onLanded -> showHandle(from, onStageDrawn, onLanded) },
             hideOverlaySlice = { overlaySliceShown.value = false },
@@ -353,7 +408,6 @@ class OverlayService : Service() {
             characters.registry().all().forEach { characters.createCheckInIfDue(it) }
         }
         feedback.play(FeedbackEvent.OPEN)
-        val bars = systemBarsPadding()
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)
         val writingBack = WritingBack()
@@ -443,7 +497,7 @@ class OverlayService : Service() {
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
-                    systemBars = bars,
+                    systemBars = systemBars.value,
                     writingBack = writingBack,
                     closing = closeRequest.closing.value,
                     onClosed = closeRequest::closed,
@@ -477,15 +531,20 @@ class OverlayService : Service() {
     private val blurListener = java.util.function.Consumer<Boolean> { applyBackdrop() }
 
     /**
-     * Status and navigation bar heights, read once from the display rather than from inset
-     * callbacks, which reach an overlay window late or not at all and made the layout jump.
+     * Status bar, navigation bar and cutout sizes on every side, read from the display (when the
+     * service starts and when the screen turns) rather than from inset callbacks, which reach an
+     * overlay window late or not at all and made the layout jump. In landscape the navigation bar
+     * and the cutout sit at the sides.
      */
     private fun systemBarsPadding(): PaddingValues {
-        val insets = windowManager.maximumWindowMetrics.windowInsets.getInsetsIgnoringVisibility(
-            android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout(),
-        )
+        val insets = windowManager.maximumWindowMetrics.windowInsets.getInsetsIgnoringVisibility(SAFE_INSETS)
         val density = resources.displayMetrics.density
-        return PaddingValues(top = (insets.top / density).dp, bottom = (insets.bottom / density).dp)
+        return PaddingValues.Absolute(
+            left = (insets.left / density).dp,
+            top = (insets.top / density).dp,
+            right = (insets.right / density).dp,
+            bottom = (insets.bottom / density).dp,
+        )
     }
 
     /** Blur behind the overlay when it is on, supported and battery saver is off; otherwise the scrim. */
@@ -523,6 +582,7 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "juice_overlay"
         private const val NOTIFICATION_ID = 1
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
+        private val SAFE_INSETS = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, OverlayService::class.java))

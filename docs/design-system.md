@@ -19,6 +19,14 @@ Everything is liquid. Every tap is a squeeze. The overlay is thin tinted glass w
 - Radius: card 30, input 28, pill 24 (48 high), bubble 16, badge 14, field 12. Touch targets at least 44 dp.
 - Motion: `OverlayMotion.kt` (reveal 320 ms, entrance 350 ms with 60 ms stagger, 1.5 sway cycles, pop swell 1.08, 14 froth bubbles).
 
+## Landscape
+
+- The overlay keeps clear of the status bar, navigation bar and cutout on every side, re-read whenever the screen turns.
+- Below 480 dp tall (a phone on its side) it is compact: smaller top gap, the undo prompt sits in the header's middle, the settings sheet is at most 560 dp wide.
+- A centre card under 300 dp tall and at least 480 dp wide puts the title and steps on the left and the worth, buttons and hint on the right.
+- The backdrop slice is 280 dp, or half the screen's height if that is less.
+- The slice handle is saved as fractions of the screen, so it follows the screen round; it always lands with its logo clear of the bars and cutout.
+
 ## Characters
 
 A face is two eyes and a mouth, each a square, circle or triangle (`Face`). It is drawn by the lid cutter (`core/character/face`):
