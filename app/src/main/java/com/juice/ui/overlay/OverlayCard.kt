@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -375,20 +377,33 @@ internal fun CentreCard(
                 val wide = maxHeight < WIDE_CARD_MAX_HEIGHT && maxWidth >= WIDE_CARD_MIN_WIDTH
                 val header = @Composable {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            Modifier
-                                .height(28.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(JuiceColors.of(item.type))
-                                .clickable {
-                                    state.cycleType(item)
-                                    actions.feedback(FeedbackEvent.SNAP)
+                        var typeMenuOpen by remember { mutableStateOf(false) }
+                        Box {
+                            Box(
+                                Modifier
+                                    .height(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(JuiceColors.of(item.type))
+                                    .clickable { typeMenuOpen = true }
+                                    .padding(horizontal = 12.dp)
+                                    .testTag(TAG_TYPE_PILL),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
+                            DropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
+                                ItemType.entries.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(if (type == item.type) "✓ ${type.name}" else type.name) },
+                                        onClick = {
+                                            typeMenuOpen = false
+                                            state.setType(item, type)
+                                            actions.feedback(FeedbackEvent.SNAP)
+                                        },
+                                        modifier = Modifier.testTag(TAG_TYPE_OPTION_PREFIX + type.name),
+                                    )
                                 }
-                                .padding(horizontal = 12.dp)
-                                .testTag(TAG_TYPE_PILL),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
                         }
                         if (item.starredAt != null) {
                             Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = 18.sp, modifier = Modifier.padding(start = 8.dp))

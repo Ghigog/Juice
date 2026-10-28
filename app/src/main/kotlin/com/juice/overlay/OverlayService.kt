@@ -284,7 +284,7 @@ class OverlayService : Service() {
                 removeHandle()
                 stopSelf()
             },
-            onOpen = ::swapToOverlay,
+            onOpen = { spin -> swapToOverlay(spin) },
         )
         styleHandle(view)
         view.slices = SliceLogoPainter.sliceCount(openItems)
@@ -297,7 +297,8 @@ class OverlayService : Service() {
      * Opens the overlay from a swipe: the handle's window goes, the stage keeps drawing the slice
      * as it flies to the backdrop, and the stage is dismissed after the overlay's first frame.
      */
-    private fun swapToOverlay() {
+    private fun swapToOverlay(spinDegPerSec: Float = 0f) {
+        openingSpin = spinDegPerSec
         val flying = handle
         if (flying == null) {
             guardedShowOverlay(::showOverlay, ::discardOverlay, ::showHandle, ::reportOverlayFailure)
@@ -369,8 +370,13 @@ class OverlayService : Service() {
         back.draining()
     }
 
+    /** The backdrop slice's opening spin, set by the pull that opens the overlay. */
+    private var openingSpin = 0f
+
     private fun showOverlay() {
         overlaySliceShown.value = true
+        val spinOnOpen = openingSpin
+        openingSpin = 0f
         val reservoir = ThirstReservoirView(this)
         val effects = OverlayEffects()
         val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
@@ -487,6 +493,7 @@ class OverlayService : Service() {
                     blurred = backdrop.value == Backdrop.BLUR,
                     onRevealProgress = ::rampBlur,
                     sliceShown = overlaySliceShown.value,
+                    initialSpin = spinOnOpen,
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },

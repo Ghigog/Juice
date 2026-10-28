@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextClearance
@@ -150,13 +151,17 @@ class OverlayShellTest {
     }
 
     @Test
-    fun tappingTheTypePillChangesTheCardAndSavesIt() {
+    fun pickingATypeFromThePillMenuChangesTheCardAndSavesIt() {
         val item = Item("a", ItemType.Note, "Call Sam")
         runBlocking { repository.save(item) }
         show(item)
         compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
-        compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
         idle()
+        ItemType.entries.forEach { compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + it.name).assertExists() }
+        assertEquals(ItemType.Note, state.items.single().type)
+        compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + "Goal").performClick()
+        idle()
+        compose.onNodeWithTag(TAG_TYPE_PILL).assertTextEquals("GOAL")
         assertEquals(ItemType.Goal, state.items.single().type)
         assertEquals(ItemType.Goal, runBlocking { repository.get("a")?.type })
     }

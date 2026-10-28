@@ -88,6 +88,38 @@ object RulesFallback {
         return typeRules.firstNotNullOf { it(input) }
     }
 
+    /** The words of [rawText] that made it a [type], as ranges of its title. Notes and Projects have none. */
+    fun spansOf(rawText: String, type: ItemType): List<ChipSpan> {
+        val text = rawText.trim()
+        val spans = when (type) {
+            ItemType.Task -> listOfNotNull(leadingVerb.find(text)?.groups?.get(1)?.let { ChipSpan(ChipKind.Verb, it.range) })
+            ItemType.Goal -> listOfNotNull(
+                (dayWord.find(text) ?: period.find(text) ?: within.find(text))?.let { ChipSpan(ChipKind.Deadline, it.range) },
+            )
+            ItemType.Routine -> routineSpans(text)
+            ItemType.Note, ItemType.Project -> emptyList()
+        }
+        return spans.filter { it.range.last < IntakeValidator.MAX_TITLE_LENGTH }
+    }
+
+    private fun routineSpans(text: String): List<ChipSpan> {
+        intervalCadence.find(text)?.let { m ->
+            return listOf(ChipSpan(ChipKind.Interval, m.range)) + weekdaySpans(weekdayAnywhere.findAll(text, m.range.last))
+        }
+        dailyPhrase.find(text)?.let { return listOf(ChipSpan(ChipKind.Interval, it.range)) }
+        val m = weekdayCadence.find(text) ?: return emptyList()
+        val list = m.groups[1]!!
+        val prefix = text.substring(m.range.first, list.range.first).trimEnd()
+        val interval = ChipSpan(ChipKind.Interval, m.range.first until m.range.first + prefix.length)
+        // Offset the matches inside the list group back into the title.
+        val days = weekdayName.findAll(list.value).map {
+            ChipSpan(ChipKind.Weekday, (it.range.first + list.range.first)..(it.range.last + list.range.first))
+        }
+        return listOf(interval) + days
+    }
+
+    private fun weekdaySpans(matches: Sequence<MatchResult>) = matches.map { ChipSpan(ChipKind.Weekday, it.range) }.toList()
+
     private fun projectRule(i: Input): ParsedItem? {
         val (title, steps) = colonList(i.text) ?: plainList(i.text) ?: return null
         return ParsedItem(
