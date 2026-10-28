@@ -15,6 +15,17 @@ class SpinMomentumTest {
         return (m.angle - before + 360f) % 360f
     }
 
+    @Test fun flickSpinsLikeTheDragItReleases() {
+        assertEquals(-DRAG_DEG_PER_PX * 1000f, spinForFling(1000f), 0.001f)
+        assertEquals(DRAG_DEG_PER_PX * 1000f, spinForFling(-1000f), 0.001f)
+        assertEquals(0f, spinForFling(0f), 0f)
+    }
+
+    @Test fun flickSpinIsCapped() {
+        assertEquals(MAX_SPIN_BOOST_DEG_PER_SEC, spinForFling(-1_000_000f), 0f)
+        assertEquals(-MAX_SPIN_BOOST_DEG_PER_SEC, spinForFling(1_000_000f), 0f)
+    }
+
     @Test fun staysStillWhenNothingIsTouched() {
         val m = SpinMomentum()
         m.run(10)

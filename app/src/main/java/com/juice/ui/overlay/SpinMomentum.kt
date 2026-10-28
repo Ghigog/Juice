@@ -28,6 +28,14 @@ internal fun spinForPull(vx: Float, vy: Float): Float {
 }
 
 /**
+ * The signed spin, in degrees per second, for a carousel flick released at [vy] px/s: the same sign
+ * and scale as dragging ([DRAG_DEG_PER_PX], so a downward flick turns like a downward drag), capped
+ * at [MAX_SPIN_BOOST_DEG_PER_SEC].
+ */
+internal fun spinForFling(vy: Float): Float =
+    (-vy * DRAG_DEG_PER_PX).coerceIn(-MAX_SPIN_BOOST_DEG_PER_SEC, MAX_SPIN_BOOST_DEG_PER_SEC)
+
+/**
  * The backdrop slice's rotation: still unless dragged, or spun by a [kick] (the opening pull) that
  * decays exponentially back to rest. Pure, so it can be stepped by a frame loop or a test. When not
  * [enabled] (reduce motion) it never turns.

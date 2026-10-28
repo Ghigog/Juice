@@ -90,6 +90,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -867,6 +868,12 @@ private fun Carousel(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
                 return Offset.Zero
+            }
+
+            // Pre, not post: it fires even when the list is already at its first or last card.
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                spinNow.kick(spinForFling(available.y))
+                return Velocity.Zero
             }
         }
     }
