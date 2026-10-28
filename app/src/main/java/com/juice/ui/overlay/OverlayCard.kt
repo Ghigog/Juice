@@ -82,6 +82,8 @@ import com.juice.core.gesture.GesturePoint
 import com.juice.core.gesture.GestureRecognizer
 import com.juice.core.gesture.GestureResult
 import com.juice.core.intake.ItemType
+import com.juice.core.intake.ChipKind
+import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
 import com.juice.core.model.Step
 import com.juice.feedback.FeedbackEvent
@@ -131,6 +133,7 @@ internal fun CentreCard(
     LaunchedEffect(editing) { reportEditing(editing) }
     DisposableEffect(Unit) { onDispose { reportEditing(false) } }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
+    var titleLayout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }
     val shake = remember { Animatable(0f) }
@@ -263,7 +266,14 @@ internal fun CentreCard(
             }
             if (outcome != false && titleBounds.contains(down.position)) {
                 current.clear()
-                item?.let(state::beginTitleEdit)
+                // A quick tap on a chip in the title opens its picker; anywhere else on the title edits it.
+                val chip = item?.takeIf { outcome == null }?.let { tapped ->
+                    titleLayout?.let { layout ->
+                        val at = layout.getOffsetForPosition(down.position - titleBounds.topLeft)
+                        RulesFallback.spansOf(tapped.title, tapped.type).firstOrNull { at in it.range && it.kind != ChipKind.Verb }
+                    }
+                }
+                if (chip != null) state.openChipPicker(item, chip) else item?.let(state::beginTitleEdit)
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
             }
@@ -425,6 +435,7 @@ internal fun CentreCard(
                             letterSpacing = (-0.5).sp,
                             maxLines = if (wide) 3 else 5,
                             overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { titleLayout = it },
                             modifier = Modifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
                         )
                     }
