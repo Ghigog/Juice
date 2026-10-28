@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.view.Gravity
+import android.view.Choreographer
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
@@ -17,6 +18,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.overlay.REVEAL_MILLIS
+import com.juice.ui.overlay.SpinMomentum
 import com.juice.ui.overlay.spinForPull
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
@@ -120,7 +122,8 @@ internal class SliceHandleView(
     /** Saves a move dropped at ([x], [y]) and returns where the handle lands, clear of the system bars. */
     private val onMoved: (x: Float, y: Float) -> Pair<Float, Float>,
     private val onDismiss: () -> Unit,
-    onOpen: (spinDegPerSec: Float) -> Unit,
+    /** Opens the overlay, handing over the slice's live spin: its angle in degrees and its speed in degrees per second. */
+    onOpen: (angle: Float, spinDegPerSec: Float) -> Unit,
 ) : View(context) {
     var style: SliceStyle = SliceStyle.of(com.juice.core.progression.Flavour.ELECTRIC_CITRUS)
         set(value) { field = value; invalidate(); stage.invalidate() }
@@ -141,8 +144,25 @@ internal class SliceHandleView(
     private var handedOff = false
     private var overTarget = false
     private var velocity: VelocityTracker? = null
-    /** The spin from the pull being released, read by the click that opens the overlay. */
-    private var openSpin = 0f
+    /** The slice's spin, kicked by the drag and stepped by [frame] while the stage shows the slice. */
+    private var spin = SpinMomentum(enabled = !reduceMotion())
+    /** 1 while the spin shows in full; falls to 0 as the slice springs back, fading the spin out. */
+    private var settle = 1f
+    private var frameRunning = false
+    private var lastFrameNanos = 0L
+    private val frame = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            val shown = stage.slice
+            if (shown == null) {
+                frameRunning = false
+                return
+            }
+            if (lastFrameNanos != 0L) spin.step(frameTimeNanos - lastFrameNanos)
+            lastFrameNanos = frameTimeNanos
+            if (spin.boost != 0f) stage.slice = shown.copy(rotation = rotation())
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
     private var springBack: ValueAnimator? = null
     private var flight: ValueAnimator? = null
     private var windowAttached = false
@@ -170,7 +190,23 @@ internal class SliceHandleView(
     init {
         contentDescription = context.getString(com.juice.R.string.strip_open)
         stage.contentDescription = context.getString(com.juice.R.string.strip_dismiss)
-        setOnClickListener { onOpen(openSpin) }
+        setOnClickListener { onOpen(spin.angle, spin.boost) }
+    }
+
+    /** The slice's live angle in degrees, for the overlay to carry on from. */
+    val spinAngle: Float get() = spin.angle
+
+    /** The slice's live spin in degrees per second. */
+    val spinSpeed: Float get() = spin.boost
+
+    /** The angle to draw, in (-180, 180] so fading it out by [settle] never swings the slice round. */
+    private fun rotation(): Float = (if (spin.angle > 180f) spin.angle - 360f else spin.angle) * settle
+
+    private fun startFrames() {
+        if (frameRunning) return
+        frameRunning = true
+        lastFrameNanos = 0L
+        Choreographer.getInstance().postFrameCallback(frame)
     }
 
     /** Adds the handle's window, centred on ([x], [y]) screen px, and its stage. */
@@ -207,15 +243,16 @@ internal class SliceHandleView(
             onStageDrawn()
             return
         }
-        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices)
+        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices, rotation())
         stage.visibility = VISIBLE
+        startFrames()
         stage.whenDrawn(onStageDrawn)
         flight = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = FLIGHT_MILLIS
             interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener {
                 val at = from.lerp(home, it.animatedValue as Float)
-                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices)
+                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices, rotation())
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -260,19 +297,21 @@ internal class SliceHandleView(
         if (windowAttached) windowManager.removeView(this)
         windowAttached = false
         stage.ring = null
+        settle = 1f
         if (!animate) {
             onArrived()
             return
         }
         val from = stage.slice?.let { SliceSpot(it.x, it.y, it.size) } ?: SliceSpot(centreX, centreY, logo)
-        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices)
+        stage.slice = SliceStage.Slice(from.x, from.y, from.size, style, slices, rotation())
         stage.visibility = VISIBLE
+        startFrames()
         flight = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = FLIGHT_MILLIS
             interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener {
                 val at = from.lerp(target, it.animatedValue as Float)
-                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices)
+                stage.slice = SliceStage.Slice(at.x, at.y, at.size, style, slices, rotation())
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -297,6 +336,8 @@ internal class SliceHandleView(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 springBack?.cancel()
+                spin = SpinMomentum(enabled = !reduceMotion())
+                settle = 1f
                 gesture.down(event.rawX, event.rawY)
                 velocity?.recycle()
                 velocity = VelocityTracker.obtain().also { it.addMovement(event) }
@@ -304,7 +345,11 @@ internal class SliceHandleView(
                 postDelayed(hold, HOLD_MILLIS)
             }
             MotionEvent.ACTION_MOVE -> {
-                velocity?.addMovement(event)
+                velocity?.apply {
+                    addMovement(event)
+                    computeCurrentVelocity(1000)
+                    spin.kick(spinForPull(xVelocity, yVelocity))
+                }
                 val crossed = gesture.move(event.rawX, event.rawY, radius())
                 if (!gesture.moving && gesture.pull(radius()) > 0f) removeCallbacks(hold)
                 if (crossed) feedback(FeedbackEvent.SNAP)
@@ -315,11 +360,6 @@ internal class SliceHandleView(
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(hold)
-                velocity?.apply {
-                    addMovement(event)
-                    computeCurrentVelocity(1000)
-                    openSpin = spinForPull(xVelocity, yVelocity)
-                }
                 val (x, y) = slicePosition()
                 val over = gesture.moving && isOverDismiss()
                 overTarget = false
@@ -356,7 +396,6 @@ internal class SliceHandleView(
     private fun releaseVelocity() {
         velocity?.recycle()
         velocity = null
-        openSpin = 0f
     }
 
     override fun performClick(): Boolean = super.performClick()
@@ -436,12 +475,14 @@ internal class SliceHandleView(
         }
         stage.ring = null
         stage.dismissTarget = null
+        startFrames()
         springBack = ValueAnimator.ofFloat(1f, 0f).apply {
             duration = SPRING_MILLIS
             interpolator = OvershootInterpolator(2f)
             addUpdateListener {
                 val t = it.animatedValue as Float
-                stage.slice = SliceStage.Slice(centreX + (x - centreX) * t, centreY + (y - centreY) * t, logo, style, slices)
+                settle = t.coerceIn(0f, 1f)
+                stage.slice = SliceStage.Slice(centreX + (x - centreX) * t, centreY + (y - centreY) * t, logo, style, slices, rotation())
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -455,7 +496,8 @@ internal class SliceHandleView(
     private fun updateStage() {
         val (x, y) = slicePosition()
         val scale = if (gesture.moving) MOVE_SCALE else PRESS_SCALE
-        stage.slice = SliceStage.Slice(x, y, logo * scale, style, slices)
+        stage.slice = SliceStage.Slice(x, y, logo * scale, style, slices, rotation())
+        startFrames()
         stage.dismissTarget = if (gesture.moving) dismissSpot() else null
         val r = radius()
         stage.ring = if (gesture.swiping) SliceStage.Ring(centreX, centreY, r, gesture.pull(r), gesture.ready, accent) else null
@@ -498,7 +540,7 @@ internal fun View.whenDrawn(action: () -> Unit) {
  * handle is pressed. It is gone the rest of the time, so it never sits over other apps' touches.
  */
 internal class SliceStage(context: Context) : View(context) {
-    data class Slice(val x: Float, val y: Float, val size: Float, val style: SliceStyle, val slices: Int)
+    data class Slice(val x: Float, val y: Float, val size: Float, val style: SliceStyle, val slices: Int, val rotation: Float = 0f)
     data class DismissTarget(val x: Float, val y: Float, val radius: Float, val highlighted: Boolean)
     data class Ring(val x: Float, val y: Float, val radius: Float, val pull: Float, val ready: Boolean, val accent: Int)
 
@@ -536,7 +578,12 @@ internal class SliceStage(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         dismissTarget?.let { drawDismissTarget(canvas, it) }
         ring?.let { painter.drawRing(canvas, it.x, it.y, it.radius, it.pull, it.ready, it.accent, density) }
-        slice?.let { painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0) }
+        slice?.let {
+            canvas.save()
+            canvas.rotate(it.rotation, it.x, it.y)
+            painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0)
+            canvas.restore()
+        }
     }
 
     private fun drawDismissTarget(canvas: Canvas, t: DismissTarget) {

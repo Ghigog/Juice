@@ -69,11 +69,16 @@ internal class SpinMomentum(
         angle = ((angle + deg) % 360f + 360f) % 360f
     }
 
-    /** Adds a spin of [degPerSec] (sign = direction); a slower kick never cuts a faster spin in the same direction. */
+    /** Sets the spin to [degPerSec] (sign = direction), so a slower kick lets the spin ease down to it. */
     fun kick(degPerSec: Float) {
         if (!enabled) return
-        val v = degPerSec.coerceIn(-maxBoostDegPerSec, maxBoostDegPerSec)
-        if (sign(v) != sign(boost) || abs(v) > abs(boost)) boost = v
+        boost = degPerSec.coerceIn(-maxBoostDegPerSec, maxBoostDegPerSec)
+    }
+
+    /** Starts the slice at [deg] degrees, so it carries on from another slice's angle. */
+    fun seed(deg: Float) {
+        if (!enabled) return
+        angle = (deg % 360f + 360f) % 360f
     }
 
     /** Advances by [dtNanos] and returns the angle in degrees, in [0, 360). */
