@@ -10,12 +10,14 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.overlay.REVEAL_MILLIS
+import com.juice.ui.overlay.spinForPull
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
 import kotlin.math.hypot
@@ -117,7 +119,7 @@ internal class SliceHandleView(
     private val feedback: (FeedbackEvent) -> Unit,
     private val onMoved: (x: Float, y: Float) -> Unit,
     private val onDismiss: () -> Unit,
-    onOpen: () -> Unit,
+    onOpen: (spinDegPerSec: Float) -> Unit,
 ) : View(context) {
     var style: SliceStyle = SliceStyle.of(com.juice.core.progression.Flavour.ELECTRIC_CITRUS)
         set(value) { field = value; invalidate(); stage.invalidate() }
@@ -137,6 +139,9 @@ internal class SliceHandleView(
     /** True while the stage draws the slice and this window draws nothing. */
     private var handedOff = false
     private var overTarget = false
+    private var velocity: VelocityTracker? = null
+    /** The spin from the pull being released, read by the click that opens the overlay. */
+    private var openSpin = 0f
     private var springBack: ValueAnimator? = null
     private var flight: ValueAnimator? = null
     private var windowAttached = false
@@ -164,7 +169,7 @@ internal class SliceHandleView(
     init {
         contentDescription = context.getString(com.juice.R.string.strip_open)
         stage.contentDescription = context.getString(com.juice.R.string.strip_dismiss)
-        setOnClickListener { onOpen() }
+        setOnClickListener { onOpen(openSpin) }
     }
 
     /** Adds the handle's window, centred on ([x], [y]) screen px, and its stage. */
@@ -292,10 +297,13 @@ internal class SliceHandleView(
             MotionEvent.ACTION_DOWN -> {
                 springBack?.cancel()
                 gesture.down(event.rawX, event.rawY)
+                velocity?.recycle()
+                velocity = VelocityTracker.obtain().also { it.addMovement(event) }
                 handOff()
                 postDelayed(hold, HOLD_MILLIS)
             }
             MotionEvent.ACTION_MOVE -> {
+                velocity?.addMovement(event)
                 val crossed = gesture.move(event.rawX, event.rawY, radius())
                 if (!gesture.moving && gesture.pull(radius()) > 0f) removeCallbacks(hold)
                 if (crossed) feedback(FeedbackEvent.SNAP)
@@ -306,6 +314,11 @@ internal class SliceHandleView(
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(hold)
+                velocity?.apply {
+                    addMovement(event)
+                    computeCurrentVelocity(1000)
+                    openSpin = spinForPull(xVelocity, yVelocity)
+                }
                 val (x, y) = slicePosition()
                 val over = gesture.moving && isOverDismiss()
                 overTarget = false
@@ -325,9 +338,11 @@ internal class SliceHandleView(
                     }
                     Release.NONE -> returnHome(x, y)
                 }
+                releaseVelocity()
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(hold)
+                releaseVelocity()
                 val (x, y) = slicePosition()
                 overTarget = false
                 gesture.cancel()
@@ -335,6 +350,12 @@ internal class SliceHandleView(
             }
         }
         return true
+    }
+
+    private fun releaseVelocity() {
+        velocity?.recycle()
+        velocity = null
+        openSpin = 0f
     }
 
     override fun performClick(): Boolean = super.performClick()

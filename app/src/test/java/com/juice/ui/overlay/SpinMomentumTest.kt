@@ -15,31 +15,24 @@ class SpinMomentumTest {
         return (m.angle - before + 360f) % 360f
     }
 
-    @Test fun idleTurnsAtTheSlowRate() {
+    @Test fun staysStillWhenNothingIsTouched() {
         val m = SpinMomentum()
-        m.step(1_000_000_000L)
-        assertEquals(IDLE_SPIN_DEG_PER_SEC, m.angle, 0.01f)
+        m.run(10)
+        assertEquals(0f, m.angle, 0f)
     }
 
     @Test fun kickSpinsInItsDirection() {
         val up = SpinMomentum().apply { kick(300f); step(frame) }
         val down = SpinMomentum().apply { kick(-300f); step(frame) }
-        assertTrue(up.angle > IDLE_SPIN_DEG_PER_SEC * 0.016f)
+        assertTrue(up.angle > 0f && down.angle > 180f)
         assertTrue(down.boost < 0f && up.boost > 0f)
     }
 
-    @Test fun fasterSwipeGivesBiggerBoost() {
-        assertTrue(spinBoostFor(4000f) > spinBoostFor(1000f))
-        val slow = SpinMomentum().apply { kick(spinBoostFor(1000f)) }
-        val fast = SpinMomentum().apply { kick(spinBoostFor(2000f)) }
-        assertTrue(fast.boost > slow.boost)
-    }
-
-    @Test fun boostDecaysBackToIdle() {
+    @Test fun boostDecaysToRest() {
         val m = SpinMomentum().apply { kick(500f) }
         m.run(15)
         assertEquals(0f, m.boost, 0.0001f)
-        assertEquals(IDLE_SPIN_DEG_PER_SEC * 0.016f, turnPerStep(m), 0.001f)
+        assertEquals(0f, turnPerStep(m), 0.001f)
     }
 
     @Test fun boostIsCapped() {
@@ -55,7 +48,7 @@ class SpinMomentumTest {
         assertEquals(0f, m.boost, 0f)
     }
 
-    @Test fun grabZeroesBoostAndHoldsTheIdleTurn() {
+    @Test fun grabZeroesBoostAndHoldsTheSlice() {
         val m = SpinMomentum().apply { kick(500f); grab() }
         assertEquals(0f, m.boost, 0f)
         m.run(1)
@@ -71,19 +64,22 @@ class SpinMomentumTest {
         assertEquals(10f, m.angle, 0.001f)
     }
 
-    @Test fun releaseResumesTheIdleTurn() {
-        val m = SpinMomentum().apply { grab(); release() }
-        assertEquals(IDLE_SPIN_DEG_PER_SEC * 0.016f, turnPerStep(m), 0.001f)
-    }
-
     @Test fun reduceMotionDoesNotDrag() {
         val m = SpinMomentum(enabled = false).apply { drag(30f) }
         assertEquals(0f, m.angle, 0f)
     }
 
-    @Test fun onlyFastFlingsAreBigSwipes() {
-        assertTrue(!isBigSwipe(BIG_SWIPE_PX_PER_SEC))
-        assertTrue(isBigSwipe(BIG_SWIPE_PX_PER_SEC + 1f))
-        assertTrue(isBigSwipe(-BIG_SWIPE_PX_PER_SEC - 1f))
+    @Test fun pullSpinFollowsTheDirectionOfThePull() {
+        assertTrue(spinForPull(2000f, 100f) > 0f)
+        assertTrue(spinForPull(-2000f, 100f) < 0f)
+        assertTrue(spinForPull(100f, 2000f) > 0f)
+        assertTrue(spinForPull(100f, -2000f) < 0f)
+    }
+
+    @Test fun harderPullSpinsFasterUpToTheCap() {
+        assertTrue(spinForPull(3000f, 0f) > spinForPull(1000f, 0f))
+        assertEquals(MAX_SPIN_BOOST_DEG_PER_SEC, spinForPull(1_000_000f, 0f), 0f)
+        assertEquals(-MAX_SPIN_BOOST_DEG_PER_SEC, spinForPull(0f, -1_000_000f), 0f)
+        assertEquals(0f, spinForPull(0f, 0f), 0f)
     }
 }
