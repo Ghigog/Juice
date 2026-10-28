@@ -304,6 +304,37 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun tickingTheLastStepOfAListCompletesIt() = runBlocking {
+        val list = Item("l", ItemType.List, "Chores", steps = listOf(Step("a", "a", done = true), Step("b", "b")))
+        repository.save(list)
+        val state = state(list)
+        state.completeStep(list, "b")
+        assertEquals(listOf("l"), completed.map { it.id })
+        assertEquals(ItemStatus.Completed, repository.get("l")?.status)
+    }
+
+    @Test
+    fun pickingListClearsDeadlineAndCadence() = runBlocking {
+        repository.save(routine)
+        val state = state(routine)
+        state.setType(routine, ItemType.List)
+        val card = state.items.single()
+        assertEquals(ItemType.List, card.type)
+        assertNull(card.cadence)
+        assertNull(card.nextDueOn)
+        assertNull(card.deadline)
+    }
+
+    @Test
+    fun onlyAListOrProjectWithOpenStepsCannotBeCompletedDirectly() {
+        val steps = listOf(Step("a", "a"))
+        val state = state()
+        assertEquals(false, state.canComplete(Item("l", ItemType.List, "L", steps = steps)))
+        assertEquals(true, state.canComplete(Item("l", ItemType.List, "L")))
+        assertEquals(true, state.canComplete(Item("p", ItemType.Project, "P")))
+    }
+
+    @Test
     fun aCaptureWaitingOnTheCloudShowsAsParsingAndNewestComesFirst() = runBlocking {
         val state = OverlayShellState(
             repository, CoroutineScope(Dispatchers.Unconfined), listOf(task),
