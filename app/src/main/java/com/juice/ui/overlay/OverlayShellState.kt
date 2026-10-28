@@ -9,10 +9,14 @@ import com.juice.core.card.open
 import com.juice.core.card.removeStep
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.IntakeField
+import com.juice.core.intake.ChipSpan
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.RulesFallback
 import com.juice.core.intake.rewriteRelativeDeadline
+import com.juice.core.intake.withDeadlineDay
+import com.juice.core.intake.withInterval
+import com.juice.core.intake.withWeekday
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
@@ -46,6 +50,9 @@ data class Undo(val item: Item, val dismissed: Boolean)
 
 /** The title being edited: which card, and the text typed so far. */
 data class TitleEdit(val itemId: String, val text: String)
+
+/** The chip whose picker is open: which card, and the [span] of its title the pick will replace. */
+data class ChipPicker(val itemId: String, val span: ChipSpan)
 
 /** State of the overlay: the Active items shown in the carousel and the pending undo. */
 class OverlayShellState(
@@ -103,6 +110,18 @@ class OverlayShellState(
         items.firstOrNull { it.id == edit.itemId }?.let { setTitle(it, edit.text) }
         titleEdit = null
         return true
+    }
+
+    /** The open chip picker, if any. */
+    var chipPicker by mutableStateOf<ChipPicker?>(null)
+        private set
+
+    fun openChipPicker(item: Item, span: ChipSpan) {
+        chipPicker = ChipPicker(item.id, span)
+    }
+
+    fun dismissChipPicker() {
+        chipPicker = null
     }
 
     /** True while a card's title is being edited; the shell hides the capture field meanwhile. */
@@ -235,6 +254,30 @@ class OverlayShellState(
         val parsed = RulesFallback.classify(edited, now())
         edit(item.id, IntakeField.Title) {
             val retitled = it.copy(title = edited, type = parsed.type, deadline = parsed.deadline, cadence = null, nextDueOn = null)
+            parsed.cadence?.takeIf { parsed.type == ItemType.Routine }?.let { cadence -> retitled.asRoutine(cadence, today) } ?: retitled
+        }
+    }
+
+    /** The user picks a new deadline [day] on the deadline chip [span]; the title says it and a late parse will not change it. */
+    fun setDeadlineDay(item: Item, span: ChipSpan, day: LocalDate) =
+        rewriteChip(item, IntakeField.Deadline) { withDeadlineDay(it, span, day, now()) }
+
+    /** The user picks the interval [weeks] on the interval chip [span]. */
+    fun setCadenceInterval(item: Item, span: ChipSpan, weeks: Int) =
+        rewriteChip(item, IntakeField.Cadence) { withInterval(it, span, weeks) }
+
+    /** The user picks the weekday [to] on the weekday chip [span]. */
+    fun setCadenceWeekday(item: Item, span: ChipSpan, to: DayOfWeek) =
+        rewriteChip(item, IntakeField.Cadence) { withWeekday(it, span, to) }
+
+    /** Rewrites the title of [item] and sorts it again by what it now says; marks [field], not Title, as the user's. */
+    private fun rewriteChip(item: Item, field: IntakeField, rewrite: (String) -> String) {
+        chipPicker = null
+        val current = items.firstOrNull { it.id == item.id } ?: return
+        val title = rewrite(current.title)
+        val parsed = RulesFallback.classify(title, now())
+        edit(item.id, field) {
+            val retitled = it.copy(title = title, type = parsed.type, deadline = parsed.deadline, cadence = null, nextDueOn = null)
             parsed.cadence?.takeIf { parsed.type == ItemType.Routine }?.let { cadence -> retitled.asRoutine(cadence, today) } ?: retitled
         }
     }

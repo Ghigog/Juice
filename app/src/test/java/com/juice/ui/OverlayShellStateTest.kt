@@ -693,4 +693,45 @@ class OverlayShellStateTest {
         kept.land("n", parsed)
         assertEquals("take out the trash next week", kept.items.single().title)
     }
+
+    private fun spanOf(title: String, type: ItemType, kind: com.juice.core.intake.ChipKind) =
+        com.juice.core.intake.RulesFallback.spansOf(title, type).first { it.kind == kind }
+
+    @Test
+    fun pickingADeadlineDayRewritesTheTitleAndMarksDeadline() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon)
+        repository.save(goal)
+        val state = clockedState(goal)
+        state.openChipPicker(goal, spanOf(goal.title, ItemType.Goal, com.juice.core.intake.ChipKind.Deadline))
+        state.setDeadlineDay(goal, state.chipPicker!!.span, LocalDate.of(2026, 10, 29))
+        val saved = repository.get("g")!!
+        assertEquals("take out the trash on Thursday", saved.title)
+        assertEquals(LocalDate.of(2026, 10, 29), saved.deadline!!.atZone(java.time.ZoneId.systemDefault()).toLocalDate())
+        assertEquals(setOf(com.juice.core.intake.IntakeField.Deadline), saved.editedFields)
+        assertNull(state.chipPicker)
+    }
+
+    @Test
+    fun pickingAnIntervalThenAWeekdayChangesTheCadence() = runBlocking {
+        val item = Item("w", ItemType.Routine, "water plants every Friday", cadence = Cadence(setOf(DayOfWeek.FRIDAY)), nextDueOn = LocalDate.of(2026, 10, 30))
+        repository.save(item)
+        val state = clockedState(item)
+        state.setCadenceInterval(item, spanOf(item.title, ItemType.Routine, com.juice.core.intake.ChipKind.Interval), 2)
+        val two = state.items.single()
+        state.setCadenceWeekday(two, spanOf(two.title, ItemType.Routine, com.juice.core.intake.ChipKind.Weekday), DayOfWeek.THURSDAY)
+        val saved = repository.get("w")!!
+        assertEquals("Every 2 weeks on Thu", saved.cadence!!.label())
+        assertEquals(setOf(com.juice.core.intake.IntakeField.Cadence), saved.editedFields)
+    }
+
+    @Test
+    fun aChipSetDeadlineSurvivesALateParse() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon)
+        repository.save(goal)
+        val state = clockedState(goal)
+        state.setDeadlineDay(goal, spanOf(goal.title, ItemType.Goal, com.juice.core.intake.ChipKind.Deadline), LocalDate.of(2026, 10, 29))
+        val chosen = repository.get("g")!!.deadline
+        repository.applyParse("g", ParsedItem(ItemType.Goal, "take out the trash", deadline = java.time.Instant.ofEpochSecond(1_800_000_000)))
+        assertEquals(chosen, repository.get("g")!!.deadline)
+    }
 }
