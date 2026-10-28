@@ -284,7 +284,7 @@ class OverlayService : Service() {
                 removeHandle()
                 stopSelf()
             },
-            onOpen = { spin -> swapToOverlay(spin) },
+            onOpen = { angle, spin -> swapToOverlay(angle, spin) },
         )
         styleHandle(view)
         view.slices = SliceLogoPainter.sliceCount(openItems)
@@ -297,7 +297,8 @@ class OverlayService : Service() {
      * Opens the overlay from a swipe: the handle's window goes, the stage keeps drawing the slice
      * as it flies to the backdrop, and the stage is dismissed after the overlay's first frame.
      */
-    private fun swapToOverlay(spinDegPerSec: Float = 0f) {
+    private fun swapToOverlay(angle: Float = 0f, spinDegPerSec: Float = 0f) {
+        openingAngle = angle
         openingSpin = spinDegPerSec
         val flying = handle
         if (flying == null) {
@@ -310,7 +311,12 @@ class OverlayService : Service() {
             show = {
                 handOverToOverlay(
                     fly = { onArrived -> flying.flyTo(target, animate = !settings.reduceMotion, onArrived) },
-                    show = { showOverlay(); overlaySliceShown.value = false },
+                    show = {
+                        // The slice kept spinning in flight: carry on from where it is now.
+                        openingAngle = flying.spinAngle
+                        openingSpin = flying.spinSpeed
+                        showOverlay(); overlaySliceShown.value = false
+                    },
                     showOverlaySlice = { overlaySliceShown.value = true },
                     whenOverlayDrawn = { action -> overlay?.whenDrawn(action) ?: action() },
                     dismissStage = { flying.dismissStage(); if (handle === flying) handle = null },
@@ -372,11 +378,14 @@ class OverlayService : Service() {
 
     /** The backdrop slice's opening spin, set by the pull that opens the overlay. */
     private var openingSpin = 0f
+    private var openingAngle = 0f
 
     private fun showOverlay() {
         overlaySliceShown.value = true
         val spinOnOpen = openingSpin
+        val angleOnOpen = openingAngle
         openingSpin = 0f
+        openingAngle = 0f
         val reservoir = ThirstReservoirView(this)
         val effects = OverlayEffects()
         val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
@@ -494,6 +503,7 @@ class OverlayService : Service() {
                     onRevealProgress = ::rampBlur,
                     sliceShown = overlaySliceShown.value,
                     initialSpin = spinOnOpen,
+                    initialAngle = angleOnOpen,
                     actions = actions,
                     effects = effects,
                     reservoir = { modifier -> ReservoirHost(reservoir, hud.fill, modifier) },
