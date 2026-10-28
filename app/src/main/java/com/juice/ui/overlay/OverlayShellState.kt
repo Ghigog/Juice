@@ -20,6 +20,7 @@ import com.juice.core.intake.withWeekday
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import com.juice.core.routine.Cadence
 import com.juice.core.character.CharacterRegistry
 import com.juice.data.CharacterRepository
 import com.juice.data.CREATOR_CARD_ID
@@ -229,13 +230,13 @@ class OverlayShellState(
 
     /** The user picks a type; a late parse will not change it. */
     fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) {
-        // Leaving Routine ends the recurrence.
-        if (type == ItemType.Routine) it.copy(type = type) else it.copy(type = type, cadence = null, nextDueOn = null)
-    }
-
-    /** Tapping the type pill steps Note, Task, Goal, Project and round again. A Routine needs a cadence, so the pill never makes one. */
-    fun cycleType(item: Item) {
-        setType(item, PILL_TYPES[(PILL_TYPES.indexOf(item.type) + 1) % PILL_TYPES.size])
+        when {
+            // Leaving Routine ends the recurrence.
+            type != ItemType.Routine -> it.copy(type = type, cadence = null, nextDueOn = null)
+            // A new Routine recurs daily from today unless it already has a cadence.
+            it.cadence == null -> it.copy(type = type, cadence = Cadence(DayOfWeek.values().toSet()), nextDueOn = today)
+            else -> it.copy(type = type)
+        }
     }
 
     /** The steps of [project] still to do. */
@@ -446,8 +447,6 @@ class OverlayShellState(
 
         /** How long a card shows that a cloud parse is running before giving up on showing it. */
         const val PARSE_PATIENCE_MILLIS = 15_000L
-
-        private val PILL_TYPES = listOf(ItemType.Note, ItemType.Task, ItemType.Goal, ItemType.Project)
     }
 }
 
