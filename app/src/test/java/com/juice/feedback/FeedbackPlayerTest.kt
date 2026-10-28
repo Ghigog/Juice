@@ -116,4 +116,30 @@ class FeedbackPlayerTest {
         assertTrue(greetings.isEmpty())
         assertTrue(sounds.isEmpty())
     }
+
+    @Test fun completionRateIsOneAtBaseRisesMonotonicallyAndCaps() {
+        assertEquals(1f, completionRate(1.0))
+        val rates = listOf(1.0, 2.0, 3.0, 4.0, 6.0, 8.0).map { completionRate(it) }
+        assertEquals(rates.sorted(), rates)
+        assertTrue(rates[1] > rates[0])
+        assertEquals(MAX_COMPLETION_RATE, completionRate(100.0))
+    }
+
+    @Test fun completionPlaysAtTheMultiplierRateWithHaptic() {
+        player(FeedbackSettings()).playCompletion(3.0)
+        assertEquals(listOf(Cue.DONE to completionRate(3.0)), sounds)
+        assertEquals(listOf(Haptic.MEDIUM_IMPACT), haptics)
+    }
+
+    @Test fun completionWithSoundOffStillVibrates() {
+        player(FeedbackSettings(soundEnabled = false)).playCompletion(8.0)
+        assertTrue(sounds.isEmpty())
+        assertEquals(listOf(Haptic.MEDIUM_IMPACT), haptics)
+    }
+
+    @Test fun completionWithHapticsOffStillSounds() {
+        player(FeedbackSettings(hapticsEnabled = false)).playCompletion(1.0)
+        assertEquals(listOf(Cue.DONE to 1f), sounds)
+        assertTrue(haptics.isEmpty())
+    }
 }
