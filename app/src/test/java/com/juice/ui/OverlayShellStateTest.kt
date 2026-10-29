@@ -777,4 +777,55 @@ class OverlayShellStateTest {
         repository.applyParse("g", ParsedItem(ItemType.Goal, "take out the trash", deadline = java.time.Instant.ofEpochSecond(1_800_000_000)))
         assertEquals(chosen, repository.get("g")!!.deadline)
     }
+
+    @Test
+    fun aLandedRoutineNotDueTodayDrainsAndDrainDoneClearsIt() = runBlocking {
+        val note = Item("n", ItemType.Note, "water plants every Tuesday")
+        repository.save(note)
+        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = LocalDate.now()).also { it.observe() }
+        val notToday = DayOfWeek.values().first { it != LocalDate.now().dayOfWeek }
+        state.land("n", ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(notToday))))
+        assertEquals("n", state.draining?.id)
+        assertEquals(emptyList(), state.items)
+        state.drainDone()
+        assertNull(state.draining)
+    }
+
+    @Test
+    fun aTitleEditedIntoARoutineNotDueTodayDrains() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash")
+        repository.save(goal)
+        val state = OverlayShellState(
+            repository, CoroutineScope(Dispatchers.Unconfined), listOf(goal), today = sunday, clock = { java.time.Instant.parse("2026-10-18T12:00:00Z") },
+        ).also { it.observe() }
+        state.setTitle(goal, "take out the trash every Friday")
+        assertEquals("g", state.draining?.id)
+    }
+
+    @Test
+    fun aRoutineDueTodayDoesNotDrain() = runBlocking {
+        val note = Item("n", ItemType.Note, "water plants every Sunday")
+        repository.save(note)
+        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = LocalDate.now()).also { it.observe() }
+        state.land("n", ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(LocalDate.now().dayOfWeek))))
+        assertEquals(listOf("n"), state.items.map { it.id })
+        assertNull(state.draining)
+    }
+
+    @Test
+    fun completingOrDismissingNeverDrains() = runBlocking {
+        repository.save(routine)
+        repository.save(task)
+        val state = state(routine, task).also { it.observe() }
+        state.complete(routine)
+        state.dismiss(task)
+        assertNull(state.draining)
+    }
+
+    @Test
+    fun theRoutinesListDoesNotDrain() {
+        val routines = routinesState()
+        routines.routines.complete(later)
+        assertNull(routines.routines.draining)
+    }
 }
