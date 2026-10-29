@@ -128,6 +128,8 @@ class GroqClient(
               "completion_condition": "string | null",
               "deadline": "ISO-8601 string with offset | null",
               "sub_items": ["string"] | null,
+              "notify_at": "ISO-8601 with offset | null",
+              "notify_text": "string | null",
               "cadence": {"days": ["MON"|"TUE"|"WED"|"THU"|"FRI"|"SAT"|"SUN", ...] | "daily", "time": "HH:mm | null"} | null
             }
 
@@ -135,6 +137,8 @@ class GroqClient(
             - The app decides the type from the wording, so concentrate on "title", "sub_items" and "deadline".
             - Never invent steps: "sub_items" holds only steps the person actually wrote, otherwise null.
             - "cadence" is only for Routine; use null for every other type. A Routine has a null deadline.
+            - "notify_at" and "notify_text" are only for items with a deadline or a time. Choose the moment by usefulness: the evening before for an early appointment, the same morning for a chore. "notify_at" is never after the deadline. "notify_text" is a short reminder message.
+            - Leave "notify_at" and "notify_text" null when no reminder is useful, for every Routine and for plain Notes.
         """.trimIndent()
     }
 }

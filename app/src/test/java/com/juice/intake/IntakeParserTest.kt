@@ -46,6 +46,14 @@ class IntakeParserTest {
         assertTrue("Routine" in body && "cadence" in body)
     }
 
+    @Test fun systemPromptListsNullableNotifyKeysAndTheirRules() {
+        val prompt = GroqClient.systemPrompt(now)
+        assertTrue("\"notify_at\": \"ISO-8601 with offset | null\"" in prompt)
+        assertTrue("\"notify_text\": \"string | null\"" in prompt)
+        assertTrue("never after the deadline" in prompt)
+        assertTrue("\"notify_at\" and \"notify_text\" null when no reminder is useful, for every Routine and for plain Notes" in prompt)
+    }
+
     @Test fun httpErrorFallsBackToRulesAndRetries() {
         reply("", status = 503)
         val result = parser().parse("do laundry by 6pm")

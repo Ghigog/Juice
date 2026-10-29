@@ -2,11 +2,16 @@ package com.juice.ui.overlay
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.RegisterComposeActivity
+import com.juice.core.model.Item
 import com.juice.data.ItemRepository
+import com.juice.core.intake.ItemType
 import com.juice.data.JuiceDatabase
 import com.juice.settings.JuiceSettings
 import kotlinx.coroutines.CoroutineScope
@@ -48,8 +53,13 @@ class OverlayCloseTest {
         db.close()
     }
 
-    private fun show(reduceMotion: Boolean, onRevealProgress: (Float) -> Unit = {}) {
-        val state = OverlayShellState(ItemRepository(db.itemDao()), scope, emptyList())
+    private fun show(
+        reduceMotion: Boolean,
+        onRevealProgress: (Float) -> Unit = {},
+        items: List<Item> = emptyList(),
+        onPopsPlanned: (List<Offset>, List<Offset>) -> Unit = { _, _ -> },
+    ) {
+        val state = OverlayShellState(ItemRepository(db.itemDao()), scope, items)
         compose.mainClock.autoAdvance = false
         compose.setContent {
             OverlayShell(
@@ -58,6 +68,7 @@ class OverlayCloseTest {
                 closing = closing.value,
                 onClosed = { closed++ },
                 onRevealProgress = onRevealProgress,
+                onPopsPlanned = onPopsPlanned,
             )
         }
         compose.mainClock.advanceTimeBy(100)
@@ -109,5 +120,26 @@ class OverlayCloseTest {
         compose.mainClock.advanceTimeBy(50)
         compose.waitForIdle()
         assertEquals(1, closed)
+    }
+
+    @Test
+    fun everyPopBurstsOverACardOrTheCaptureFieldNotInEmptySpace() {
+        var froth = emptyList<Offset>()
+        var cards = emptyList<Offset>()
+        val items = (1..3).map { Item("t$it", ItemType.Task, "Task $it") }
+        show(reduceMotion = false, items = items, onPopsPlanned = { f, c -> froth = f; cards = c })
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
+        closing.value = true
+        compose.mainClock.advanceTimeBy(100)
+        fun bounds(tag: String): Rect = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val carousel = bounds(TAG_CAROUSEL)
+        val onCards = listOf(carousel, bounds(TAG_JUICE_BOX), bounds(TAG_CAPTURE_FIELD))
+        assertEquals(items.size, cards.size)
+        assertTrue(froth.isNotEmpty())
+        (froth + cards).forEach { origin ->
+            assertTrue("$origin is off every card in $onCards", onCards.any { it.contains(origin) })
+            assertTrue("$origin starts in the empty top", origin.y > carousel.top)
+        }
+        assertTrue(cards.all { carousel.contains(it) })
     }
 }
