@@ -51,7 +51,7 @@ data class Recap(
     val burndown: Burndown,
 )
 
-private val groupOrder = listOf(ItemType.Project, ItemType.Goal, ItemType.Task, ItemType.Routine, ItemType.Note)
+private val groupOrder = listOf(ItemType.Project, ItemType.List, ItemType.Goal, ItemType.Task, ItemType.Routine, ItemType.Note)
 
 object RecapBuilder {
     fun build(items: List<Item>, period: RecapPeriod, clock: Clock, config: EconomyConfig = EconomyConfig()): Recap {
@@ -63,7 +63,7 @@ object RecapBuilder {
 
         val groups = groupOrder.mapNotNull { type ->
             val entries = completed.filter { it.type == type }.map { item ->
-                RecapEntry(item, if (type == ItemType.Project) item.steps.filter { it.doneAt?.let(range::contains) == true } else emptyList())
+                RecapEntry(item, if (type.hasSteps) item.steps.filter { it.doneAt?.let(range::contains) == true } else emptyList())
             }
             if (entries.isEmpty()) null else RecapGroup(type, entries)
         }
@@ -88,6 +88,7 @@ object RecapBuilder {
 private fun ItemType.economyType() = when (this) {
     ItemType.Note -> com.juice.core.economy.ItemType.NOTE
     ItemType.Task -> com.juice.core.economy.ItemType.TASK
+    ItemType.List -> com.juice.core.economy.ItemType.LIST
     ItemType.Goal -> com.juice.core.economy.ItemType.GOAL
     ItemType.Project -> com.juice.core.economy.ItemType.PROJECT
     ItemType.Routine -> com.juice.core.economy.ItemType.ROUTINE

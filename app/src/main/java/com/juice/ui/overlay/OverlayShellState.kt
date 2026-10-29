@@ -231,6 +231,8 @@ class OverlayShellState(
     /** The user picks a type; a late parse will not change it. */
     fun setType(item: Item, type: ItemType) = edit(item.id, IntakeField.Type) {
         when {
+            // A List has no deadline or cadence.
+            type == ItemType.List -> it.copy(type = type, cadence = null, nextDueOn = null, deadline = null)
             // Leaving Routine ends the recurrence.
             type != ItemType.Routine -> it.copy(type = type, cadence = null, nextDueOn = null)
             // A new Routine recurs daily from today unless it already has a cadence.
@@ -243,7 +245,7 @@ class OverlayShellState(
     fun stepsOf(project: Item): List<Step> = project.steps.open()
 
     /** A Project completes through its steps, so ticking it while steps are open does nothing. */
-    fun canComplete(item: Item): Boolean = item.type != ItemType.Project || stepsOf(item).isEmpty()
+    fun canComplete(item: Item): Boolean = !item.type.hasSteps || stepsOf(item).isEmpty()
 
     private fun now() = clock().atZone(ZoneId.systemDefault())
 

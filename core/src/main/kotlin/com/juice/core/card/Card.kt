@@ -15,7 +15,7 @@ data class Card(
 
 /** The card a landed parse produces: a Project gets one step per sub-item. [newId] supplies step ids. */
 fun ParsedItem.toCard(id: String, newId: () -> String): Card {
-    val steps = if (type == ItemType.Project) subItems.map { Step(newId(), it) } else emptyList()
+    val steps = if (type.hasSteps) subItems.map { Step(newId(), it) } else emptyList()
     return Card(id, type, title, steps)
 }
 

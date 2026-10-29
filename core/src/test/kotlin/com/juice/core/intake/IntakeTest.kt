@@ -4,6 +4,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class IntakeTest {
     private val now = Instant.parse("2026-01-01T00:00:00Z")
@@ -99,6 +100,15 @@ class IntakeTest {
         }
     }
 
+
+    @Test fun joinAndRelatedVerbsGiveTaskWhenLeadingButNoteMidSentence() {
+        for (verb in listOf("join", "attend", "enrol", "enroll", "subscribe", "reserve", "request", "remind", "follow", "watch", "speak",
+            "talk", "discuss", "volunteer", "complete", "add", "remove", "delete")) {
+            assertEquals(ItemType.Task, RulesFallback.classify("$verb the gym").type, verb)
+        }
+        assertEquals(Triple(ItemType.Task, listOf(ChipKind.Verb), listOf("join")), spans("please join the book club"))
+        assertEquals(ItemType.Note, RulesFallback.classify("I want to join the gym").type)
+    }
 
     @Test fun simplePhrasesResolveToAFutureDeadline() {
         val now = java.time.ZonedDateTime.parse("2026-03-02T10:00:00Z[UTC]") // a Monday
@@ -237,6 +247,15 @@ class IntakeTest {
         assertEquals(ItemType.Note, routine("one day I will learn the cello").type)
         assertEquals(ItemType.Goal, routine("the report is due friday").type)
         assertEquals(ItemType.Task, routine("grab a coffee").type)
+    }
+
+    @Test fun aListKeepsItsSubItemsAndNeverHasADeadline() {
+        val list = ParsedItem(ItemType.List, "Chores", deadline = now, subItems = listOf("a", "b"))
+        val card = IntakeCard(ItemType.Note, "Chores").mergeParse(list)
+        assertEquals(ItemType.List, card.type)
+        assertEquals(null, card.deadline)
+        assertEquals(listOf("a", "b"), card.subItems)
+        assertTrue(ItemType.List.hasSteps && ItemType.Project.hasSteps && !ItemType.Task.hasSteps)
     }
 
     @Test fun rulesAlwaysDecideTheTypeAndTheModelSuppliesTitleStepsAndDeadline() {

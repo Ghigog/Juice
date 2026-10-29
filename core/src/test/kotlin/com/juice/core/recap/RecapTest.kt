@@ -81,6 +81,14 @@ class RecapTest {
         assertEquals(listOf("new"), entry.steps.map { it.id })
     }
 
+    @Test fun aListIsGroupedAfterProjectAndCarriesItsTickedSteps() {
+        val t = at(2026, 10, 21, 9)
+        val list = done("l", ItemType.List, t).copy(steps = listOf(Step("a", "a", true, at(2026, 10, 21, 8))))
+        val recap = RecapBuilder.build(listOf(done("g", ItemType.Goal, t), list, done("p", ItemType.Project, t)), RecapPeriod.Today, wednesday)
+        assertEquals(listOf("Project", "List", "Goal"), recap.groups.map { it.type.name })
+        assertEquals(listOf("a"), recap.groups[1].entries.single().steps.map { it.id })
+    }
+
     @Test fun totalsCountItemsAndWeightByBaseXp() {
         val t = at(2026, 10, 21, 9)
         val items = listOf(done("p", ItemType.Project, t), done("t", ItemType.Task, t), done("n", ItemType.Note, t))

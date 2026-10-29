@@ -63,6 +63,7 @@ fun multiplierLabel(m: Double): String =
 fun ItemType.toEconomy() = when (this) {
     ItemType.Note -> EconomyItemType.NOTE
     ItemType.Task -> EconomyItemType.TASK
+    ItemType.List -> EconomyItemType.LIST
     ItemType.Goal -> EconomyItemType.GOAL
     ItemType.Project -> EconomyItemType.PROJECT
     ItemType.Routine -> EconomyItemType.ROUTINE
@@ -128,6 +129,7 @@ object JuiceColors {
     fun of(type: ItemType) = when (type) {
         ItemType.Note -> Color(0xFF94A3B8)
         ItemType.Task -> Color(0xFF38BDF8)
+        ItemType.List -> Color(0xFF22D3EE)
         ItemType.Goal -> Color(0xFFFBBF24)
         ItemType.Project -> Color(0xFFA78BFA)
         ItemType.Routine -> Color(0xFF34D399)

@@ -18,6 +18,14 @@ class CardTest {
     }
 
     @Test
+    fun listKeepsItsSubItemsAsStepsAndCompletesOnTheLastOne() {
+        var card = ParsedItem(ItemType.List, "Chores", subItems = listOf("a", "b")).toCard("l", ids())
+        assertEquals(listOf("a", "b"), card.steps.map { it.title })
+        card = card.completeStep("c1").completeStep("c2")
+        assertTrue(card.completed)
+    }
+
+    @Test
     fun nonProjectGetsNoSteps() {
         assertTrue(ParsedItem(ItemType.Task, "Call", subItems = listOf("a")).toCard("t", ids()).steps.isEmpty())
     }
