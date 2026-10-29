@@ -865,7 +865,7 @@ class OverlayShellTest {
         runBlocking { repository.save(note) }
         show(note, reduceMotion = reduceMotion)
         state.observe()
-        val notToday = DayOfWeek.values().first { it != LocalDate.now().dayOfWeek }
+        val notToday = DayOfWeek.values().first { it != TODAY.dayOfWeek }
         state.land("n", com.juice.core.intake.ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(notToday))))
         // The repository's emission reaches the state on the main looper, then the shell reacts to it.
         repeat(3) { idle() }
