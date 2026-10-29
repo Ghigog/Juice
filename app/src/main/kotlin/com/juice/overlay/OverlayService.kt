@@ -50,7 +50,6 @@ import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import com.juice.feedback.FeedbackEvent
 import com.juice.ui.Tier
-import androidx.compose.ui.geometry.Offset
 import com.juice.ui.overlay.LiquidTouchPhase
 import com.juice.ui.overlay.OverlayActions
 import com.juice.ui.overlay.OverlayEffects
@@ -84,7 +83,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import com.juice.R
-import com.juice.ui.reservoir.ThirstReservoirView
+import com.juice.ui.liquid.JuiceLiquidView
 import com.juice.core.progression.Progression
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
@@ -395,7 +394,7 @@ class OverlayService : Service() {
         val angleOnOpen = openingAngle
         openingSpin = 0f
         openingAngle = 0f
-        val reservoir = ThirstReservoirView(this)
+        val reservoir = JuiceLiquidView(this)
         val effects = OverlayEffects()
         val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
         val session = GameSession(
@@ -407,7 +406,7 @@ class OverlayService : Service() {
                 effects.banner(getString(R.string.overlay_banner_satiated))
             },
             onFlavourChanged = {
-                reservoir.color = it.reservoirColor
+                reservoir.setFlavour(it.accent, it.deep)
                 reservoir.viscous = it.viscous
                 reservoir.fizz = it.fizz
             },
@@ -441,7 +440,6 @@ class OverlayService : Service() {
             enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
             cloudAvailable = { IntakeWorker.cloudAvailable },
         )
-        var lastTouch = Offset.Zero
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
             onSettingsChange = { change -> scope.launch { settingsRepository.update(change) } },
@@ -451,11 +449,10 @@ class OverlayService : Service() {
                 val x = touch.position.x / touch.size.width
                 val y = touch.position.y / touch.size.height
                 when (touch.phase) {
-                    LiquidTouchPhase.DOWN -> reservoir.disturb(x, y, TAP_STRENGTH)
-                    LiquidTouchPhase.MOVE -> reservoir.wake(lastTouch.x, lastTouch.y, x, y)
-                    LiquidTouchPhase.UP -> Unit
+                    LiquidTouchPhase.DOWN -> reservoir.touchDown(x, y)
+                    LiquidTouchPhase.MOVE -> reservoir.touchMove(x, y)
+                    LiquidTouchPhase.UP -> reservoir.touchUp()
                 }
-                lastTouch = Offset(x, y)
             },
             onTick = session::tick,
             recapItems = repository::recapItems,
@@ -615,9 +612,6 @@ class OverlayService : Service() {
     }
 }
 
-/** How hard a tap pushes the juice. */
-private const val TAP_STRENGTH = 1f
-
 private const val TAG = "OverlayService"
 
 /**
@@ -695,6 +689,6 @@ internal fun windowBlurRadius(backdrop: Backdrop, radius: Int): Int =
 
 /** Embeds the [reservoir] view and pushes the meter's [fill] into it on every recomposition. */
 @androidx.compose.runtime.Composable
-internal fun ReservoirHost(reservoir: ThirstReservoirView, fill: Float, modifier: androidx.compose.ui.Modifier) {
+internal fun ReservoirHost(reservoir: JuiceLiquidView, fill: Float, modifier: androidx.compose.ui.Modifier) {
     AndroidView(factory = { reservoir.also { (it.parent as? android.view.ViewGroup)?.removeView(it) } }, modifier = modifier, update = { it.fill = fill })
 }

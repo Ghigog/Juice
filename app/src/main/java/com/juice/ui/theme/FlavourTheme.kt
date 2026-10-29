@@ -16,8 +16,6 @@ enum class SoundSet(val flavour: Flavour) {
  * flavours [fizz]: bubbles keep rising.
  */
 data class FlavourTheme(val accent: Int, val deep: Int, val soundSet: SoundSet, val viscous: Boolean = false, val fizz: Boolean = true) {
-    val reservoirColor: Int get() = accent
-
     companion object {
         fun of(flavour: Flavour): FlavourTheme = when (flavour) {
             Flavour.ELECTRIC_CITRUS -> FlavourTheme(0xFFFFB020.toInt(), 0xFFE8590C.toInt(), SoundSet.BRIGHT_CLICKS_AND_POPS)
