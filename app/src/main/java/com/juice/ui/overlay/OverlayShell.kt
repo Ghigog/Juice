@@ -232,6 +232,8 @@ fun OverlayShell(
     initialSpin: Float = 0f,
     /** The backdrop slice's opening angle in degrees, so it carries on from the handle slice's angle. */
     initialAngle: Float = 0f,
+    /** Called when closing starts with where the froth and the per-card pops will burst, in the shell's drawing coordinates. */
+    onPopsPlanned: (froth: List<Offset>, cards: List<Offset>) -> Unit = { _, _ -> },
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -287,6 +289,7 @@ fun OverlayShell(
     val pop = remember { Animatable(0f) }
     val currentOnClosed by rememberUpdatedState(onClosed)
     val currentOnDraining by rememberUpdatedState(onDraining)
+    val currentOnPopsPlanned by rememberUpdatedState(onPopsPlanned)
     val cardPops = remember { CardPops() }
     var contentSize by remember { mutableStateOf(IntSize.Zero) }
     var canvasOrigin by remember { mutableStateOf(Offset.Zero) }
@@ -305,6 +308,7 @@ fun OverlayShell(
                 cardPops.frothAt = frothOrigins(
                     juiceBoxBounds?.center?.minus(canvasOrigin), cardPops.captureBounds?.center?.minus(canvasOrigin), bounds,
                 )
+                currentOnPopsPlanned(cardPops.frothAt, cardPops.centres)
                 val total = elementPopStartMillis(visible.size, 1) + CARD_POP_MILLIS
                 coroutineScope {
                     launch { cardPops.elapsed.animateTo(total.toFloat(), tween(total, easing = LinearEasing)) }
