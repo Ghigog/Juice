@@ -31,8 +31,15 @@ class JuiceDatabaseUpgradeTest {
 
     private val columnsByVersion = mapOf(
         1 to "id TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, parentId TEXT",
+        2 to "id TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, parentId TEXT, " +
+            "editedFields TEXT NOT NULL DEFAULT ''",
         3 to "id TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, parentId TEXT, " +
             "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT",
+        4 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
+            "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', PRIMARY KEY(id)",
+        5 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
+            "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
+            "position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(id)",
         6 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
             "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
             "position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, PRIMARY KEY(id)",
@@ -81,7 +88,13 @@ class JuiceDatabaseUpgradeTest {
 
     @Test fun versionOneKeepsEveryRow() = upgradeFrom(1)
 
+    @Test fun versionTwoKeepsEveryRow() = upgradeFrom(2)
+
     @Test fun versionThreeKeepsEveryRow() = upgradeFrom(3)
+
+    @Test fun versionFourKeepsEveryRow() = upgradeFrom(4)
+
+    @Test fun versionFiveKeepsEveryRow() = upgradeFrom(5)
 
     @Test fun versionSixKeepsEveryRow() = upgradeFrom(6)
 
