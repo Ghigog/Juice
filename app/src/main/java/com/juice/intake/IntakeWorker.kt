@@ -17,15 +17,29 @@ import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 
 /** Parses a note with Groq in the background; retries with backoff while the request cannot reach Groq. */
-class IntakeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+class IntakeWorker(
+    context: Context,
+    params: WorkerParameters,
+    private val settings: SettingsRepository,
+    private val groq: GroqClient,
+    private val items: ItemRepository,
+) : CoroutineWorker(context, params) {
+    /** The constructor WorkManager's default factory uses: the app's own settings, Groq client and database. */
+    constructor(context: Context, params: WorkerParameters) : this(
+        context,
+        params,
+        SettingsRepository(context),
+        GroqClient(BuildConfig.GROQ_API_KEY),
+        ItemRepository(JuiceDatabase.open(context).itemDao()),
+    )
+
     override suspend fun doWork(): Result {
         val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
-        val onDeviceOnly = SettingsRepository(applicationContext).current().onDeviceOnly
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
-        val parser = IntakeParser(GroqClient(BuildConfig.GROQ_API_KEY), onDeviceOnly = { onDeviceOnly })
-        val result = parser.parse(text)
+        val onDeviceOnly = settings.current().onDeviceOnly
+        val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }).parse(text)
         // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
-        ItemRepository(JuiceDatabase.open(applicationContext).itemDao()).land(itemId, result.item)
+        items.land(itemId, result.item)
         return if (result.retryLater) Result.retry() else Result.success()
     }
 
