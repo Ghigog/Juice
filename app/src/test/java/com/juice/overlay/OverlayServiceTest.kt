@@ -82,14 +82,25 @@ class OverlayServiceTest {
     @Test
     fun backGoesToTheOverlayInsteadOfClosingTheDialog() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        // Robolectric does not read android:enableOnBackInvokedCallback from the manifest.
+        context.applicationInfo.javaClass.getMethod("setEnableOnBackInvokedCallback", Boolean::class.java)
+            .invoke(context.applicationInfo, true)
         var backs = 0
         val dialog = overlayDialog(context, View(context)) { backs++ }
         var cancelled = false
         dialog.setOnCancelListener { cancelled = true }
-        @Suppress("DEPRECATION")
-        dialog.onBackPressed()
+        dialog.show()
+        shadowOf(android.os.Looper.getMainLooper()).idle() // delivers the show listener
+        val dispatcher = dialog.onBackInvokedDispatcher
+        // Robolectric has no window manager to deliver Back, so invoke what the proxy dispatcher
+        // holds, as (callback, priority) pairs, until a window is attached.
+        val pending = dispatcher.javaClass.getDeclaredField("mCallbacks")
+            .apply { isAccessible = true }.get(dispatcher) as List<*>
+        val callbacks = pending.map { it as android.util.Pair<*, *> }.map { it.first }
+        (callbacks.last() as android.window.OnBackInvokedCallback).onBackInvoked()
         assertEquals(1, backs)
         assertEquals(false, cancelled)
+        assertTrue(dialog.isShowing)
     }
 
     @Test
