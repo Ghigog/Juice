@@ -11,3 +11,19 @@ dependencies {
     kover(project(":core"))
     kover(project(":app"))
 }
+
+kover {
+    reports {
+        verify {
+            rule {
+                // Merged :app and :core line coverage; measured 79.0% when set.
+                minBound(79)
+            }
+        }
+    }
+}
+
+// Kover merges every Android variant, which would pull in testReleaseUnitTest; CI measures debug only.
+project(":app").tasks.configureEach {
+    if (name == "testReleaseUnitTest") enabled = false
+}
