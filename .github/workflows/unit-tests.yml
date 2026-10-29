@@ -1,6 +1,6 @@
 # Unit tests
 #
-# Compiles and runs every unit test on each push to main and each pull request,
+# Compiles and runs every debug unit test on each push to main and each pull request,
 # so a broken test build can't reach main unnoticed.
 name: Unit tests
 
@@ -25,5 +25,5 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run unit tests
-        run: ./gradlew test
+      - name: Run debug unit tests and verify coverage
+        run: ./gradlew :app:testDebugUnitTest :core:test koverVerify

@@ -11,3 +11,14 @@ dependencies {
     kover(project(":core"))
     kover(project(":app"))
 }
+
+kover {
+    reports {
+        verify {
+            rule {
+                // Merged :app and :core line coverage; measured 79.0% when set.
+                minBound(79)
+            }
+        }
+    }
+}
