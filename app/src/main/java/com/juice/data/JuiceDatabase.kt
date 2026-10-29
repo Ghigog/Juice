@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 
-@Database(entities = [ItemEntity::class], version = 9, exportSchema = false)
+@Database(entities = [ItemEntity::class], version = 9, exportSchema = true)
 abstract class JuiceDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
