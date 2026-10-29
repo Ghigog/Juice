@@ -112,43 +112,14 @@ Later platforms: reconsider Kotlin Multiplatform or Flutter once the Android cor
 - **Background blur** is a settings toggle. When on, the overlay uses Android 12+ window background blur (`Window.setBackgroundBlurRadius`, see docs/overlay-blur-flicker.md). When off, or when unsupported or battery saver is active, it falls back to a dark semi-opaque scrim with the same glass styling.
 - Default: on where supported, off under battery saver. Blur is costly on low-end GPUs, so the toggle matters.
 
-### 5.3 Liquid shader (AGSL)
-Slosh is driven by a **damped spring** on the CPU, not by raw scroll velocity. Each frame: `a = -k*x - c*v + impulse`, where `impulse` comes from scroll velocity and accelerometer tilt. The spring output `u_slosh` (range -1 to 1) tilts the surface.
+### 5.3 Liquid (particles + AGSL)
+The Thirst Reservoir is a particle fluid behind the centre card (`com.juice.core.liquid`, pure Kotlin), drawn by `JuiceLiquidView`.
 
-```glsl
-// AGSL: Thirst Reservoir
-uniform float2 u_resolution;
-uniform float  u_time;      // wrap on CPU: u_time = t % 1000.0
-uniform float  u_fill;      // 0.0 thirsty .. 1.0 satiated
-uniform float  u_slosh;     // damped spring output, -1..1
-layout(color) uniform half3 u_color;
-
-half4 main(float2 fragCoord) {
-    float2 st = fragCoord / u_resolution;
-    st.y = 1.0 - st.y;                       // AGSL origin is top-left
-
-    float aspect = u_resolution.x / u_resolution.y;
-    float x = st.x * aspect;                 // keep wave width constant on any aspect
-
-    float tilt  = u_slosh * (st.x - 0.5) * 0.12;
-    float amp   = 0.5 + abs(u_slosh);
-    float wave  = sin(x * 4.0 + u_time * 3.0) * 0.02
-                + cos(x * 7.0 - u_time * 2.5) * 0.01;
-    float surface = u_fill + tilt + wave * amp;
-
-    if (st.y > surface) return half4(0.0);   // transparent above the liquid
-
-    float depth = clamp((surface - st.y) / max(surface, 0.05), 0.0, 1.0);
-    half3 c = mix(u_color, u_color * 0.6, half(depth));
-
-    float crest = smoothstep(0.015, 0.0, surface - st.y);
-    c += half3(0.3) * half(crest);
-
-    return half4(c * 0.9, 0.9);              // premultiplied alpha
-}
-```
-
-Notes: `depth` is guarded against a near-empty fill, wave width is aspect-corrected, time is wrapped to avoid precision jitter, and the shader only runs while the overlay is visible.
+- **Sim:** Clavet-style viscoelastic particles (`LiquidSim`), stepped at a fixed 60 Hz in dp. Gravity comes from the accelerometer (`ScreenGravity`), so the juice runs to whichever side is down; a finger on the card pushes it, and carousel snaps and completions `kick` it sideways.
+- **Froth:** shakes and fast swipes raise agitation (`Froth`), which turns surface juice to foam and grows rising bubbles that pop. Golden Honey is thicker and still (foam, no bubbles); Satiated keeps a gentle fizz.
+- **Fill:** a full meter fills the card. The top of the juice is particles, at most about a quarter of the card deep (deeper particles never settle). Below them is a solid body (`JuiceBody`) drawn into the same field, so the two shade as one liquid; it lies across gravity, turns as the phone tilts and eases up or down as the meter changes. New particles stream in from the side opposite gravity; drained ones leave from the surface.
+- **Shading:** each particle stamps a soft blob into a `RenderNode` (red juice, green speed, blue foam); an AGSL `RenderEffect` thresholds that field into a glossy surface in the flavour's accent and deep colours. Foam cells, bubbles and pops are sprites on top. On a software canvas, or if the shader fails to compile, it draws plain dots.
+- **Battery:** sensors and the frame loop run only while the view is shown, and the loop stops once the juice has settled and the froth has drained. Reduce motion holds gravity straight down and ignores touches, kicks and shakes; turning particles off removes the froth.
 
 ---
 
