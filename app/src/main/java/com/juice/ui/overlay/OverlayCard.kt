@@ -96,6 +96,7 @@ import com.juice.core.intake.ItemType
 import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
 import com.juice.core.model.Step
+import java.time.Clock
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -131,6 +132,7 @@ internal fun CentreCard(
     reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
     onEditingChange: (Boolean) -> Unit = {},
+    clock: Clock = Clock.systemDefaultZone(),
 ) {
     val recognizer = remember { GestureRecognizer() }
     val scope = rememberCoroutineScope()
@@ -492,6 +494,15 @@ internal fun CentreCard(
                             Modifier.testTag("cadenceLine").clickable { state.openRepeatPicker(item) }
                         } else Modifier,
                     )
+                    reminderLabel(item, clock)?.let { at ->
+                        Text(
+                            stringResource(R.string.overlay_will_remind, at),
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            color = JuiceColors.white(0.82f),
+                            modifier = Modifier.testTag(TAG_REMINDER_LINE),
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     Box(
                         Modifier
