@@ -118,6 +118,17 @@
     <string name="chip_picker_deadline">Pick a day</string>
     <string name="chip_picker_interval">Repeat every</string>
     <string name="chip_picker_weekday">Pick a weekday</string>
+    <plurals name="chip_picker_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="repeat_picker_title">Repeat</string>
+    <string name="repeat_picker_day">Every day</string>
+    <plurals name="repeat_picker_days">
+        <item quantity="one">Every %d day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
+    <string name="repeat_picker_week">Every week</string>
     <plurals name="chip_picker_weeks">
         <item quantity="one">%d week</item>
         <item quantity="other">%d weeks</item>

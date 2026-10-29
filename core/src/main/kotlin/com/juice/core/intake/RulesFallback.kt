@@ -55,7 +55,11 @@ object RulesFallback {
     private const val MAX_LIST_ITEM_WORDS = 4
     private const val MIN_PLAIN_LIST_ITEMS = 3
     private val intervalCadence = Regex(
-        """\bevery\s+(?:(\d+|two|three|four)\s+weeks?|other(?:\s+week)?|second\s+week)\b""",
+        """\bevery\s+(?:(\d+|two|three|four)\s+weeks?|other(?:\s+week)?(?!\s+day)|second\s+week)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val dayInterval = Regex(
+        """\bevery\s+(?:(\d+|two|three|four|five|six)\s+days?|other\s+day)\b""",
         RegexOption.IGNORE_CASE,
     )
     private val clockTime = Regex("""\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b""", RegexOption.IGNORE_CASE)
@@ -105,6 +109,7 @@ object RulesFallback {
     }
 
     private fun routineSpans(text: String): List<ChipSpan> {
+        if (dayIntervalOf(text) != null) return listOf(ChipSpan(ChipKind.Interval, dayInterval.find(text)!!.range))
         intervalCadence.find(text)?.let { m ->
             return listOf(ChipSpan(ChipKind.Interval, m.range)) + weekdaySpans(weekdayAnywhere.findAll(text, m.range.last))
         }
@@ -145,6 +150,7 @@ object RulesFallback {
 
     /** "every day", "daily", "every Mon and Thu" or "weekly on Friday", with an optional clock time. */
     private fun cadenceOf(text: String): Cadence? {
+        dayIntervalOf(text)?.let { return Cadence(DayOfWeek.entries.toSet(), clockTimeIn(text), intervalDays = it) }
         intervalCadence.find(text)?.let { m ->
             val days = weekdayAnywhere.findAll(text, m.range.last).map { dayOfWeek(it.value) }.toSet()
             if (days.isEmpty()) return null
@@ -164,6 +170,20 @@ object RulesFallback {
             weekdayName.findAll(list).map { dayOfWeek(it.value) }.toSet()
         }
         return Cadence(days, clockTimeIn(text))
+    }
+
+    /** N of "every N days", "every other day" or "every two…six days" when it is 2..6, else null. */
+    private fun dayIntervalOf(text: String): Int? {
+        val n = when (val word = dayInterval.find(text)?.groupValues?.get(1)?.lowercase() ?: return null) {
+            "" -> 2
+            "two" -> 2
+            "three" -> 3
+            "four" -> 4
+            "five" -> 5
+            "six" -> 6
+            else -> word.toInt()
+        }
+        return n.takeIf { it in 2..6 }
     }
 
     private fun dayOfWeek(name: String): DayOfWeek =
