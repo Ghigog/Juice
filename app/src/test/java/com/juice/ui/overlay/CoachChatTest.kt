@@ -58,7 +58,7 @@ class CoachChatTest {
 
     private val jim = Characters.Jim
     private val server = MockWebServer().apply { start() }
-    private val dir = File(System.getProperty("java.io.tmpdir"), "coach-chat-${System.nanoTime()}").apply { mkdirs() }
+    private val dir = kotlin.io.path.createTempDirectory("coach-chat-").toFile()
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
     private lateinit var characters: CharacterRepository
