@@ -6,6 +6,7 @@ import com.juice.core.intake.IntakeField
 import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
+import com.juice.core.intake.RulesFallback
 import com.juice.core.intake.mergeParse
 import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.model.Item
@@ -161,6 +162,18 @@ class ItemRepository(
     /** Completing or skipping a Routine's occurrence: it moves on to its next due day and stays Active. */
     suspend fun advanceRoutine(id: String, today: LocalDate = LocalDate.now()) {
         get(id)?.let { save(it.advance(today).copy(completedAt = clock())) }
+    }
+
+    /**
+     * Routines saved before the title parser understood their cadence (e.g. "every two weeks on Friday" stored as daily) take the
+     * cadence their title states now, first due on or after [today]. One whose cadence the user picked keeps it.
+     */
+    suspend fun repairCadences(today: LocalDate = LocalDate.now()) {
+        dao.routines().map { it.toItem() }.forEach { item ->
+            if (item.type != ItemType.Routine || IntakeField.Cadence in item.editedFields) return@forEach
+            val stated = RulesFallback.classify(item.title, clock().atZone(ZoneId.systemDefault())).cadence ?: return@forEach
+            if (stated != item.cadence) save(item.asRoutine(stated, today))
+        }
     }
 
     suspend fun complete(id: String) = setStatus(id, ItemStatus.Completed)

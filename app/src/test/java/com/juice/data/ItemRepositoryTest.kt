@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import com.juice.core.intake.IntakeField
 import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
@@ -94,6 +95,27 @@ class ItemRepositoryTest {
         repository.advanceRoutine("r", monday)
         assertEquals(monday.plusWeeks(1), reminders.synced.last().nextDueOn)
         assertEquals(ItemStatus.Active, reminders.synced.last().status)
+    }
+
+    @Test
+    fun anOldDailyRoutineTakesTheCadenceItsTitleStates() = runBlocking {
+        val thursday = LocalDate.of(2026, 10, 29)
+        val daily = Cadence(DayOfWeek.entries.toSet())
+        repository.save(Item("r", ItemType.Routine, "every two weeks on Friday, change towels and sheets", cadence = daily, nextDueOn = thursday))
+        repository.repairCadences(thursday)
+        val repaired = repository.get("r")!!
+        assertEquals(Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 2), repaired.cadence)
+        assertEquals(thursday.plusDays(1), repaired.nextDueOn)
+        assertEquals(emptyList<String>(), repository.active(thursday).map { it.id })
+    }
+
+    @Test
+    fun aCadenceTheUserPickedIsNotRepaired() = runBlocking {
+        val thursday = LocalDate.of(2026, 10, 29)
+        val daily = Cadence(DayOfWeek.entries.toSet())
+        repository.save(Item("r", ItemType.Routine, "every Friday, towels", cadence = daily, nextDueOn = thursday, editedFields = setOf(IntakeField.Cadence)))
+        repository.repairCadences(thursday)
+        assertEquals(daily, repository.get("r")!!.cadence)
     }
 
     @Test
