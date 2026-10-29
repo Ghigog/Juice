@@ -76,8 +76,9 @@ class EconomyTest {
     }
 
     @Test
-    fun drainsOnePercentPerMinute() {
-        assertEquals(40.0, economy.drain(EconomyState(0, 50.0), 10.0).meter, 1e-9)
-        assertEquals(0.0, economy.drain(EconomyState(0, 5.0), 10.0).meter, 1e-9)
+    fun drainsOnePercentPerHour() {
+        assertEquals(49.0, economy.drain(EconomyState(0, 50.0), 60.0).meter, 1e-9)
+        assertEquals(50.0 - 1.0 / 6, economy.drain(EconomyState(0, 50.0), 10.0).meter, 1e-9)
+        assertEquals(0.0, economy.drain(EconomyState(0, 0.5), 31 * 60.0).meter, 1e-9)
     }
 }
