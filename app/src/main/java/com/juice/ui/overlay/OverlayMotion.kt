@@ -3,6 +3,7 @@ package com.juice.ui.overlay
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -150,6 +151,10 @@ internal fun frothBubbles(origins: List<Offset>, seed: Long, maxDistance: Float,
 
 /** Each card's explosion is seeded by its rank on top of this, so cards differ but a given rank always bursts the same. */
 private const val CARD_EXPLOSION_SEED = 470L
+
+/** Where the shared froth bursts: the measured centres of the centre card and the capture field, each only if it lies within [bounds]. */
+internal fun frothOrigins(centreCard: Offset?, captureField: Offset?, bounds: Rect): List<Offset> =
+    listOfNotNull(centreCard, captureField).filter { bounds.contains(it) }
 
 /** The juice bursting from the card of [rank] (top to bottom) whose centre is [centre]. */
 internal fun cardExplosionBubbles(centre: Offset, rank: Int, maxDistance: Float, maxRadius: Float): List<FrothBubble> =
