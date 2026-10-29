@@ -66,7 +66,7 @@ class OverlayShellState(
     private val onCaptured: suspend (Item) -> Boolean = { false },
     private val newId: () -> String = { UUID.randomUUID().toString() },
     /** The day the overlay opened; Routines due later stay out of the carousel. */
-    private val today: LocalDate = LocalDate.now(),
+    val today: LocalDate = LocalDate.now(),
     /** Where coach cards are told apart and a dismissed meet card turns its character away; null when there are no characters. */
     private val characters: CharacterRepository? = null,
     /** Fires when a coach card is completed; the chat opens from here in a later ticket. */

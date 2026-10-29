@@ -32,7 +32,7 @@ internal val REPEAT_CADENCES: List<Cadence> =
 
 /** The picker for the chip [OverlayShellState.chipPicker] names, if one is open; choosing applies it and closes it, tapping outside just closes it. */
 @Composable
-fun ChipPickers(state: OverlayShellState, today: LocalDate = LocalDate.now(), locale: Locale = Locale.getDefault()) {
+fun ChipPickers(state: OverlayShellState, today: LocalDate = state.today, locale: Locale = Locale.getDefault()) {
     RepeatPicker(state, today)
     val picker = state.chipPicker ?: return
     val item = state.items.firstOrNull { it.id == picker.itemId } ?: return
