@@ -782,8 +782,8 @@ class OverlayShellStateTest {
     fun aLandedRoutineNotDueTodayDrainsAndDrainDoneClearsIt() = runBlocking {
         val note = Item("n", ItemType.Note, "water plants every Tuesday")
         repository.save(note)
-        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = LocalDate.now()).also { it.observe() }
-        val notToday = DayOfWeek.values().first { it != LocalDate.now().dayOfWeek }
+        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = sunday).also { it.observe() }
+        val notToday = DayOfWeek.values().first { it != sunday.dayOfWeek }
         state.land("n", ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(notToday))))
         assertEquals("n", state.draining?.id)
         assertEquals(emptyList(), state.items)
@@ -806,8 +806,8 @@ class OverlayShellStateTest {
     fun aRoutineDueTodayDoesNotDrain() = runBlocking {
         val note = Item("n", ItemType.Note, "water plants every Sunday")
         repository.save(note)
-        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = LocalDate.now()).also { it.observe() }
-        state.land("n", ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(LocalDate.now().dayOfWeek))))
+        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(note), today = sunday).also { it.observe() }
+        state.land("n", ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(sunday.dayOfWeek))))
         assertEquals(listOf("n"), state.items.map { it.id })
         assertNull(state.draining)
     }

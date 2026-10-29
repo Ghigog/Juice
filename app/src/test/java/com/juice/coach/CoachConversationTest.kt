@@ -20,7 +20,7 @@ import okhttp3.mockwebserver.MockWebServer
 
 class CoachConversationTest {
     private val server = MockWebServer().apply { start() }
-    private val dir = File(System.getProperty("java.io.tmpdir"), "coach-test-${System.nanoTime()}").apply { mkdirs() }
+    private val dir = kotlin.io.path.createTempDirectory("coach-test-").toFile()
     private val storeFile = File(dir, "conversations.json")
     private val store = ConversationStore(storeFile)
     private val memoryStore = MemoryStore(File(dir, "memory.json"))

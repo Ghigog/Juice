@@ -333,7 +333,7 @@ class OverlayShellState(
         val at = items.indexOfFirst { it.id == id }
         if (at < 0) return
         val old = items[at]
-        val built = parsed.toItems(id, newId).first()
+        val built = parsed.toItems(id, newId, today).first()
         val landed = when {
             IntakeField.Title in old.editedFields -> built.copy(title = old.title)
             built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))

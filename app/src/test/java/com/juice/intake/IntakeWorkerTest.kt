@@ -27,6 +27,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+private val NOW = ZonedDateTime.parse("2026-01-01T00:00:00Z")
+
 @RunWith(RobolectricTestRunner::class)
 class IntakeWorkerTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -58,6 +60,7 @@ class IntakeWorkerTest {
                         SettingsRepository(appContext),
                         GroqClient("key", server.url("/").toString().trimEnd('/')),
                         items,
+                        { NOW },
                     )
             })
             .build()
@@ -74,7 +77,7 @@ class IntakeWorkerTest {
 
     @Test
     fun aValidGroqParseLandsTheItemAndSucceeds() = runBlocking {
-        val deadline = Instant.now().plus(2, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
+        val deadline = NOW.toInstant().plus(2, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
         val json = """{\"type\":\"Task\",\"title\":\"Do laundry\",\"completion_condition\":null,\"deadline\":\"$deadline\",\"sub_items\":null}"""
         server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"$json"}}]}"""))
         assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
@@ -87,7 +90,7 @@ class IntakeWorkerTest {
         server.shutdown()
         val text = "do laundry"
         assertEquals(Result.retry(), worker("text" to text, "itemId" to "i1").doWork())
-        val rules = RulesFallback.classify(text, ZonedDateTime.now())
+        val rules = RulesFallback.classify(text, NOW)
         val landed = items.get("i1")!!
         assertEquals(rules.type, landed.type)
         assertEquals(rules.deadline, landed.deadline)
