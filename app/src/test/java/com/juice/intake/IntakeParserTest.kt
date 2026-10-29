@@ -65,12 +65,31 @@ class IntakeParserTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody(body))
         val result = parser().parse("do laundry by 6pm")
         assertEquals(ItemType.Goal, result.item.type)
-        assertTrue(result.retryLater)
+        assertFalse(result.retryLater)
     }
 
-    @Test fun responseWithNoChoicesFallsBackToRulesAndRetries() = assertMalformedFallsBackToRules("""{"id":"x"}""")
+    @Test fun permanentHttpErrorsFallBackToRulesWithoutRetry() {
+        for (status in listOf(400, 401, 403, 404)) {
+            reply("", status = status)
+            val result = parser().parse("do laundry by 6pm")
+            assertEquals(ItemType.Goal, result.item.type)
+            assertFalse(result.retryLater, "status $status")
+        }
+    }
 
-    @Test fun responseWithoutMessageContentFallsBackToRulesAndRetries() =
+    @Test fun modelDecommissionedFallsBackToRulesWithoutRetry() {
+        server.enqueue(MockResponse().setResponseCode(410).setBody("""{"error":{"code":"model_decommissioned","message":"gone"}}"""))
+        assertFalse(parser().parse("do laundry by 6pm").retryLater)
+    }
+
+    @Test fun rateLimitRetries() {
+        reply("", status = 429)
+        assertTrue(parser().parse("do laundry by 6pm").retryLater)
+    }
+
+    @Test fun responseWithNoChoicesFallsBackToRulesWithoutRetry() = assertMalformedFallsBackToRules("""{"id":"x"}""")
+
+    @Test fun responseWithoutMessageContentFallsBackToRulesWithoutRetry() =
         assertMalformedFallsBackToRules("""{"choices":[{"message":{"role":"assistant"}}]}""")
 
     @Test fun offlineFallsBackToRulesAndRetries() {
@@ -81,10 +100,10 @@ class IntakeParserTest {
         assertTrue(result.retryLater)
     }
 
-    @Test fun invalidModelOutputGivesNoteWithoutRetry() {
+    @Test fun invalidModelOutputKeepsTheRulesTypeWithoutRetry() {
         reply("not json")
-        val result = parser().parse("hello")
-        assertEquals(ItemType.Note, result.item.type)
+        val result = parser().parse("do laundry by 6pm")
+        assertEquals(ItemType.Goal, result.item.type)
         assertFalse(result.retryLater)
     }
 
