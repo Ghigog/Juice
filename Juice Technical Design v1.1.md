@@ -19,7 +19,7 @@ Juice is also a memory aid: capture is instant, and the overlay is one swipe awa
 
 **In:** Android overlay, capture, AI intake, carousel, gestures, Thirst and Juice economy, flavors, local persistence, settings.
 
-**Out (post-MVP):** cross-device sync, reminders and notifications, anti-cheat, iOS, macOS, Windows.
+**Out (post-MVP):** cross-device sync, anti-cheat, iOS, macOS, Windows.
 
 ---
 
@@ -235,6 +235,18 @@ Schema:
 }
 ```
 
+### 7.5 Reminders and notifications
+
+Reminders are local notifications. Nothing is pushed from a server.
+
+- **Groq chooses the time and text.** The parser may return `notify_at` (ISO-8601) and `notify_text` for a Task, Goal or Project. They are kept or dropped together. `notify_at` is dropped when it is unparsable, in the past, over a year out, or later than the `deadline`. `notify_text` is dropped when blank or when there is no valid `notify_at`. A rejected value never fails the parse; the item just has no reminder. A Routine ignores `notify_at`, because its schedule comes from its cadence.
+- **Routine timing.** A Routine notifies on its next due date at 08:00 local time, or at its cadence time when that is earlier than 08:00. The text is the Routine title. An item without `notify_text` falls back to its title.
+- **One alarm per item.** `ReminderScheduler` sets one inexact, idle-tolerant alarm (`setAndAllowWhileIdle`) at the planned time, so no exact-alarm permission is needed. The plan (`core/notify/ReminderPlan.kt`) returns nothing for a time that is not after now.
+- **Cancel and reschedule.** Scheduling an item first cancels its existing alarm, then sets a new one only if the item still qualifies. So the alarm is cancelled or replaced when the item changes, is completed or dismissed (it is no longer Active), or becomes a Character. After a reboot, `BootReceiver` reschedules every item, since alarms do not survive one.
+- **Posting.** When the alarm fires, the receiver posts the notification on the `juice_reminders` channel, if the `POST_NOTIFICATIONS` permission is granted. Without it, nothing is posted.
+- **Tap opens the overlay.** The notification's content intent starts the overlay service and opens the overlay.
+- **Out of scope:** server push, exact alarms, recurring or snoozable reminders, notification action buttons, and user-editable reminder times.
+
 ---
 
 ## 8. Gestures
@@ -289,7 +301,6 @@ MVP testing is scoped to Pixel devices only.
 ## 11. Post-MVP
 
 - **Sync** across devices.
-- **Reminders and notifications.**
 - **Anti-cheat** for bogus tasks.
 - **iOS:** sandbox blocks system-wide overlays. Plan: standalone app, Control Center widget or Action Button deep link (`juice://capture`), and a Share Sheet extension into the AI parser.
 - **Desktop (macOS, Windows):** borderless always-on-top transparent window, opened by edge hover or a global hotkey.
