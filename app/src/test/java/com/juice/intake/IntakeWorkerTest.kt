@@ -96,4 +96,17 @@ class IntakeWorkerTest {
         assertEquals(rules.deadline, landed.deadline)
         assertNull(landed.deadline)
     }
+
+    @Test
+    fun aPermanentGroqErrorLandsTheRulesResultAndSucceeds() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(401))
+        assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
+    }
+
+    @Test
+    fun aGroqRateLimitRetries() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(429))
+        assertEquals(Result.retry(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+    }
 }

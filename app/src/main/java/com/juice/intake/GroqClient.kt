@@ -55,7 +55,7 @@ class GroqClient(
                 Json.parseToJsonElement(response).jsonObject["choices"]!!.jsonArray[0]
                     .jsonObject["message"]!!.jsonObject["content"]!!.jsonPrimitive.content
             } catch (e: RuntimeException) {
-                throw IOException("Unexpected Groq response", e)
+                throw GroqEnvelopeException(e)
             }
         } finally {
             conn.disconnect()
@@ -150,3 +150,6 @@ class GroqHttpException(
     val detail: String,
     val retryAfterMs: Long? = null,
 ) : IOException("Groq HTTP $status${if (detail.isBlank()) "" else ": ${detail.take(300)}"}")
+
+/** Groq answered 2xx but the body was not a chat completion envelope; asking again will not help. */
+class GroqEnvelopeException(cause: Throwable) : IOException("Unexpected Groq response", cause)
