@@ -53,6 +53,18 @@ class IntakeParserTest {
         assertTrue(result.retryLater)
     }
 
+    private fun assertMalformedFallsBackToRules(body: String) {
+        server.enqueue(MockResponse().setResponseCode(200).setBody(body))
+        val result = parser().parse("do laundry by 6pm")
+        assertEquals(ItemType.Goal, result.item.type)
+        assertTrue(result.retryLater)
+    }
+
+    @Test fun responseWithNoChoicesFallsBackToRulesAndRetries() = assertMalformedFallsBackToRules("""{"id":"x"}""")
+
+    @Test fun responseWithoutMessageContentFallsBackToRulesAndRetries() =
+        assertMalformedFallsBackToRules("""{"choices":[{"message":{"role":"assistant"}}]}""")
+
     @Test fun offlineFallsBackToRulesAndRetries() {
         val url = server.url("/").toString().trimEnd('/')
         server.shutdown()
