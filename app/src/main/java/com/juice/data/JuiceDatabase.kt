@@ -9,24 +9,24 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 
-@Database(entities = [ItemEntity::class], version = 9, exportSchema = false)
+@Database(entities = [ItemEntity::class], version = 9, exportSchema = true)
 abstract class JuiceDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
     companion object {
-        private val addEditedFields = object : Migration(1, 2) {
+        internal val addEditedFields = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN editedFields TEXT NOT NULL DEFAULT ''")
             }
         }
 
-        private val addCompletionCondition = object : Migration(2, 3) {
+        internal val addCompletionCondition = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN completionCondition TEXT")
             }
         }
 
-        private val addPosition = object : Migration(4, 5) {
+        internal val addPosition = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("UPDATE items SET position = rowid")
@@ -57,7 +57,7 @@ abstract class JuiceDatabase : RoomDatabase() {
         }
 
         /** Room takes one step per version pair, so the two 6→7 column additions run together. */
-        private val addTimesAndCharacterId = object : Migration(6, 7) {
+        internal val addTimesAndCharacterId = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addTimes.migrate(db)
                 addCharacterId.migrate(db)

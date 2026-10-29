@@ -89,6 +89,8 @@ class OverlayServiceTest {
         val dialog = overlayDialog(context, View(context)) { backs++ }
         var cancelled = false
         dialog.setOnCancelListener { cancelled = true }
+        dialog.show()
+        shadowOf(android.os.Looper.getMainLooper()).idle() // delivers the show listener
         val dispatcher = dialog.onBackInvokedDispatcher
         // Robolectric has no window manager to deliver Back, so invoke what the proxy dispatcher
         // holds, as (callback, priority) pairs, until a window is attached.
@@ -96,7 +98,6 @@ class OverlayServiceTest {
             .apply { isAccessible = true }.get(dispatcher) as List<*>
         val callbacks = pending.map { it as android.util.Pair<*, *> }.map { it.first }
         (callbacks.last() as android.window.OnBackInvokedCallback).onBackInvoked()
-        dialog.show()
         assertEquals(1, backs)
         assertEquals(false, cancelled)
         assertTrue(dialog.isShowing)

@@ -666,7 +666,11 @@ internal fun guardedShowOverlay(
 internal fun overlayDialog(context: Context, content: View, onBack: () -> Unit): Dialog =
     Dialog(context, android.R.style.Theme_Translucent_NoTitleBar).apply {
         setCancelable(false)
-        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { onBack() }
+        // On show, after Dialog.onStart registers its own default callback at the same priority;
+        // the latest registration wins, so registering earlier would leave Back to the dialog.
+        setOnShowListener {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { onBack() }
+        }
         setContentView(content)
         window!!.apply {
             // After setContentView, so these replace what the theme set up.
