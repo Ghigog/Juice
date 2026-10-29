@@ -126,12 +126,13 @@ class IntakeTest {
         assertEquals("call mum tomorrow", RulesFallback.classify("call mum tomorrow").title)
     }
 
-    @Test fun actionVerbGivesTaskAndColonListGivesProject() {
+    @Test fun actionVerbGivesTaskAndColonListGivesList() {
         assertEquals(ItemType.Task, RulesFallback.classify("call the dentist").type)
-        val project = RulesFallback.classify("Launch: write copy, record demo and ship")
-        assertEquals(ItemType.Project, project.type)
-        assertEquals("Launch", project.title)
-        assertEquals(listOf("Write copy", "Record demo", "Ship"), project.subItems)
+        val list = RulesFallback.classify("Launch: write copy, record demo and ship")
+        assertEquals(ItemType.List, list.type)
+        assertEquals("Launch", list.title)
+        assertEquals(listOf("Write copy", "Record demo", "Ship"), list.subItems)
+        assertEquals(ItemType.Project, RulesFallback.classify("Launch: write copy, record demo and ship by Friday").type)
         assertEquals(ItemType.Note, RulesFallback.classify("note: just one thing").type)
     }
 
@@ -274,13 +275,18 @@ class IntakeTest {
         assertEquals(3, routine("water plants every 3 weeks on Monday").cadence?.intervalWeeks)
     }
 
-    @Test fun projectRuleReadsListsWithAndWithoutAColon() {
+    @Test fun listRuleReadsListsWithAndWithoutAColon() {
         val item = RulesFallback.classify("get tape, rope and boxes when I go to the warehouse tomorrow", tuesday)
         assertEquals(ItemType.Project, item.type)
         assertEquals(listOf("Get tape", "Get rope", "Get boxes"), item.subItems)
         assertEquals(Instant.parse("2026-03-04T23:59:00Z"), item.deadline)
         val verbs = RulesFallback.classify("call mum, email Sam and book flights")
+        assertEquals(ItemType.List, verbs.type)
         assertEquals(listOf("Call mum", "Email Sam", "Book flights"), verbs.subItems)
+        val shopping = RulesFallback.classify("get parmesan, wraps, coarse salt", tuesday)
+        assertEquals(ItemType.List, shopping.type)
+        assertEquals(listOf("Get parmesan", "Get wraps", "Get coarse salt"), shopping.subItems)
+        assertEquals(null, shopping.deadline)
         assertEquals(ItemType.Task, RulesFallback.classify("get milk and eggs").type)
     }
 
