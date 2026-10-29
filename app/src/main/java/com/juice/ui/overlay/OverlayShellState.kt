@@ -323,7 +323,11 @@ class OverlayShellState(
 
     /** Applies a user edit on screen and saves the whole card in one write, so quick edits land in order. */
     private fun edit(id: String, field: IntakeField, change: (Item) -> Item) {
-        val edited = items.firstOrNull { it.id == id }?.let { change(it).copy(editedFields = it.editedFields + field) } ?: return
+        val edited = items.firstOrNull { it.id == id }?.let {
+            // Re-timing an item cancels the agent's reminder for the old time; it is not asked again.
+            val changed = change(it).copy(editedFields = it.editedFields + field)
+            if (field == IntakeField.Deadline || field == IntakeField.Cadence) changed.copy(notifyAt = null, notifyText = null) else changed
+        } ?: return
         items = items.map { if (it.id == id) edited else it }
         scope.launch { repository.save(edited) }
     }

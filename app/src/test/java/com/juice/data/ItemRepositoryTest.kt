@@ -59,6 +59,52 @@ class ItemRepositoryTest {
     private fun item(id: String, status: ItemStatus = ItemStatus.Active) =
         Item(id, ItemType.Task, "Title $id", Instant.ofEpochMilli(1_800_000_000_000), status)
 
+    private class FakeReminders : Reminders {
+        val synced = mutableListOf<Item>()
+        val cancelled = mutableListOf<String>()
+        override fun sync(item: Item) { synced += item }
+        override fun cancel(id: String) { cancelled += id }
+    }
+
+    private fun withReminders() = FakeReminders().also { repository = ItemRepository(db.itemDao(), reminders = it, clock = { now }) }
+
+    @Test
+    fun savingSyncsTheReminderAndCompletingOrArchivingLeavesItNoActiveItem() = runBlocking {
+        val reminders = withReminders()
+        repository.save(item("a"))
+        repository.complete("a")
+        repository.save(item("b"))
+        repository.archive("b")
+        assertEquals(listOf(ItemStatus.Active, ItemStatus.Completed, ItemStatus.Active, ItemStatus.Archived), reminders.synced.map { it.status })
+    }
+
+    @Test
+    fun deletingCancelsTheReminder() = runBlocking {
+        val reminders = withReminders()
+        repository.save(item("a"))
+        repository.delete("a")
+        assertEquals(listOf("a"), reminders.cancelled)
+    }
+
+    @Test
+    fun advancingARoutineSyncsItWithTheNewDueDay() = runBlocking {
+        val reminders = withReminders()
+        val monday = LocalDate.of(2026, 10, 19)
+        repository.save(Item("r", ItemType.Routine, "Water plants", cadence = Cadence(setOf(DayOfWeek.MONDAY)), nextDueOn = monday))
+        repository.advanceRoutine("r", monday)
+        assertEquals(monday.plusWeeks(1), reminders.synced.last().nextDueOn)
+        assertEquals(ItemStatus.Active, reminders.synced.last().status)
+    }
+
+    @Test
+    fun aLandedParseSyncsItsNotifyAt() = runBlocking {
+        val reminders = withReminders()
+        repository.save(Item("n", ItemType.Note, "Call mum"))
+        val at = Instant.ofEpochMilli(1_800_000_000_000)
+        repository.land("n", ParsedItem(ItemType.Task, "Call mum", notifyAt = at, notifyText = "Ring"))
+        assertEquals(at, reminders.synced.last().notifyAt)
+    }
+
     @Test
     fun aLandedProjectKeepsAtMostMaxSubItemsAsStepsAndNoExtraCards() = runBlocking {
         repository.save(Item("p", ItemType.Note, "Move"))
