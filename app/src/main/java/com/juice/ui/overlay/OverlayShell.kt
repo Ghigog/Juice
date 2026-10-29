@@ -303,7 +303,7 @@ fun OverlayShell(
                     }
                 }
                 currentOnDraining()
-                reveal.animateTo(0f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
+                reveal.animateTo(0f, tween(CLOSE_DRAIN_MILLIS, easing = FastOutSlowInEasing))
             }
             currentOnClosed()
         }
