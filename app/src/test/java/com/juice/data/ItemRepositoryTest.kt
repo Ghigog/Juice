@@ -431,4 +431,32 @@ class ItemRepositoryTest {
         clocked.applyParse("b", parsed)
         assertEquals("take out the trash next week", clocked.get("b")!!.title)
     }
+
+    @Test
+    fun aSavedNotificationReadsBackEqual() = runBlocking {
+        val at = Instant.parse("2026-10-28T18:00:00Z")
+        repository.save(Item("a", ItemType.Task, "Call", notifyAt = at, notifyText = "Call the plumber"))
+        assertEquals(at, repository.get("a")?.notifyAt)
+        assertEquals("Call the plumber", repository.get("a")?.notifyText)
+    }
+
+    @Test
+    fun aLandedParseCarriesItsNotification() = runBlocking {
+        val at = Instant.parse("2026-10-28T18:00:00Z")
+        repository.save(Item("a", ItemType.Note, "call the plumber"))
+        val landed = repository.land("a", ParsedItem(ItemType.Task, "call the plumber", notifyAt = at, notifyText = "Call the plumber"))
+        assertEquals(at, landed?.notifyAt)
+        assertEquals(at, repository.get("a")?.notifyAt)
+        assertEquals("Call the plumber", repository.get("a")?.notifyText)
+    }
+
+    @Test
+    fun aLandedParseKeepsNoNotificationOnceTheDeadlineWasEdited() = runBlocking {
+        val at = Instant.parse("2026-10-28T18:00:00Z")
+        val edited = setOf(com.juice.core.intake.IntakeField.Deadline)
+        repository.save(Item("a", ItemType.Task, "call the plumber", editedFields = edited))
+        repository.land("a", ParsedItem(ItemType.Task, "call the plumber", notifyAt = at, notifyText = "Call the plumber"))
+        assertNull(repository.get("a")?.notifyAt)
+        assertNull(repository.get("a")?.notifyText)
+    }
 }

@@ -40,4 +40,8 @@ data class Item(
     val completedAt: Instant? = null,
     /** When the player starred the item; starred items sit first, earliest starred first. Null if unstarred. */
     val starredAt: Instant? = null,
+    /** When the agent should notify the player about the item; null for none. */
+    val notifyAt: Instant? = null,
+    /** What the notification says; set with [notifyAt]. */
+    val notifyText: String? = null,
 )

@@ -40,6 +40,10 @@ class JuiceDatabaseUpgradeTest {
             "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
             "position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, createdAtMillis INTEGER, " +
             "completedAtMillis INTEGER, characterId TEXT, PRIMARY KEY(id)",
+        8 to "id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, deadlineMillis INTEGER, status TEXT NOT NULL, " +
+            "editedFields TEXT NOT NULL DEFAULT '', completionCondition TEXT, steps TEXT NOT NULL DEFAULT '[]', " +
+            "position INTEGER NOT NULL DEFAULT 0, cadence TEXT, nextDueOn INTEGER, createdAtMillis INTEGER, " +
+            "completedAtMillis INTEGER, characterId TEXT, starredAtMillis INTEGER, PRIMARY KEY(id)",
     )
 
     private val seeded = listOf("a" to "Active", "c" to "Completed", "z" to "Archived", "r" to "Active")
@@ -83,8 +87,19 @@ class JuiceDatabaseUpgradeTest {
 
     @Test fun versionSevenKeepsEveryRow() = upgradeFrom(7)
 
+    @Test fun versionEightKeepsEveryRow() = upgradeFrom(8)
+
     @Test
-    fun versionSevenCardsAreUnstarredAndKeepTheirOrder() {
+    fun versionEightCardsHaveNoNotification() {
+        upgradeFrom(8)
+        val active = runBlocking { db!!.itemDao().active(Long.MAX_VALUE) }
+        assertEquals(listOf("a", "r"), active.map { it.id })
+        assertEquals(listOf(null, null), active.map { it.notifyAtMillis })
+        assertEquals(listOf(null, null), active.map { it.notifyText })
+    }
+
+    @Test
+    fun versionSevenCardAreUnstarredAndKeepTheirOrder() {
         upgradeFrom(7)
         val active = runBlocking { db!!.itemDao().active(Long.MAX_VALUE) }
         assertEquals(listOf("a", "r"), active.map { it.id })
