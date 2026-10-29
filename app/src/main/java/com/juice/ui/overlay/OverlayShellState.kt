@@ -160,6 +160,14 @@ class OverlayShellState(
     var parsing by mutableStateOf(emptySet<String>())
         private set
 
+    /** The Routine card that just left the carousel because it is not due today, while it drains into the Routines button. */
+    var draining by mutableStateOf<Item?>(null)
+        private set
+
+    fun drainDone() {
+        draining = null
+    }
+
     /** Shows a new Note card at once (first in the carousel) and saves it in the background. */
     fun capture(text: String): Item? {
         val title = text.trim()
@@ -204,6 +212,11 @@ class OverlayShellState(
                     after != null && (after.type != before?.type || after.deadline != before.deadline)
                 }
                 if (landed.isNotEmpty()) parsing = parsing - landed.toSet()
+                // A Routine that left only because it is not due today drains into the Routines button; finish() has already taken its card out of items.
+                if (!listsRoutines) {
+                    items.firstOrNull { it.id !in byId && it.type == ItemType.Routine && it.cadence != null && it.nextDueOn?.isAfter(today) == true }
+                        ?.let { draining = it }
+                }
                 val known = items.mapNotNull { byId[it.id] }
                 val added = byId.values.filter { s -> items.none { it.id == s.id } }
                 items = known + added
