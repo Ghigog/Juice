@@ -9,7 +9,7 @@ import java.time.temporal.TemporalAdjusters
 
 /**
  * Local classifier for offline, API failure and on-device-only mode, and the final say on a card's type: the first of [typeRules] to match wins.
- * A list ("Title: a, b and c", "get a, b and c") makes a Project, a cadence phrase ("every Sunday") a Routine,
+ * A list ("Title: a, b and c", "get a, b and c") makes a List, or a Project when it names a date or time; a cadence phrase ("every Sunday") a Routine,
  * a date or time phrase a Goal, a leading action verb ("find my passport") a Task, anything else a Note.
  */
 object RulesFallback {
@@ -80,7 +80,7 @@ object RulesFallback {
 
     /** The type rules, checked in order; the first to answer decides. To add a rule, add an entry here and its test. */
     private val typeRules: List<(Input) -> ParsedItem?> = listOf(
-        ::projectRule, // several concrete tasks in a list
+        ::listRule, // several concrete tasks in a list
         ::routineRule, // "every …" or another repeat
         ::goalRule, // a date or time
         ::taskRule, // starts with a verb
@@ -127,10 +127,11 @@ object RulesFallback {
 
     private fun weekdaySpans(matches: Sequence<MatchResult>) = matches.map { ChipSpan(ChipKind.Weekday, it.range) }.toList()
 
-    private fun projectRule(i: Input): ParsedItem? {
+    /** A list with a date or time is a Project with that deadline; with none it is a List. */
+    private fun listRule(i: Input): ParsedItem? {
         val (title, steps) = colonList(i.text) ?: plainList(i.text) ?: return null
         return ParsedItem(
-            ItemType.Project,
+            if (dateOrTimePhrase.containsMatchIn(i.text)) ItemType.Project else ItemType.List,
             title?.take(IntakeValidator.MAX_TITLE_LENGTH) ?: i.title,
             deadline = deadlineOf(i),
             subItems = steps.take(IntakeValidator.MAX_SUB_ITEMS),
@@ -200,7 +201,7 @@ object RulesFallback {
         return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
     }
 
-    /** "Launch: write copy, record demo and ship" is a Project titled "Launch" with three steps. */
+    /** "Launch: write copy, record demo and ship" is titled "Launch" with three steps. */
     private fun colonList(text: String): Pair<String?, List<String>>? {
         val colon = text.indexOf(':')
         if (colon <= 0) return null
