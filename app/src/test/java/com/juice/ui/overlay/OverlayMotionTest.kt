@@ -13,6 +13,14 @@ class OverlayMotionTest {
     }
 
     @Test
+    fun closingDrainsFasterThanTheRevealAndTheWholeCloseIsShorterThanBefore() {
+        assertTrue(CLOSE_DRAIN_MILLIS < REVEAL_MILLIS)
+        // Previously: 320ms pop + 320ms drain.
+        assertTrue(POP_MILLIS + CLOSE_DRAIN_MILLIS < 320 + 320)
+        assertTrue(elementPopStartMillis(0, 1) + CARD_POP_MILLIS <= POP_MILLIS)
+    }
+
+    @Test
     fun cardsStartOneAfterAnother() {
         assertEquals(0, entranceDelayMillis(0))
         assertTrue(entranceDelayMillis(2) > entranceDelayMillis(1))

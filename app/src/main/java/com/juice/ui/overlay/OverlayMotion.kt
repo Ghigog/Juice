@@ -16,6 +16,9 @@ import kotlin.math.hypot
 /** How long the ground takes to grow from the backdrop slice to cover the screen; must match SliceHandle's FLIGHT_MILLIS. */
 internal const val REVEAL_MILLIS = 320
 
+/** How long the ground takes to drain back into the backdrop slice when the overlay closes; must match SliceHandle's return flight. */
+internal const val CLOSE_DRAIN_MILLIS = 200
+
 /** How long one piece of content takes to rise (or fall) into place. */
 internal const val ITEM_ENTRANCE_MILLIS = 350
 
@@ -83,12 +86,12 @@ internal fun Modifier.entrance(progress: () -> Float, index: Int = 0, fromBottom
         }
     }
 
-/** How long the content takes to swell and burst when the overlay closes; the ground drains afterwards over [REVEAL_MILLIS]. */
-internal const val POP_MILLIS = 320
+/** How long the content takes to swell and burst when the overlay closes; the ground drains afterwards over [CLOSE_DRAIN_MILLIS]. */
+internal const val POP_MILLIS = 220
 
 /** Gap between visible cards starting to pop when the overlay closes, and how long each card's pop takes. */
-internal const val CARD_POP_GAP_MILLIS = 80
-internal const val CARD_POP_MILLIS = 200
+internal const val CARD_POP_GAP_MILLIS = 50
+internal const val CARD_POP_MILLIS = 140
 
 /** When the pop of the [index]th visible card (top to bottom) starts, in milliseconds after the closing begins. */
 internal fun cardPopStartMillis(index: Int): Int = index * CARD_POP_GAP_MILLIS

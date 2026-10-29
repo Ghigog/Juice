@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import com.juice.feedback.FeedbackEvent
+import com.juice.ui.overlay.CLOSE_DRAIN_MILLIS
 import com.juice.ui.overlay.REVEAL_MILLIS
 import com.juice.ui.overlay.SpinMomentum
 import com.juice.ui.overlay.spinForPull
@@ -307,7 +308,7 @@ internal class SliceHandleView(
         stage.visibility = VISIBLE
         startFrames()
         flight = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = FLIGHT_MILLIS
+            duration = RETURN_FLIGHT_MILLIS
             interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener {
                 val at = from.lerp(target, it.animatedValue as Float)
@@ -522,6 +523,7 @@ internal class SliceHandleView(
         private const val HOLD_MILLIS = 420L
         private const val SPRING_MILLIS = 320L
         private const val FLIGHT_MILLIS = REVEAL_MILLIS.toLong()
+        private const val RETURN_FLIGHT_MILLIS = CLOSE_DRAIN_MILLIS.toLong()
         private const val PRESS_SCALE = 1.06f
         private const val MOVE_SCALE = 1.22f
         private const val DISMISS_RADIUS_DP = 32f

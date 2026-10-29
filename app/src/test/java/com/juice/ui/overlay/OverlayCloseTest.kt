@@ -70,7 +70,7 @@ class OverlayCloseTest {
         closing.value = true
         compose.mainClock.advanceTimeBy(100)
         assertEquals(0, closed)
-        compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + CLOSE_DRAIN_MILLIS + 200L)
         compose.waitForIdle()
         assertEquals(1, closed)
     }
@@ -81,7 +81,7 @@ class OverlayCloseTest {
         closing.value = true
         compose.mainClock.advanceTimeBy(elementPopStartMillis(0, 1) + CARD_POP_MILLIS / 2L)
         assertEquals(0, closed)
-        compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + CLOSE_DRAIN_MILLIS + 200L)
         compose.waitForIdle()
         assertEquals(1, closed)
     }
@@ -93,7 +93,7 @@ class OverlayCloseTest {
         compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
         val opened = reported.size
         closing.value = true
-        compose.mainClock.advanceTimeBy(POP_MILLIS + REVEAL_MILLIS + 200L)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + CLOSE_DRAIN_MILLIS + 200L)
         compose.waitForIdle()
         val drain = reported.drop(opened)
         assertEquals(1f, reported[opened - 1], 0.001f)
