@@ -36,6 +36,12 @@ fun withInterval(title: String, span: ChipSpan, weeks: Int): String {
     return title.replaceSpan(span, if (weeks == 1) "every" else "every $weeks weeks")
 }
 
+/** Replaces the interval [span] with "every day" (1) or "every N days". */
+fun withIntervalDays(title: String, span: ChipSpan, days: Int): String {
+    require(days in 1..6) { "The interval must be 1 to 6 days" }
+    return title.replaceSpan(span, if (days == 1) "every day" else "every $days days")
+}
+
 /** Replaces the weekday [span] with [to], short or full as the replaced word was. */
 fun withWeekday(title: String, span: ChipSpan, to: DayOfWeek): String {
     val old = title.substring(span.range.first, span.range.last + 1)

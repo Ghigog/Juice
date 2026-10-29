@@ -21,4 +21,12 @@ class CadenceCodecTest {
         assertEquals(Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY)), "TUE,THU".decodeCadence())
         assertEquals(Cadence(setOf(DayOfWeek.MONDAY), LocalTime.of(8, 30)), "MON;08:30".decodeCadence())
     }
+
+    @Test fun dayIntervalRoundTrips() {
+        val cadence = Cadence(DayOfWeek.entries.toSet(), LocalTime.of(9, 0), intervalDays = 3)
+        val encoded = cadence.encode()
+        assertEquals(true, encoded.startsWith("3D:"))
+        assertEquals(cadence, encoded.decodeCadence())
+        assertEquals(3, "3D:MON,TUE,WED,THU,FRI,SAT,SUN".decodeCadence().intervalDays)
+    }
 }

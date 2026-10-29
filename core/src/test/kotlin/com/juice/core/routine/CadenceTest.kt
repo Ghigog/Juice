@@ -70,4 +70,27 @@ class CadenceTest {
     fun intervalBelowOneIsInvalid() {
         Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 0)
     }
+
+    private val everyThreeDays = Cadence(DayOfWeek.entries.toSet(), intervalDays = 3)
+
+    @Test fun dayIntervalIsDueOnTheAnchorAndNextDueIsThatManyDaysLater() {
+        val anchor = LocalDate.of(2026, 10, 28)
+        assertEquals(anchor, everyThreeDays.firstDueFrom(anchor))
+        assertEquals(true, everyThreeDays.isDue(anchor))
+        assertEquals(LocalDate.of(2026, 10, 31), everyThreeDays.nextDueAfter(anchor))
+    }
+
+    @Test fun dayIntervalLabel() {
+        assertEquals("Every 3 days", everyThreeDays.label())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun dayAndWeekIntervalsCannotBeCombined() {
+        Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 2, intervalDays = 3)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun dayIntervalBelowOneIsInvalid() {
+        Cadence(setOf(DayOfWeek.FRIDAY), intervalDays = 0)
+    }
 }
