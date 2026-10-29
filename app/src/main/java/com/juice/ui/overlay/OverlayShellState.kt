@@ -261,8 +261,9 @@ class OverlayShellState(
             type == ItemType.List -> it.copy(type = type, cadence = null, nextDueOn = null, deadline = null)
             // Leaving Routine ends the recurrence.
             type != ItemType.Routine -> it.copy(type = type, cadence = null, nextDueOn = null)
-            // A new Routine recurs daily from today unless it already has a cadence.
-            it.cadence == null -> it.copy(type = type, cadence = Cadence(DayOfWeek.values().toSet()), nextDueOn = today)
+            // A new Routine keeps the cadence its title states, else recurs daily from today.
+            it.cadence == null -> RulesFallback.classify(it.title, now()).cadence?.let { cadence -> it.asRoutine(cadence, today) }
+                ?: it.copy(type = type, cadence = Cadence(DayOfWeek.values().toSet()), nextDueOn = today)
             else -> it.copy(type = type)
         }
     }

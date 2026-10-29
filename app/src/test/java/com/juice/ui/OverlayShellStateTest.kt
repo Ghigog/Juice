@@ -286,6 +286,18 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun settingTheTypeToRoutineKeepsTheCadenceTheTitleStates() {
+        val goal = Item("g", ItemType.Goal, "every two weeks on Friday, change towels and sheets")
+        val state = clockedState(goal)
+        state.setType(goal, ItemType.Routine)
+        val routine = state.items.single()
+        assertEquals(ItemType.Routine, routine.type)
+        assertEquals(Cadence(setOf(DayOfWeek.FRIDAY), intervalWeeks = 2), routine.cadence)
+        assertEquals(DayOfWeek.FRIDAY, routine.nextDueOn!!.dayOfWeek)
+        assertEquals(LocalDate.of(2026, 10, 30), routine.nextDueOn)
+    }
+
+    @Test
     fun settingARoutineToTaskClearsItsCadence() {
         val routine = Item("r", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.MONDAY)), nextDueOn = LocalDate.now())
         val state = state(routine)
