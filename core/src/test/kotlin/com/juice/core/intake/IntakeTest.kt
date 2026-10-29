@@ -30,6 +30,50 @@ class IntakeTest {
         assertNull(validate(json("tomorrow")).deadline)
     }
 
+    private fun withNotify(at: String?, text: String? = "Early start tomorrow", deadline: String = "2026-06-02T08:00:00Z", type: String = "Task") =
+        """{"type":"$type","title":"Dentist","deadline":"$deadline",
+            "notify_at":${at?.let { "\"$it\"" }},"notify_text":${text?.let { "\"$it\"" }}
+            ${if (type == "Routine") ""","cadence":{"days":"daily","time":null}""" else ""}}"""
+
+    private fun rejections(s: String) = mutableListOf<String>().also { IntakeValidator.validate(s, "raw text", now) { r -> it += r } }
+
+    @Test fun keepsNotificationBeforeDeadline() {
+        val item = validate(withNotify("2026-06-01T20:00:00+00:00", "  Early start tomorrow  "))
+        assertEquals(Instant.parse("2026-06-01T20:00:00Z"), item.notifyAt)
+        assertEquals("Early start tomorrow", item.notifyText)
+        assertTrue(rejections(withNotify("2026-06-01T20:00:00Z")).isEmpty())
+    }
+
+    @Test fun dropsNotificationThatIsPastTooFarOrAfterDeadline() {
+        for (at in listOf("2025-12-31T00:00:00Z", "2027-06-01T00:00:00Z", "2026-06-02T09:00:00Z")) {
+            val json = withNotify(at, deadline = if (at.startsWith("2027")) "2026-12-01T00:00:00Z" else "2026-06-02T08:00:00Z")
+            val item = validate(json)
+            assertNull(item.notifyAt, at)
+            assertNull(item.notifyText, at)
+            assertTrue(rejections(json).isNotEmpty(), at)
+        }
+    }
+
+    @Test fun dropsNotificationWithoutTimeOrText() {
+        assertNull(validate(withNotify(null)).notifyText)
+        assertNull(validate(withNotify("2026-06-01T20:00:00Z", "   ")).notifyAt)
+        assertNull(validate(withNotify("2026-06-01T20:00:00Z", null)).notifyAt)
+    }
+
+    @Test fun noNotificationFieldsMeansNothingRejected() {
+        val item = validate(json("2026-06-01T18:00:00Z"))
+        assertNull(item.notifyAt)
+        assertNull(item.notifyText)
+        assertTrue(rejections(json("2026-06-01T18:00:00Z")).isEmpty())
+    }
+
+    @Test fun routineNeverKeepsNotification() {
+        val item = validate(withNotify("2026-06-01T20:00:00Z", type = "Routine"))
+        assertEquals(ItemType.Routine, item.type)
+        assertNull(item.notifyAt)
+        assertNull(item.notifyText)
+    }
+
     @Test fun malformedJsonStaysNote() {
         assertEquals(ParsedItem(ItemType.Note, "raw text"), validate("{not json"))
     }

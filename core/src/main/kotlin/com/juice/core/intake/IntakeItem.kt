@@ -18,6 +18,8 @@ data class ParsedItem(
     val deadline: Instant? = null,
     val subItems: List<String> = emptyList(),
     val cadence: Cadence? = null,
+    val notifyAt: Instant? = null,
+    val notifyText: String? = null,
 )
 
 /** What a [ChipSpan] marks in the title. */
