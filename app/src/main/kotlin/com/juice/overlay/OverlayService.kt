@@ -22,6 +22,7 @@ import android.view.Display
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.window.OnBackInvokedDispatcher
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.compose.runtime.LaunchedEffect
@@ -663,11 +664,9 @@ internal fun guardedShowOverlay(
  */
 @Suppress("DEPRECATION") // statusBarColor and navigationBarColor, still read before Android 15
 internal fun overlayDialog(context: Context, content: View, onBack: () -> Unit): Dialog =
-    object : Dialog(context, android.R.style.Theme_Translucent_NoTitleBar) {
-        @Deprecated("Also called for the predictive back gesture")
-        override fun onBackPressed() = onBack()
-    }.apply {
+    Dialog(context, android.R.style.Theme_Translucent_NoTitleBar).apply {
         setCancelable(false)
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { onBack() }
         setContentView(content)
         window!!.apply {
             // After setContentView, so these replace what the theme set up.
