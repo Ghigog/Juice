@@ -92,6 +92,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
@@ -241,6 +242,9 @@ fun OverlayShell(
     // Held here so the draft survives Capture leaving composition while Routines is open.
     var captureDraft by remember { mutableStateOf("") }
     var centre by remember { mutableStateOf(0) }
+    // Where the centre card and the Routines button are, so a Routine not due today can drain from one into the other.
+    var juiceBoxBounds by remember { mutableStateOf<Rect?>(null) }
+    var routinesBounds by remember { mutableStateOf<Rect?>(null) }
     // Writing mode: the capture field has focus and fills the screen; the rest of the layout is not composed.
     var writing by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -413,6 +417,7 @@ fun OverlayShell(
                     Header(
                         hud, entranceProgress, cardPops.element(0),
                         onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true },
+                        onRoutinesBounds = { routinesBounds = it },
                         middle = if (compact) undoToast else null,
                     )
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
@@ -420,6 +425,7 @@ fun OverlayShell(
                         state, hud, settings, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
                         entrance = entranceProgress, spin = spin, cardPops = cardPops,
+                        onJuiceBoxBounds = { juiceBoxBounds = it },
                     )
                     if (!compact) {
                         Spacer(Modifier.height(8.dp))
@@ -437,6 +443,15 @@ fun OverlayShell(
                     modifier = (if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress)).then(cardPops.element(1)),
                 ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
+                }
+            }
+            state.draining?.let { ghost ->
+                val from = juiceBoxBounds
+                val to = routinesBounds
+                if (from == null || to == null || settings.reduceMotion || routinesOpen) {
+                    LaunchedEffect(ghost) { state.drainDone() }
+                } else {
+                    OverlayDrain(ghost, from, to, onDone = state::drainDone)
                 }
             }
             val chat = state.coachChat
@@ -607,6 +622,7 @@ internal fun CardRow(
     entrance: () -> Float = { 1f },
     spin: SpinMomentum = remember { SpinMomentum() },
     cardPops: CardPops = remember { CardPops() },
+    onJuiceBoxBounds: (Rect) -> Unit = {},
 ) {
     val list = state.items
     var editing by remember { mutableStateOf(false) }
@@ -618,7 +634,7 @@ internal fun CardRow(
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance).then(cardPops.element(0))) {
             HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
-            Box(Modifier.weight(1f).fillMaxWidth().testTag(TAG_JUICE_BOX)) {
+            Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { onJuiceBoxBounds(it.boundsInRoot()) }.testTag(TAG_JUICE_BOX)) {
                 CentreCard(
                     state = state,
                     item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
@@ -728,6 +744,7 @@ private fun Header(
     onRecap: () -> Unit,
     onRoutines: () -> Unit,
     onSettings: () -> Unit,
+    onRoutinesBounds: (Rect) -> Unit,
     /** Shown between the level and the multiplier, where a wide screen has room. */
     middle: (@Composable () -> Unit)? = null,
 ) {
@@ -788,6 +805,7 @@ private fun Header(
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(JuiceColors.white(0.14f))
+                .onGloballyPositioned { onRoutinesBounds(it.boundsInRoot()) }
                 .clickable(onClick = onRoutines)
                 .semantics { contentDescription = routinesLabel }
                 .testTag(TAG_ROUTINES),

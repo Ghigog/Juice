@@ -90,6 +90,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    testImplementation("androidx.work:work-testing:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

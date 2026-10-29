@@ -859,4 +859,32 @@ class OverlayShellTest {
         assertTrue(overlayGroundAlpha(blurred = false) < 0.97f)
         assertTrue(overlayGroundAlpha(blurred = true) < overlayGroundAlpha(blurred = false))
     }
+
+    private fun landsNotDueToday(reduceMotion: Boolean) {
+        val note = Item("n", ItemType.Note, "water plants every week")
+        runBlocking { repository.save(note) }
+        show(note, reduceMotion = reduceMotion)
+        state.observe()
+        val notToday = DayOfWeek.values().first { it != LocalDate.now().dayOfWeek }
+        state.land("n", com.juice.core.intake.ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(notToday))))
+        // The repository's emission reaches the state on the main looper, then the shell reacts to it.
+        repeat(3) { idle() }
+    }
+
+    @Test
+    fun aRoutineNotDueTodayDrainsIntoTheRoutinesButtonThenIsGone() {
+        landsNotDueToday(reduceMotion = false)
+        compose.onNodeWithTag(TAG_DRAIN_GHOST).assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(DRAIN_MILLIS + 200L)
+        compose.waitForIdle()
+        compose.onAllNodesWithTag(TAG_DRAIN_GHOST).assertCountEquals(0)
+        assertEquals(null, state.draining)
+    }
+
+    @Test
+    fun withReduceMotionARoutineNotDueTodayJustDisappears() {
+        landsNotDueToday(reduceMotion = true)
+        compose.onAllNodesWithTag(TAG_DRAIN_GHOST).assertCountEquals(0)
+        assertEquals(null, state.draining)
+    }
 }
