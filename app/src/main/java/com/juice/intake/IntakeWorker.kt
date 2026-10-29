@@ -23,6 +23,7 @@ class IntakeWorker(
     private val settings: SettingsRepository,
     private val groq: GroqClient,
     private val items: ItemRepository,
+    private val clock: () -> java.time.ZonedDateTime = { java.time.ZonedDateTime.now() },
 ) : CoroutineWorker(context, params) {
     /** The constructor WorkManager's default factory uses: the app's own settings, Groq client and database. */
     constructor(context: Context, params: WorkerParameters) : this(
@@ -37,7 +38,7 @@ class IntakeWorker(
         val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
         val onDeviceOnly = settings.current().onDeviceOnly
-        val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }).parse(text)
+        val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }, clock = clock).parse(text)
         // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
         items.land(itemId, result.item)
         return if (result.retryLater) Result.retry() else Result.success()
