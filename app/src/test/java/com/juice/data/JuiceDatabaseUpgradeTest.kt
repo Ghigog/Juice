@@ -94,7 +94,7 @@ class JuiceDatabaseUpgradeTest {
     @Test
     fun completedRowsFromBeforeV7StayInTheRecap() {
         upgradeFrom(6)
-        val recap = runBlocking { db!!.itemDao().recapItems(System.currentTimeMillis() - 60_000) }
+        val recap = runBlocking { db!!.itemDao().recapItems(Instant.parse("2026-10-28T12:00:00Z").minusSeconds(60).toEpochMilli()) }
         assertEquals(setOf("a", "c", "r"), recap.map { it.id }.toSet())
     }
 

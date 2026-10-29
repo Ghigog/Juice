@@ -20,10 +20,11 @@ import java.time.LocalTime
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withTimeout
@@ -74,7 +75,7 @@ class ItemRepositoryTest {
     fun aLandedListIsStoredWithThreeOpenStepsAndNoDeadline() = runBlocking {
         repository.save(Item("l", ItemType.Note, "Chores"))
         var n = 0
-        repository.land("l", ParsedItem(ItemType.List, "Chores", deadline = java.time.Instant.now(), subItems = listOf("a", "b", "c"))) { "s${n++}" }
+        repository.land("l", ParsedItem(ItemType.List, "Chores", deadline = Instant.parse("2026-10-28T12:00:00Z"), subItems = listOf("a", "b", "c"))) { "s${n++}" }
         val list = repository.get("l")!!
         assertEquals(ItemType.List, list.type)
         assertEquals(null, list.deadline)
@@ -130,8 +131,11 @@ class ItemRepositoryTest {
         assertEquals(listOf("a"), filtered.observeRecapItems(now.minusSeconds(60)).first().map { it.id })
 
         val seen = java.util.concurrent.CopyOnWriteArrayList<List<String>>()
-        val emissions = async(Dispatchers.Default) { filtered.observeActive().map { list -> list.map { it.id }.sorted() }.take(2).toList(seen) }
-        withTimeout(10_000) { while (seen.isEmpty()) delay(10) }
+        val firstEmission = CompletableDeferred<Unit>()
+        val emissions = async(Dispatchers.Default) {
+            filtered.observeActive().map { list -> list.map { it.id }.sorted() }.onEach { firstEmission.complete(Unit) }.take(2).toList(seen)
+        }
+        withTimeout(10_000) { firstEmission.await() }
         changes.subscriptionCount.first { it > 0 }
         hidden = emptySet()
         changes.emit(Unit)
@@ -342,8 +346,9 @@ class ItemRepositoryTest {
     @Test
     fun aRoutineArchivedWhileObservedLeavesTheList() = runBlocking {
         repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
-        val seen = async { repository.observeRoutines().take(2).toList().map { list -> list.map { it.id } } }
-        delay(200)
+        val firstEmission = CompletableDeferred<Unit>()
+        val seen = async { repository.observeRoutines().onEach { firstEmission.complete(Unit) }.take(2).toList().map { list -> list.map { it.id } } }
+        withTimeout(5_000) { firstEmission.await() }
         repository.archive("r")
         assertEquals(listOf(listOf("r"), emptyList()), withTimeout(5_000) { seen.await() })
     }
