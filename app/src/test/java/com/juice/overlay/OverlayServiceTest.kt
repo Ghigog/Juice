@@ -14,7 +14,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class OverlayServiceTest {
@@ -123,5 +125,23 @@ class OverlayServiceTest {
         val calls = mutableListOf<String>()
         guardedShowOverlay({ calls += "show" }, { calls += "cleanup" }, { calls += "strip" })
         assertEquals(listOf("show"), calls)
+    }
+
+    @Test
+    fun openIntentTargetsTheServiceWithActionOpen() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val intent = OverlayService.openIntent(context)
+        assertEquals(OverlayService.ACTION_OPEN, intent.action)
+        assertEquals(OverlayService::class.java.name, intent.component?.className)
+    }
+
+    @Test
+    fun openActionWithoutOverlayPermissionStopsTheServiceAndShowsNothing() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        shadowOf(context as android.app.Application).denyPermissions()
+        android.provider.Settings.canDrawOverlays(context).let { assertEquals(false, it) }
+        val controller = Robolectric.buildService(OverlayService::class.java, OverlayService.openIntent(context)).create()
+        controller.startCommand(0, 1)
+        assertTrue(shadowOf(controller.get()).isStoppedBySelf)
     }
 }
