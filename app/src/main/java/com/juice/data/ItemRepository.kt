@@ -117,7 +117,12 @@ class ItemRepository(
         val title = if (IntakeField.Title !in item.editedFields && merged.type == ItemType.Goal) {
             rewriteRelativeDeadline(item.title, clock().atZone(ZoneId.systemDefault()))
         } else item.title
-        val landed = item.copy(title = title, type = merged.type, deadline = merged.deadline, completionCondition = merged.completionCondition)
+        // The notification is tied to the deadline the agent read, so a user-edited deadline keeps none.
+        val notify = IntakeField.Deadline !in item.editedFields
+        val landed = item.copy(
+            title = title, type = merged.type, deadline = merged.deadline, completionCondition = merged.completionCondition,
+            notifyAt = parsed.notifyAt.takeIf { notify }, notifyText = parsed.notifyText.takeIf { notify },
+        )
         save(merged.cadence?.takeIf { merged.type == ItemType.Routine }?.let { landed.asRoutine(it, today) } ?: landed)
     }
 
@@ -155,7 +160,7 @@ class ItemRepository(
 /** The item a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items as steps. */
 fun ParsedItem.toItems(id: String, newId: () -> String, today: LocalDate = LocalDate.now()): List<Item> {
     val card = copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCard(id, newId)
-    val item = Item(card.id, card.type, card.title, deadline = deadline.takeIf { card.type != ItemType.List }, completionCondition = completionCondition, steps = card.steps)
+    val item = Item(card.id, card.type, card.title, deadline = deadline.takeIf { card.type != ItemType.List }, completionCondition = completionCondition, steps = card.steps, notifyAt = notifyAt, notifyText = notifyText)
     return listOf(if (card.type == ItemType.Routine && cadence != null) item.asRoutine(cadence!!, today) else item)
 }
 

@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 
-@Database(entities = [ItemEntity::class], version = 8, exportSchema = false)
+@Database(entities = [ItemEntity::class], version = 9, exportSchema = false)
 abstract class JuiceDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
 
@@ -70,6 +70,13 @@ abstract class JuiceDatabase : RoomDatabase() {
             }
         }
 
+        internal val addNotification = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE items ADD COLUMN notifyAtMillis INTEGER")
+                db.execSQL("ALTER TABLE items ADD COLUMN notifyText TEXT")
+            }
+        }
+
         /** Child Task cards become steps of their Project; the parentId column goes. */
         internal val stepsInsideProjects = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -115,7 +122,7 @@ abstract class JuiceDatabase : RoomDatabase() {
         /** A database file called [name] with every registered migration; never falls back to wiping data. */
         internal fun build(context: Context, name: String): JuiceDatabase =
             Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, name)
-                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimesAndCharacterId, addStarredAt)
+                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimesAndCharacterId, addStarredAt, addNotification)
                 .build()
     }
 }

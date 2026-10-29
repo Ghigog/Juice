@@ -40,13 +40,16 @@ data class ItemEntity(
     val characterId: String? = null,
     /** When the item was starred; null while unstarred. */
     val starredAtMillis: Long? = null,
+    /** When to notify about the item; null for none. */
+    val notifyAtMillis: Long? = null,
+    val notifyText: String? = null,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
     cadence?.encode(), nextDueOn?.toEpochDay(), createdAt?.toEpochMilli(), completedAt?.toEpochMilli(),
-    characterId, starredAt?.toEpochMilli(),
+    characterId, starredAt?.toEpochMilli(), notifyAt?.toEpochMilli(), notifyText,
 )
 
 fun ItemEntity.toItem() = Item(
@@ -64,6 +67,8 @@ fun ItemEntity.toItem() = Item(
     completedAt = completedAtMillis?.let(Instant::ofEpochMilli),
     characterId = characterId,
     starredAt = starredAtMillis?.let(Instant::ofEpochMilli),
+    notifyAt = notifyAtMillis?.let(Instant::ofEpochMilli),
+    notifyText = notifyText,
 )
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
