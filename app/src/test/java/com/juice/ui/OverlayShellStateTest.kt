@@ -768,6 +768,27 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun editingTheDeadlineClearsTheAgentReminder() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon, notifyAt = noon, notifyText = "Bins")
+        repository.save(goal)
+        val state = clockedState(goal)
+        state.setDeadlineDay(goal, spanOf(goal.title, ItemType.Goal, com.juice.core.intake.ChipKind.Deadline), LocalDate.of(2026, 10, 29))
+        val saved = repository.get("g")!!
+        assertNull(saved.notifyAt)
+        assertNull(saved.notifyText)
+    }
+
+    @Test
+    fun editingARoutinesCadenceClearsTheAgentReminder() = runBlocking {
+        val item = routine.copy(notifyAt = java.time.Instant.ofEpochSecond(1_800_000_000), notifyText = "Water")
+        repository.save(item)
+        state(item).setCadence(item, Cadence(setOf(DayOfWeek.MONDAY)))
+        val saved = repository.get("r")!!
+        assertNull(saved.notifyAt)
+        assertNull(saved.notifyText)
+    }
+
+    @Test
     fun aChipSetDeadlineSurvivesALateParse() = runBlocking {
         val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon)
         repository.save(goal)
