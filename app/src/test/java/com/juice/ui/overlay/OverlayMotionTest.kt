@@ -1,6 +1,8 @@
 package com.juice.ui.overlay
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -132,5 +134,17 @@ class OverlayMotionTest {
         assertEquals(0f, elementPopProgress(3 * CARD_POP_GAP_MILLIS.toFloat(), 3, 0), 0.001f)
         assertEquals(0.5f, elementPopProgress(3 * CARD_POP_GAP_MILLIS + CARD_POP_MILLIS / 2f, 3, 0), 0.001f)
         assertEquals(1f, elementPopProgress(1000f, 3, 1), 0.001f)
+    }
+
+    @Test fun frothOriginsAreTheMeasuredCentresWhereverTheCardsSit() {
+        val bounds = Rect(Offset.Zero, Size(400f, 800f))
+        assertEquals(listOf(Offset(300f, 700f), Offset(200f, 780f)), frothOrigins(Offset(300f, 700f), Offset(200f, 780f), bounds))
+    }
+
+    @Test fun frothOriginsSkipCentresOutsideTheVisibleBoundsOrMissing() {
+        val bounds = Rect(Offset.Zero, Size(400f, 800f))
+        assertEquals(listOf(Offset(200f, 780f)), frothOrigins(Offset(300f, -20f), Offset(200f, 780f), bounds))
+        assertEquals(listOf(Offset(300f, 700f)), frothOrigins(Offset(300f, 700f), null, bounds))
+        assertEquals(emptyList<Offset>(), frothOrigins(null, Offset(200f, 900f), bounds))
     }
 }

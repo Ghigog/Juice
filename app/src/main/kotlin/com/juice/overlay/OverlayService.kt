@@ -185,11 +185,13 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        val open = intent?.action == ACTION_OPEN
         if (handle == null && overlay == null && !starting) {
             starting = true
             scope.launch {
                 settings = settingsRepository.current()
                 if (handle == null && overlay == null) showHandle()
+                if (open) swapToOverlay()
                 settingsRepository.settings.collect { applySettings(it) }
             }
             scope.launch {
@@ -198,6 +200,8 @@ class OverlayService : Service() {
                     handle?.slices = SliceLogoPainter.sliceCount(openItems)
                 }
             }
+        } else if (open && handle != null && overlay == null) {
+            swapToOverlay()
         }
         return START_STICKY
     }
@@ -593,6 +597,12 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val MATCH = FrameLayout.LayoutParams.MATCH_PARENT
         private val SAFE_INSETS = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+
+        /** Starts the service and opens the overlay, for a notification's PendingIntent.getForegroundService. */
+        const val ACTION_OPEN = "com.juice.overlay.action.OPEN"
+
+        fun openIntent(context: Context): Intent =
+            Intent(context, OverlayService::class.java).setAction(ACTION_OPEN)
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, OverlayService::class.java))

@@ -76,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -231,6 +232,8 @@ fun OverlayShell(
     initialSpin: Float = 0f,
     /** The backdrop slice's opening angle in degrees, so it carries on from the handle slice's angle. */
     initialAngle: Float = 0f,
+    /** Called when closing starts with where the froth and the per-card pops will burst, in the shell's drawing coordinates. */
+    onPopsPlanned: (froth: List<Offset>, cards: List<Offset>) -> Unit = { _, _ -> },
 ) {
     val barTop = systemBars.calculateTopPadding()
     val barBottom = systemBars.calculateBottomPadding()
@@ -286,7 +289,9 @@ fun OverlayShell(
     val pop = remember { Animatable(0f) }
     val currentOnClosed by rememberUpdatedState(onClosed)
     val currentOnDraining by rememberUpdatedState(onDraining)
+    val currentOnPopsPlanned by rememberUpdatedState(onPopsPlanned)
     val cardPops = remember { CardPops() }
+    var contentSize by remember { mutableStateOf(IntSize.Zero) }
     var canvasOrigin by remember { mutableStateOf(Offset.Zero) }
     // Cancelled with the composition, so tearing the overlay down mid-close never calls onClosed.
     LaunchedEffect(closing) {
@@ -294,9 +299,16 @@ fun OverlayShell(
             if (!settings.reduceMotion) {
                 // The visible cards pop top to bottom, then the centre card and the capture field, each with its sound;
                 // the froth (the shared pop) starts with the centre card.
-                val visible = cardPops.visibleIndices()
-                cardPops.centres = cardPops.visibleCentres().map { it - canvasOrigin }
+                val bounds = Rect(Offset.Zero, Size(contentSize.width.toFloat(), contentSize.height.toFloat()))
+                val onScreen = cardPops.visibleIndices().zip(cardPops.visibleCentres().map { it - canvasOrigin })
+                    .filter { (_, centre) -> bounds.contains(centre) }
+                val visible = onScreen.map { it.first }
+                cardPops.centres = onScreen.map { it.second }
                 cardPops.popping = visible
+                cardPops.frothAt = frothOrigins(
+                    juiceBoxBounds?.center?.minus(canvasOrigin), cardPops.captureBounds?.center?.minus(canvasOrigin), bounds,
+                )
+                currentOnPopsPlanned(cardPops.frothAt, cardPops.centres)
                 val total = elementPopStartMillis(visible.size, 1) + CARD_POP_MILLIS
                 coroutineScope {
                     launch { cardPops.elapsed.animateTo(total.toFloat(), tween(total, easing = LinearEasing)) }
@@ -312,7 +324,6 @@ fun OverlayShell(
             currentOnClosed()
         }
     }
-    var contentSize by remember { mutableStateOf(IntSize.Zero) }
     val overshoot = revealOriginOvershootPx(LocalDensity.current)
     var ringPreview by remember { mutableStateOf(0) }
     LaunchedEffect(ringPreview) {
@@ -440,7 +451,8 @@ fun OverlayShell(
                     writing = writing,
                     onWritingChange = { writing = it },
                     onLeave = ::leaveWriting,
-                    modifier = (if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress)).then(cardPops.element(1)),
+                    modifier = (if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress)).then(cardPops.element(1))
+                        .onGloballyPositioned { cardPops.captureBounds = it.boundsInRoot() },
                 ) { text ->
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
@@ -555,11 +567,9 @@ fun OverlayShell(
             }
             if (pop.value > 0f) {
                 // Froth bursts from the centre card and the capture field.
-                val bubbles = remember(contentSize) {
+                val bubbles = remember(cardPops.frothAt, contentSize) {
                     val w = contentSize.width.toFloat()
-                    val h = contentSize.height.toFloat()
-                    val origins = listOf(Offset(w * 0.65f, h * 0.45f), Offset(w * 0.5f, h * 0.9f))
-                    frothBubbles(origins, FROTH_SEED, maxDistance = w * 0.35f, maxRadius = w * 0.04f)
+                    frothBubbles(cardPops.frothAt, FROTH_SEED, maxDistance = w * 0.35f, maxRadius = w * 0.04f)
                 }
                 Canvas(Modifier.fillMaxSize()) {
                     bubbles.forEach { bubble ->
@@ -595,6 +605,12 @@ internal class CardPops {
     /** The popping cards' centres in the shell's drawing coordinates, taken when closing started. */
     var centres by mutableStateOf<List<Offset>>(emptyList())
     val elapsed = Animatable(0f)
+
+    /** The capture field's bounds in root coordinates, kept current by its layout. */
+    var captureBounds: Rect? = null
+
+    /** Where the froth bursts, in the shell's drawing coordinates, taken when closing started. */
+    var frothAt by mutableStateOf<List<Offset>>(emptyList())
 
     /** A pop for a non-card element once the cards are gone: slot 0 is the centre card, slot 1 the capture field. */
     fun element(slot: Int): Modifier = Modifier.graphicsLayer {
