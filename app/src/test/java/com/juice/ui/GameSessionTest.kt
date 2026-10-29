@@ -2,6 +2,7 @@ package com.juice.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.juice.core.economy.EconomyConfig
 import com.juice.core.economy.EconomyState
 import com.juice.core.economy.ItemType
 import com.juice.data.EconomyStore
@@ -66,12 +67,12 @@ class GameSessionTest {
         assertEquals(5, levelUps.last().first)
     }
 
-    @Test fun reopeningAfterTenMinutesDrainsTenPercent() {
+    @Test fun reopeningAfterTenMinutesDrainsByTheConfiguredRate() {
         session.open()
         session.complete(ItemType.GOAL) // meter 30
         now = 10 * 60_000L
         session.open()
-        assertEquals(20.0, session.state.meter, 0.01)
+        assertEquals(30.0 - 10 * EconomyConfig().drainPercentPerMinute, session.state.meter, 0.01)
         assertEquals(100, session.state.juice)
     }
 
@@ -128,11 +129,11 @@ class GameSessionTest {
     }
 
     @Test fun meterDrainsWhileOpen() {
+        store.save(EconomyState(0, 30.0), 0L)
         session.open()
-        session.complete(ItemType.GOAL) // 30
-        now = 5 * 60_000L
+        now = 6 * 60 * 60_000L
         session.tick()
-        assertEquals(25.0, session.state.meter, 0.01)
+        assertEquals(30.0 - 6 * 60 * EconomyConfig().drainPercentPerMinute, session.state.meter, 0.01)
         assertEquals(Tier.THIRSTY, session.tier)
     }
 
