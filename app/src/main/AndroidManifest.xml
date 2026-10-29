@@ -32,6 +32,10 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".notify.ReminderReceiver"
+            android:exported="false" />
+
         <service
             android:name=".overlay.OverlayService"
             android:exported="false"
