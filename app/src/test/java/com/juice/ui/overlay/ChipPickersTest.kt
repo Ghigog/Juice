@@ -16,8 +16,10 @@ import com.juice.core.intake.ChipKind
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
+import com.juice.core.routine.Cadence
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -86,6 +88,31 @@ class ChipPickersTest {
         compose.onNodeWithTag("chipPickerWeeks3").performClick()
         assertEquals("gym every 3 weeks on Mon", state.items.single().title)
         assertNull(state.chipPicker)
+    }
+
+    @Test fun intervalPickerAlsoOffersTwoToSixDays() {
+        open("gym every 2 weeks on Mon", ItemType.Routine, ChipKind.Interval)
+        compose.onAllNodes(tagStartsWith("chipPickerDays")).assertCountEquals(5)
+        compose.onNodeWithTag("chipPickerDays3").performClick()
+        val item = state.items.single()
+        assertEquals("gym every 3 days on Mon", item.title)
+        assertEquals(3, item.cadence?.intervalDays)
+    }
+
+    @Test fun repeatPickerSetsTheCadenceAndLeavesTheTitle() {
+        val item = Item("i", ItemType.Routine, "water tomatoes", cadence = Cadence(DayOfWeek.entries.toSet()), nextDueOn = today)
+        state = OverlayShellState(ItemRepository(db.itemDao()), CoroutineScope(Dispatchers.Unconfined), listOf(item), today = today)
+        state.openRepeatPicker(item)
+        compose.setContent { ChipPickers(state, today, Locale.ENGLISH) }
+        compose.onAllNodes(tagStartsWith("repeatPickerDays")).assertCountEquals(6)
+        compose.onNodeWithText("Every week").assertExists()
+        compose.onNodeWithTag("repeatPickerDays3").performClick()
+        val saved = state.items.single()
+        assertEquals("water tomatoes", saved.title)
+        assertEquals(3, saved.cadence?.intervalDays)
+        assertEquals("Every 3 days", saved.cadence?.label())
+        assertEquals(today, saved.nextDueOn)
+        assertNull(state.repeatPickerItemId)
     }
 
     @Test fun weekdayPickerOffersSevenWeekdaysAndCloses() {

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.juice.R
 import com.juice.core.intake.ChipKind
+import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -23,10 +24,16 @@ import java.util.Locale
 
 private const val DEADLINE_DAYS = 7
 private val INTERVAL_WEEKS = 1..4
+private val INTERVAL_DAYS = 2..6
+
+/** The Repeat picker's options: every day, every 2..6 days, every week. */
+internal val REPEAT_CADENCES: List<Cadence> =
+    listOf(Cadence(DayOfWeek.values().toSet())) + INTERVAL_DAYS.map { Cadence(DayOfWeek.values().toSet(), intervalDays = it) }
 
 /** The picker for the chip [OverlayShellState.chipPicker] names, if one is open; choosing applies it and closes it, tapping outside just closes it. */
 @Composable
 fun ChipPickers(state: OverlayShellState, today: LocalDate = LocalDate.now(), locale: Locale = Locale.getDefault()) {
+    RepeatPicker(state, today)
     val picker = state.chipPicker ?: return
     val item = state.items.firstOrNull { it.id == picker.itemId } ?: return
     val span = picker.span
@@ -43,6 +50,11 @@ fun ChipPickers(state: OverlayShellState, today: LocalDate = LocalDate.now(), lo
                     }
                     ChipKind.Interval -> {
                         Text(stringResource(R.string.chip_picker_interval), style = MaterialTheme.typography.titleMedium)
+                        for (days in INTERVAL_DAYS) {
+                            Option(pluralStringResource(R.plurals.chip_picker_days, days, days), "chipPickerDays$days") {
+                                state.setCadenceIntervalDays(item, span, days)
+                            }
+                        }
                         for (weeks in INTERVAL_WEEKS) {
                             Option(pluralStringResource(R.plurals.chip_picker_weeks, weeks, weeks), "chipPickerWeeks$weeks") {
                                 state.setCadenceInterval(item, span, weeks)
@@ -57,6 +69,27 @@ fun ChipPickers(state: OverlayShellState, today: LocalDate = LocalDate.now(), lo
                     }
                     // A verb chip has nothing to pick.
                     ChipKind.Verb -> Unit
+                }
+            }
+        }
+    }
+}
+
+/** The Repeat picker for a Routine with no cadence chip: choosing sets its cadence and closes it, tapping outside just closes it. */
+@Composable
+private fun RepeatPicker(state: OverlayShellState, today: LocalDate) {
+    val item = state.items.firstOrNull { it.id == state.repeatPickerItemId } ?: return
+    Dialog(onDismissRequest = state::dismissRepeatPicker) {
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.repeat_picker_title), style = MaterialTheme.typography.titleMedium)
+                for (cadence in REPEAT_CADENCES) {
+                    val days = cadence.intervalDays
+                    val label = if (days == 1) stringResource(R.string.repeat_picker_day) else pluralStringResource(R.plurals.repeat_picker_days, days, days)
+                    Option(label, "repeatPickerDays$days") { state.setCadence(item, cadence) }
+                }
+                Option(stringResource(R.string.repeat_picker_week), "repeatPickerWeek") {
+                    state.setCadence(item, Cadence(setOf(today.dayOfWeek), item.cadence?.time))
                 }
             }
         }

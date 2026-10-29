@@ -79,12 +79,14 @@ internal fun String.decodeSteps(): List<Step> = JSONArray(this).let { array ->
 }
 
 internal fun Cadence.encode(): String =
-    (if (intervalWeeks > 1) "${intervalWeeks}W:" else "") +
+    (if (intervalWeeks > 1) "${intervalWeeks}W:" else "") + (if (intervalDays > 1) "${intervalDays}D:" else "") +
         days.sorted().joinToString(",") { it.name.take(3) } + (time?.let { ";$it" } ?: "")
 
 internal fun String.decodeCadence(): Cadence {
     val daysPart = substringBefore(';')
-    val intervalWeeks = if (':' in daysPart) daysPart.substringBefore(':').removeSuffix("W").toInt() else 1
+    val prefix = if (':' in daysPart) daysPart.substringBefore(':') else ""
+    val intervalWeeks = if (prefix.endsWith("W")) prefix.removeSuffix("W").toInt() else 1
+    val intervalDays = if (prefix.endsWith("D")) prefix.removeSuffix("D").toInt() else 1
     val days = daysPart.substringAfter(':').split(",").map { abbreviation -> DayOfWeek.entries.first { it.name.take(3) == abbreviation } }
-    return Cadence(days.toSet(), if (';' in this) LocalTime.parse(substringAfter(';')) else null, intervalWeeks)
+    return Cadence(days.toSet(), if (';' in this) LocalTime.parse(substringAfter(';')) else null, intervalWeeks, intervalDays)
 }

@@ -358,6 +358,25 @@ class IntakeTest {
         assertEquals(title, back)
     }
 
+    @Test fun everyNDaysIsARoutineWithAnIntervalChip() {
+        val title = "give water to tomatoes every three days"
+        val item = routine(title)
+        assertEquals(ItemType.Routine, item.type)
+        assertEquals(com.juice.core.routine.Cadence(java.time.DayOfWeek.entries.toSet(), null, intervalDays = 3), item.cadence)
+        assertEquals(Triple(ItemType.Routine, listOf(ChipKind.Interval), listOf("every three days")), spans(title))
+        assertEquals(2, routine("water ferns every other day").cadence?.intervalDays)
+        assertEquals(4, routine("water ferns every 4 days").cadence?.intervalDays)
+        assertEquals(2, routine("water ferns every other week on Fri").cadence?.intervalWeeks)
+    }
+
+    @Test fun intervalDaysIsWrittenIntoTheTitleAndClassifiedBack() {
+        val title = "water plants every 2 weeks Friday"
+        val three = withIntervalDays(title, spanOf(title, ItemType.Routine, ChipKind.Interval), 3)
+        assertEquals("water plants every 3 days Friday", three)
+        assertEquals(3, RulesFallback.classify(three).cadence?.intervalDays)
+        assertEquals("water plants every day Friday", withIntervalDays(three, spanOf(three, ItemType.Routine, ChipKind.Interval), 1))
+    }
+
     @Test fun weekdayKeepsTheStyleOfTheReplacedWord() {
         val short = "bins every Mon"
         assertEquals("bins every Thu", withWeekday(short, spanOf(short, ItemType.Routine, ChipKind.Weekday), java.time.DayOfWeek.THURSDAY))

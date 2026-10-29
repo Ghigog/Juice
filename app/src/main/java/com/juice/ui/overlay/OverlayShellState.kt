@@ -16,6 +16,7 @@ import com.juice.core.intake.RulesFallback
 import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.intake.withDeadlineDay
 import com.juice.core.intake.withInterval
+import com.juice.core.intake.withIntervalDays
 import com.juice.core.intake.withWeekday
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
@@ -122,6 +123,18 @@ class OverlayShellState(
 
     fun dismissChipPicker() {
         chipPicker = null
+    }
+
+    /** The id of the Routine whose Repeat picker is open, if any. */
+    var repeatPickerItemId by mutableStateOf<String?>(null)
+        private set
+
+    fun openRepeatPicker(item: Item) {
+        repeatPickerItemId = item.id
+    }
+
+    fun dismissRepeatPicker() {
+        repeatPickerItemId = null
     }
 
     /** True while a card's title is being edited; the shell hides the capture field meanwhile. */
@@ -267,6 +280,16 @@ class OverlayShellState(
     /** The user picks the interval [weeks] on the interval chip [span]. */
     fun setCadenceInterval(item: Item, span: ChipSpan, weeks: Int) =
         rewriteChip(item, IntakeField.Cadence) { withInterval(it, span, weeks) }
+
+    /** The user picks the interval [days] on the interval chip [span]. */
+    fun setCadenceIntervalDays(item: Item, span: ChipSpan, days: Int) =
+        rewriteChip(item, IntakeField.Cadence) { withIntervalDays(it, span, days) }
+
+    /** The user picks a [cadence] for a Routine from its Repeat picker; the title is untouched and a late parse will not undo it. */
+    fun setCadence(item: Item, cadence: Cadence) {
+        repeatPickerItemId = null
+        edit(item.id, IntakeField.Cadence) { it.asRoutine(cadence, today) }
+    }
 
     /** The user picks the weekday [to] on the weekday chip [span]. */
     fun setCadenceWeekday(item: Item, span: ChipSpan, to: DayOfWeek) =

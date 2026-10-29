@@ -483,7 +483,15 @@ internal fun CentreCard(
                             modifier = Modifier.padding(bottom = 6.dp),
                         )
                     }
-                    Text(metaOf(state, item), fontSize = 14.sp, lineHeight = 20.sp, color = JuiceColors.white(0.82f))
+                    Text(
+                        metaOf(state, item),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = JuiceColors.white(0.82f),
+                        modifier = if (item.type == ItemType.Routine && item.cadence != null) {
+                            Modifier.testTag("cadenceLine").clickable { state.openRepeatPicker(item) }
+                        } else Modifier,
+                    )
                     Spacer(Modifier.height(12.dp))
                     Box(
                         Modifier
