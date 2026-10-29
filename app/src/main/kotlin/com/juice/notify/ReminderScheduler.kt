@@ -5,11 +5,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.juice.core.model.Item
+import com.juice.data.Reminders
 import com.juice.core.notify.plan
 import java.time.Clock
 
 /** Sets one inexact, idle-tolerant alarm per Item at its planned reminder time; needs no exact-alarm permission. */
-class ReminderScheduler(private val context: Context, private val clock: Clock) {
+class ReminderScheduler(private val context: Context, private val clock: Clock) : Reminders {
     private val alarms = context.getSystemService(AlarmManager::class.java)
 
     /** Replaces any alarm for [item] with one at its planned time, or leaves none when it should not notify. */
@@ -20,7 +21,9 @@ class ReminderScheduler(private val context: Context, private val clock: Clock) 
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.at.toEpochMilli(), pending(intent))
     }
 
-    fun cancel(id: String) {
+    override fun sync(item: Item) = schedule(item)
+
+    override fun cancel(id: String) {
         alarms.cancel(pending(ReminderReceiver.intent(context, id)))
     }
 

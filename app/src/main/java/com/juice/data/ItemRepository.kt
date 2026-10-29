@@ -23,12 +23,22 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/** Keeps scheduled reminders in step with saved Items. */
+interface Reminders {
+    /** Replaces the reminder for [item] with the one its saved state plans, or none. */
+    fun sync(item: Item) {}
+
+    /** Drops the reminder for the Item [id]. */
+    fun cancel(id: String) {}
+}
+
 class ItemRepository(
     private val dao: ItemDao,
     /** Characters whose cards and tasks are left out of the lists (the disabled ones). */
     private val hiddenCharacterIds: () -> Set<String> = { emptySet() },
     /** Emits when [hiddenCharacterIds] may have changed, so observed lists are read again. */
     private val hiddenChanges: Flow<Unit> = emptyFlow(),
+    private val reminders: Reminders = object : Reminders {},
     private val clock: () -> Instant = Instant::now,
 ) {
     /** Writes run one at a time, in the order they were asked for, so a quick complete then undo lands in order. */
@@ -54,7 +64,9 @@ class ItemRepository(
         }
         val position = stored?.position ?: ((dao.maxPosition() ?: 0) + 1)
         val createdAt = before?.createdAt ?: item.createdAt ?: now.takeIf { stored == null }
-        dao.upsert(item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt, starredAt = before?.starredAt ?: item.starredAt).toEntity(position))
+        val saved = item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt, starredAt = before?.starredAt ?: item.starredAt)
+        dao.upsert(saved.toEntity(position))
+        reminders.sync(saved)
     }
 
     /** Stores the order the user chose: [ids] first to last. */
@@ -74,7 +86,10 @@ class ItemRepository(
 
     suspend fun deleteByCharacter(characterId: String) = writes.withLock { dao.deleteByCharacter(characterId) }
 
-    suspend fun delete(id: String) = writes.withLock { dao.delete(id) }
+    suspend fun delete(id: String) = writes.withLock {
+        dao.delete(id)
+        reminders.cancel(id)
+    }
 
     suspend fun get(id: String): Item? = dao.get(id)?.toItem()
 

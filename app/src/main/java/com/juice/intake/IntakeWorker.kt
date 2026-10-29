@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.BuildConfig
 import com.juice.data.ItemRepository
+import com.juice.notify.ReminderScheduler
 import com.juice.data.JuiceDatabase
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
@@ -31,7 +32,7 @@ class IntakeWorker(
         params,
         SettingsRepository(context),
         GroqClient(BuildConfig.GROQ_API_KEY),
-        ItemRepository(JuiceDatabase.open(context).itemDao()),
+        ItemRepository(JuiceDatabase.open(context).itemDao(), reminders = ReminderScheduler(context, java.time.Clock.systemDefaultZone())),
     )
 
     override suspend fun doWork(): Result {

@@ -60,6 +60,7 @@ import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.EconomyStore
 import com.juice.data.ItemRepository
+import com.juice.notify.ReminderScheduler
 import com.juice.data.JuiceDatabase
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
@@ -113,7 +114,9 @@ class OverlayService : Service() {
     private val pendingCards by lazy { PendingCoachCardStore(File(filesDir, "pending-coach-cards.txt")) }
     private val conversationStore by lazy { ConversationStore(File(filesDir, "conversations.json")) }
     private val repository by lazy {
-        ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes())
+        ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes(),
+            reminders = ReminderScheduler(this, java.time.Clock.systemDefaultZone()),
+        )
     }
     private val createdStore by lazy { CreatedCharacterStore(this) }
     private val characters by lazy {
