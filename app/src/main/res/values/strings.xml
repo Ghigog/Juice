@@ -63,6 +63,7 @@
     <string name="overlay_capture_hint">Enter new note or task…</string>
     <string name="overlay_card_hint">Draw a check to complete. Two strokes for an X to dismiss.</string>
     <string name="overlay_done_when">Done when: %1$s</string>
+    <string name="overlay_will_remind">Will remind you: %1$s</string>
     <string name="overlay_empty">All squeezed. Add a note below.</string>
     <string name="overlay_starred">Starred</string>
     <string name="overlay_starred_badge">★</string>
