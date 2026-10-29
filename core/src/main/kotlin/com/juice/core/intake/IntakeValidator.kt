@@ -48,13 +48,18 @@ object IntakeValidator {
         val condition = lenient("completion_condition", onRejected, null) { optionalString(obj, "completion_condition") }
         if (type != ItemType.Routine) {
             if (obj["cadence"].let { it != null && it != JsonNull }) onRejected("dropped cadence: not a Routine")
-            return ParsedItem(type, title, condition, deadline(obj, now, onRejected), subItems)
+            val deadline = deadline(obj, now, onRejected)
+            val (notifyAt, notifyText) = notification(obj, now, deadline, onRejected)
+            return ParsedItem(type, title, condition, deadline, subItems, notifyAt = notifyAt, notifyText = notifyText)
         }
         val cadence = lenient("cadence", onRejected, null) { cadence(obj) }
         if (cadence == null) {
             onRejected("downgraded Routine to Task: no valid cadence")
-            return ParsedItem(ItemType.Task, title, condition, deadline(obj, now, onRejected), subItems)
+            val deadline = deadline(obj, now, onRejected)
+            val (notifyAt, notifyText) = notification(obj, now, deadline, onRejected)
+            return ParsedItem(ItemType.Task, title, condition, deadline, subItems, notifyAt = notifyAt, notifyText = notifyText)
         }
+        if (obj["notify_at"].let { it != null && it != JsonNull }) onRejected("dropped notify_at: a Routine's schedule derives from its due date")
         // A Routine's deadline derives from its due date.
         return ParsedItem(type, title, condition, null, subItems, cadence)
     }
@@ -110,16 +115,41 @@ object IntakeValidator {
         }
 
     /** A deadline that is unparsable, past, or over a year out is dropped to null. */
-    private fun deadline(obj: JsonObject, now: Instant, onRejected: (String) -> Unit): Instant? {
-        val text = lenient("deadline", onRejected, null) { optionalString(obj, "deadline") } ?: return null
+    private fun deadline(obj: JsonObject, now: Instant, onRejected: (String) -> Unit): Instant? =
+        instant(obj, "deadline", now, onRejected)
+
+    /**
+     * The reminder time and text: both are kept, or both dropped. The time must also be no later than the [deadline]
+     * when there is one, and the text must not be blank.
+     */
+    private fun notification(obj: JsonObject, now: Instant, deadline: Instant?, onRejected: (String) -> Unit): Pair<Instant?, String?> {
+        val text = lenient("notify_text", onRejected, null) { optionalString(obj, "notify_text") }
+        val at = instant(obj, "notify_at", now, onRejected)
+        if (at == null) {
+            if (text != null) onRejected("dropped notify_text: no valid notify_at")
+            return null to null
+        }
+        if (deadline != null && at.isAfter(deadline)) {
+            onRejected("dropped notify_at: after the deadline")
+            return null to null
+        }
+        if (text == null) {
+            onRejected("dropped notify_at: no notify_text")
+            return null to null
+        }
+        return at to text
+    }
+
+    private fun instant(obj: JsonObject, key: String, now: Instant, onRejected: (String) -> Unit): Instant? {
+        val text = lenient(key, onRejected, null) { optionalString(obj, key) } ?: return null
         val at = try {
             OffsetDateTime.parse(text).toInstant()
         } catch (e: java.time.DateTimeException) {
-            onRejected("dropped deadline: unparsable \"$text\"")
+            onRejected("dropped $key: unparsable \"$text\"")
             return null
         }
         val inRange = at.isAfter(now) && !at.isAfter(now.plus(MAX_DEADLINE_DISTANCE))
-        if (!inRange) onRejected("dropped deadline: out of range $text")
+        if (!inRange) onRejected("dropped $key: out of range $text")
         return at.takeIf { inRange }
     }
 }
