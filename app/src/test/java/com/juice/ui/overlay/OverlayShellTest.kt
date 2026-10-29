@@ -44,8 +44,11 @@ import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 import com.juice.core.routine.Cadence
+import java.time.Clock
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.settings.JuiceSettings
@@ -68,6 +71,9 @@ import org.junit.Assert.assertTrue
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.test.onRoot
+
+private val TODAY = LocalDate.of(2026, 10, 28)
+private val CLOCK = Clock.fixed(Instant.parse("2026-10-28T12:00:00Z"), ZoneOffset.UTC)
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
@@ -110,10 +116,10 @@ class OverlayShellTest {
         sliceShown: () -> Boolean = { true },
         reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
     ) {
-        state = OverlayShellState(repository, scope, items.toList())
+        state = OverlayShellState(repository, scope, items.toList(), today = TODAY, clock = { CLOCK.instant() })
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
-        compose.setContent { OverlayShell(state, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, sliceShown = sliceShown(), reservoir = reservoir) }
+        compose.setContent { OverlayShell(state, clock = CLOCK, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, sliceShown = sliceShown(), reservoir = reservoir) }
         idle()
     }
 
@@ -243,7 +249,7 @@ class OverlayShellTest {
     fun theRoutinesButtonListsARoutineNotDueTodayAndBackReturns() {
         val later = Item(
             "l", ItemType.Routine, "Stretch",
-            cadence = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)), nextDueOn = LocalDate.now().plusDays(3),
+            cadence = Cadence(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY)), nextDueOn = TODAY.plusDays(3),
         )
         runBlocking { repository.save(later) }
         show()
@@ -306,7 +312,7 @@ class OverlayShellTest {
     @Test
     fun reopeningTheRoutinesViewShowsEachRoutineOnce() {
         runBlocking {
-            repository.save(Item("a", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.TUESDAY)), nextDueOn = LocalDate.now().plusDays(3)))
+            repository.save(Item("a", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.TUESDAY)), nextDueOn = TODAY.plusDays(3)))
         }
         show()
         repeat(2) {
@@ -741,7 +747,7 @@ class OverlayShellTest {
     fun tappingTheDeadlineChipAndPickingADayRewritesIt() {
         show(Item("a", ItemType.Goal, "take out the trash on Tuesday"))
         tapChip("Tuesday")
-        compose.onNodeWithTag("chipPickerDay${(DayOfWeek.THURSDAY.value - LocalDate.now().dayOfWeek.value + 7) % 7}").performClick()
+        compose.onNodeWithTag("chipPickerDay${(DayOfWeek.THURSDAY.value - TODAY.dayOfWeek.value + 7) % 7}").performClick()
         idle()
         assertEquals(listOf("Thursday"), chipWords())
     }

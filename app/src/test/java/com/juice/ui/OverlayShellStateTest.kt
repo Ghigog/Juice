@@ -299,7 +299,7 @@ class OverlayShellStateTest {
 
     @Test
     fun settingARoutineToTaskClearsItsCadence() {
-        val routine = Item("r", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.MONDAY)), nextDueOn = LocalDate.now())
+        val routine = Item("r", ItemType.Routine, "Stretch", cadence = Cadence(setOf(DayOfWeek.MONDAY)), nextDueOn = LocalDate.of(2026, 10, 28))
         val state = state(routine)
         state.setType(routine, ItemType.Task)
         assertEquals(ItemType.Task, state.items.single().type)
