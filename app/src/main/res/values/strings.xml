@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="reminder_channel_name">Juice reminders</string>
+    <string name="reminder_notification_title">Juice reminder</string>
     <string name="overlay_channel_name">Juice overlay</string>
     <string name="overlay_notification_title">Juice is ready</string>
     <string name="overlay_notification_text">Press the slice and swipe any way to open Juice. Hold it to move it.</string>
