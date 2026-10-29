@@ -198,6 +198,7 @@ class OverlayService : Service() {
                 settingsRepository.settings.collect { applySettings(it) }
             }
             scope.launch {
+                repository.repairCadences(LocalDate.now())
                 repository.observeActive(LocalDate.now()).collect {
                     openItems = it.size
                     handle?.slices = SliceLogoPainter.sliceCount(openItems)

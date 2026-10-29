@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import com.juice.R
 import com.juice.core.model.Item
+import com.juice.core.notify.plan
 import com.juice.core.economy.EconomyConfig
 import com.juice.core.economy.ItemType as EconomyItemType
 import com.juice.core.intake.ItemType
@@ -23,6 +24,7 @@ import com.juice.settings.JuiceSettings
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
 import com.juice.ui.theme.FlavourTheme
+import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -153,4 +155,12 @@ fun deadlineLabel(deadline: Instant, now: ZonedDateTime = ZonedDateTime.now()): 
         1L -> "Tomorrow $time"
         else -> at.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) + " $time"
     }
+}
+
+const val TAG_REMINDER_LINE = "reminderLine"
+
+/** When [item]'s reminder will fire, as a [deadlineLabel]; null when [plan] schedules none. */
+internal fun reminderLabel(item: Item?, clock: Clock): String? {
+    val reminder = plan(item ?: return null, clock.instant(), clock.zone) ?: return null
+    return deadlineLabel(reminder.at, ZonedDateTime.now(clock))
 }
