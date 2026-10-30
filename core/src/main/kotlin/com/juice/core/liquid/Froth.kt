@@ -73,7 +73,7 @@ class Froth(private val sim: LiquidSim, private val random: Random = Random.Defa
         val calm = max(0f, 1 - agitation * 0.8f)
         var live = 0
         for (i in 0 until sim.count) {
-            val surface = sim.rho[i] < r0 * 0.8f && sim.wall[i] > 9f && sim.floorGap[i] > sim.p.h
+            val surface = sim.rho[i] < r0 * 0.8f && sim.wall[i] > 9f
             if (make > 0.05f && f[i] < 1f) {
                 val sp = min(3f, hypot(sim.vx[i], sim.vy[i]))
                 val p = make * (if (surface) 0.014f else 0.0015f) * (0.4f + sp * 0.35f)

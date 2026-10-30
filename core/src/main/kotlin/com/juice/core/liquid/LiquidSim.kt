@@ -22,7 +22,7 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
     class Params {
         var inset = 6f          // gap between glass and liquid
         var corner = 24f        // inner corner radius of the glass
-        var h = 26f             // interaction radius
+        var h = 30f             // interaction radius (the lab's 26, a little bigger so a full card stays affordable)
         var rho0 = 4.2f         // rest density
         var k = 0.35f           // pressure stiffness
         var kNear = 0.9f        // near-pressure stiffness (stops clumping)
@@ -51,13 +51,6 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
     val foam = FloatArray(CAPACITY)
     val rho = FloatArray(CAPACITY)      // density from the last step; low means surface
     val wall = FloatArray(CAPACITY)     // distance to the glass from the last step
-    val floorGap = FloatArray(CAPACITY) // distance to the floor from the last step
-
-    /**
-     * A flat floor: the top of the solid body of juice under the particles. Particles stay where
-     * x * floorNx + y * floorNy <= floorLevel ((floorNx, floorNy) is a unit vector along gravity). Off while infinite.
-     */
-    var floorNx = 0f; var floorNy = 1f; var floorLevel = Float.POSITIVE_INFINITY
 
     private val px = FloatArray(CAPACITY); private val py = FloatArray(CAPACITY)
     private val nvx = FloatArray(CAPACITY); private val nvy = FloatArray(CAPACITY)
@@ -102,8 +95,7 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
             }
         } else {
             val perRow = max(1, ((width - 2 * p.inset - 4) / sp).toInt())
-            // On the floor when it lies flat along the bottom, else on the glass.
-            val bottom = if (floorNy > 0.999f) min(height - p.inset - 2, floorLevel - 2) else height - p.inset - 2
+            val bottom = height - p.inset - 2
             while (i < count) {
                 val row = i / perRow
                 x[i] = p.inset + 2 + (i % perRow + 0.5f * (row % 2)) * sp
@@ -130,9 +122,6 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
 
     /** Keeps particle [i] inside the rounded glass. Returns its distance to the glass. */
     private fun bounds(i: Int): Float {
-        val over = x[i] * floorNx + y[i] * floorNy - floorLevel
-        if (over > 0f) { x[i] -= over * floorNx; y[i] -= over * floorNy }
-        floorGap[i] = max(0f, -over)
         val l = p.inset; val t = p.inset; val r = width - p.inset; val b = height - p.inset; val cr = p.corner
         val cx = min(max(x[i], l + cr), r - cr); val cy = min(max(y[i], t + cr), b - cr)
         val dx = x[i] - cx; val dy = y[i] - cy; val d = sqrt(dx * dx + dy * dy)
@@ -222,9 +211,6 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
                 val mx = x[i] - px[i]; val my = y[i] - py[i]; val mn = mx * wnx + my * wny
                 val tx = mx - mn * wnx; val ty = my - mn * wny
                 x[i] -= tx * st; y[i] -= ty * st
-                // clinging can drag foam back past a floor that moved this frame
-                val over = x[i] * floorNx + y[i] * floorNy - floorLevel
-                if (over > 0f) { x[i] -= over * floorNx; y[i] -= over * floorNy }
             }
             vx[i] = x[i] - px[i]; vy[i] = y[i] - py[i]
         }
@@ -297,5 +283,5 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
         return n
     }
 
-    companion object { const val CAPACITY = 2000 }
+    companion object { const val CAPACITY = 2600 }
 }

@@ -51,59 +51,38 @@ class LiquidEngineTest {
         assertFalse(e.sleeping)
     }
 
-    @Test fun aFullMeterStillSettlesSoTheFrameLoopCanStop() {
+    @Test fun aFullMeterFillsTheGlass() {
+        val e = LiquidEngine(340f, 440f, Random(2)).apply { fill(1f) }
+        e.run(300)
+        assertTrue(e.allInsideTheGlass())
+        val top = (0 until e.sim.count).map { e.sim.y[it] }.sorted()[e.sim.count / 100]
+        assertTrue(top < 440f * 0.08f, "surface at $top")
+    }
+
+    @Test fun deepJuiceHoldsStillOnceNothingMovesIt() {
         // Juice, then Golden Honey's thicker tuning.
         for ((xsph, damp) in listOf(0.05f to 0.006f, 0.22f to 0.012f)) {
             val e = LiquidEngine(340f, 440f, Random(2))
             e.sim.p.xsph = xsph; e.sim.p.damp = damp
-            e.fill(1f)
-            e.run(900)
+            e.fill(0.8f)
+            e.run(LiquidEngine.IDLE_FRAMES + 2)
             assertTrue(e.sleeping)
+            assertFalse(e.tick())
         }
     }
 
-    @Test fun aFullMeterFillsTheGlass() {
-        val e = LiquidEngine(340f, 440f, Random(2)).apply { fill(1f) }
-        e.run(300)
-        assertEquals(1f - LiquidEngine.LAYER_FILL, e.body)
-        // Juice reaches the top of the glass, and stays above the body.
-        assertTrue((0 until e.sim.count).minOf { e.sim.y[it] } < 30f)
-        assertTrue((0 until e.sim.count).all { e.sim.y[it] <= e.sim.floorLevel + 1e-3f })
-    }
-
-    @Test fun aLowMeterIsAllParticles() {
-        val e = LiquidEngine(340f, 440f, Random(2)).apply { fill(0.2f) }
-        assertEquals(0f, e.body)
-        assertEquals(Float.POSITIVE_INFINITY, e.sim.floorLevel)
-    }
-
-    @Test fun theBodyRisesOverAMomentThenRests() {
-        val e = LiquidEngine(340f, 440f, Random(2)).apply { fill(0.3f) }
-        e.run(600)
-        assertTrue(e.sleeping)
-        e.fillTo(0.6f)
-        e.tick()
-        assertTrue(e.body > 0.03f && e.body < 0.33f)
-        e.run(900)
-        assertEquals(0.33f, e.body, 1e-4f)
-        assertTrue(e.sleeping)
-        e.fillTo(0.27f)
-        e.run(200)
-        assertEquals(0f, e.body)
-        assertEquals(Float.POSITIVE_INFINITY, e.sim.floorLevel)
-    }
-
-    @Test fun theBodyTurnsWithGravityAndHoldsWhenFlat() {
+    @Test fun anyInputPutsOffTheIdleRest() {
         val e = LiquidEngine(340f, 440f, Random(2)).apply { fill(0.8f) }
-        e.setGravity(1f, 0f, 0f)
-        e.run(60)
-        assertEquals(1f, e.bodyNx, 1e-3f)
-        assertEquals(0f, e.bodyNy, 1e-3f)
-        // Juice lies against the right side, so none is left of the floor.
-        assertTrue((0 until e.sim.count).all { e.sim.x[it] <= e.sim.floorLevel + 1e-3f })
-        e.setGravity(0f, 0f, 1f)
-        e.run(30)
-        assertEquals(1f, e.bodyNx, 1e-3f)
+        e.run(LiquidEngine.IDLE_FRAMES - 10)
+        e.setGravity(0.3f, 0.95f, 0f)
+        e.run(LiquidEngine.IDLE_FRAMES - 10)
+        assertFalse(e.sleeping)
+        e.touchDown(100f, 300f)
+        e.run(LiquidEngine.IDLE_FRAMES + 10)
+        assertFalse(e.sleeping)
+        e.touchUp()
+        e.run(LiquidEngine.IDLE_FRAMES + 2)
+        assertTrue(e.sleeping)
     }
 
     @Test fun aTouchWakesAndPushesTheJuice() {
@@ -145,12 +124,14 @@ class LiquidEngineTest {
         assertEquals(0, e.froth.bubbles.size + e.froth.pops.size + e.froth.foamLive)
     }
 
-    @Test fun aSparklingDrinkKeepsBubblingWhileCalm() {
+    @Test fun aSparklingDrinkBubblesUntilItRests() {
         val e = engine().apply { froth.sparkle = 0.5f }
         var seen = 0
-        repeat(300) { e.tick(); seen = maxOf(seen, e.froth.bubbles.size) }
+        repeat(LiquidEngine.IDLE_FRAMES) { e.tick(); seen = maxOf(seen, e.froth.bubbles.size) }
         assertTrue(seen > 0)
         assertFalse(e.sleeping)
+        e.run(10)
+        assertTrue(e.sleeping)
     }
 
     @Test fun aSplashStirsUpFroth() {
@@ -242,10 +223,9 @@ class LiquidEngineTest {
 
     @Test fun particlesScaleWithFillAndArea() {
         assertEquals(LiquidEngine.FULL_PARTICLES, LiquidEngine.particlesFor(1f, 340f, 440f))
-        assertEquals(LiquidEngine.FULL_PARTICLES, LiquidEngine.particlesFor(0.5f, 340f, 440f))
-        assertEquals(LiquidEngine.FULL_PARTICLES / 2, LiquidEngine.particlesFor(LiquidEngine.LAYER_FILL / 2, 340f, 440f))
+        assertEquals(LiquidEngine.FULL_PARTICLES / 2, LiquidEngine.particlesFor(0.5f, 340f, 440f))
         assertEquals(0, LiquidEngine.particlesFor(-1f, 340f, 440f))
-        assertEquals(LiquidEngine.FULL_PARTICLES * 2, LiquidEngine.particlesFor(1f, 680f, 440f))
+        assertEquals(LiquidEngine.FULL_PARTICLES / 2, LiquidEngine.particlesFor(1f, 170f, 440f))
         assertEquals(LiquidSim.CAPACITY, LiquidEngine.particlesFor(1f, 2000f, 2000f))
     }
 

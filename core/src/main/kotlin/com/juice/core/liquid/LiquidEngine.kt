@@ -10,10 +10,12 @@ import kotlin.random.Random
  * Ties the sim, froth, input and sleeping together. Call [tick] at 60 Hz.
  * Everything is in dp. Pure Kotlin, no Android dependencies.
  *
- * The Thirst Meter sets how much juice there is through [fill] and [fillTo]. The top of the juice is
- * particles, at most [LAYER_FILL] of the glass deep (deeper particles never settle). Below them is a solid
- * body that rises with the meter and lies across gravity, so a full meter fills the glass.
+ * The Thirst Meter sets how much juice there is through [fill] and [fillTo]; a full meter fills the glass.
  * New particles stream in from the side opposite gravity, a few a frame; drained ones leave from the surface.
+ *
+ * Shallow juice comes to rest and sleeps on its own. Deep juice keeps churning slowly inside (one density
+ * pass a frame cannot hold up a tall column), so after [IDLE_FRAMES] with no tilt, touch, kick or pour the
+ * engine sleeps anyway and the juice holds still until something moves it.
  */
 class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random = Random.Default) {
     val sim = LiquidSim(widthDp, heightDp, random)
@@ -35,6 +37,8 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
 
     var sleeping = false; private set
     private var calmFrames = 0
+    private var idleFrames = 0
+    private var inputGx = 0f; private var inputGy = 1f
     private var sleepGx = 0f; private var sleepGy = 1f
 
     private var fingerDown = false
@@ -43,13 +47,6 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
 
     /** Particles still to stream in. */
     var pending = 0; private set
-
-    /** Share of the glass the solid body covers now, and where it is heading. */
-    var body = 0f; private set
-    var bodyTarget = 0f; private set
-    /** Unit vector the body lies across: along gravity, turning to follow it. */
-    var bodyNx = 0f; private set
-    var bodyNy = 1f; private set
 
     fun setGravity(x: Float, y: Float, z: Float) { rawGx = x; rawGy = y; rawGz = z; applyGravity() }
 
@@ -60,24 +57,17 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
     /** True if the current gravity would wake a sleeping sim. Use it to restart your frame loop. */
     fun wantsToWake() = sleeping && hypot(gx - sleepGx, gy - sleepGy) > 0.04f
 
-    /** Fills the glass with [particles] at once, already resting (a slab on the floor, or a disc when lying flat with no body). */
+    /** Fills the glass with [particles] at once, already resting (a slab on the low side, or a disc when lying flat). */
     fun pour(particles: Int) {
         val flat = hypot(gx, gy) < 0.12f
-        sim.fill(particles, centre = flat && body == 0f); froth.reset(); pending = 0; wake()
+        sim.fill(particles, centre = flat); froth.reset(); pending = 0; wake()
     }
 
-    /** Fills the glass to [fill] (0 to 1) at once, already resting with the body along the bottom. */
-    fun fill(fill: Float) {
-        bodyTarget = bodyFor(fill); body = bodyTarget; bodyNx = 0f; bodyNy = 1f
-        applyFloor()
-        pour(particlesFor(fill, sim.width, sim.height))
-    }
+    /** Fills the glass to [fill] (0 to 1) at once. */
+    fun fill(fill: Float) = pour(particlesFor(fill, sim.width, sim.height))
 
-    /** Heads for [fill] (0 to 1): particles stream in or drain, and the body rises or falls over a moment. */
-    fun fillTo(fill: Float) {
-        bodyTarget = bodyFor(fill)
-        pourTo(particlesFor(fill, sim.width, sim.height))
-    }
+    /** Heads for [fill] (0 to 1): juice streams in or drains from the surface. */
+    fun fillTo(fill: Float) = pourTo(particlesFor(fill, sim.width, sim.height))
 
     /** Streams juice in, or drains it from the surface, until there are [particles]. */
     fun pourTo(particles: Int) {
@@ -93,7 +83,7 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
     /** The juice it is heading for: what is in the glass plus what is still streaming in. */
     val target: Int get() = sim.count + pending
 
-    fun resize(wDp: Float, hDp: Float) { sim.resize(wDp, hDp); applyFloor(); wake() }
+    fun resize(wDp: Float, hDp: Float) { sim.resize(wDp, hDp); wake() }
 
     fun touchDown(x: Float, y: Float) {
         if (!motion) return
@@ -117,15 +107,17 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         froth.agitate(amount); wake()
     }
 
-    fun wake() { sleeping = false; calmFrames = 0 }
+    fun wake() { sleeping = false; calmFrames = 0; idleFrames = 0 }
 
     /** Advances one 60 Hz frame. Returns false while asleep (nothing to draw). */
     fun tick(): Boolean {
         froth.sense(gx, gy)
         if (sleeping) {
-            if (wantsToWake() || fingerDown || froth.agitation > 0.02f || pending > 0 || body != bodyTarget) wake() else return false
+            if (wantsToWake() || fingerDown || froth.agitation > 0.02f || pending > 0) wake() else return false
         }
-        val bodyMoving = moveBody()
+        if (hypot(gx - inputGx, gy - inputGy) > 0.04f || fingerDown || pending > 0) {
+            inputGx = gx; inputGy = gy; idleFrames = 0
+        } else idleFrames++
         stream()
         var fdx = 0f; var fdy = 0f; var fr = 0f
         if (fingerDown) {
@@ -140,9 +132,9 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         for (i in 0 until sim.count) sum += abs(sim.vx[i]) + abs(sim.vy[i])
         val mean = if (sim.count > 0) sum / sim.count else 0f
         val frothing = frothEnabled && froth.busy
-        if (mean < 0.12f && !fingerDown && !frothing && pending == 0 && !bodyMoving) {
-            if (++calmFrames > 60) { sleeping = true; sleepGx = gx; sleepGy = gy }
-        } else calmFrames = 0
+        if (mean < 0.12f && !fingerDown && !frothing && pending == 0) calmFrames++ else calmFrames = 0
+        val idle = idleFrames > IDLE_FRAMES && froth.agitation < 0.02f
+        if (calmFrames > 60 || idle) { sleeping = true; sleepGx = gx; sleepGy = gy }
         return true
     }
 
@@ -163,32 +155,6 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         }
     }
 
-    /** Turns the body toward gravity (holding still while the phone lies flat) and eases it toward its target. True while it moves. */
-    private fun moveBody(): Boolean {
-        var moving = false
-        val m = hypot(gx, gy)
-        if (m >= 0.12f) {
-            val tx = gx / m; val ty = gy / m
-            if (hypot(tx - bodyNx, ty - bodyNy) > 1e-3f) {
-                val nx = bodyNx + (tx - bodyNx) * BODY_TURN; val ny = bodyNy + (ty - bodyNy) * BODY_TURN
-                val len = hypot(nx, ny)
-                if (len > 1e-4f) { bodyNx = nx / len; bodyNy = ny / len } else { bodyNx = tx; bodyNy = ty }
-                moving = true
-            } else if (bodyNx != tx || bodyNy != ty) { bodyNx = tx; bodyNy = ty; moving = true }
-        }
-        if (body != bodyTarget) {
-            body = if (body < bodyTarget) min(bodyTarget, body + BODY_RATE) else maxOf(bodyTarget, body - BODY_RATE)
-            moving = true
-        }
-        if (moving) applyFloor()
-        return moving
-    }
-
-    private fun applyFloor() {
-        sim.floorNx = bodyNx; sim.floorNy = bodyNy
-        sim.floorLevel = if (body <= 0f) Float.POSITIVE_INFINITY else JuiceBody.level(bodyNx, bodyNy, body, sim.width, sim.height)
-    }
-
     /** Unit vector along gravity; straight down when the phone lies flat. */
     private fun down(): Pair<Float, Float> {
         val m = hypot(gx, gy)
@@ -200,16 +166,10 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
     val isTouching get() = fingerDown
 
     companion object {
-        /**
-         * Particles in a full layer on a 340 x 440 dp card, about [LAYER_FILL] of its height; scale by area for others.
-         * Deeper particles never quite settle with this tuning, so the frame loop would never sleep.
-         */
-        const val FULL_PARTICLES = 550
-        /** Share of the glass a full particle layer covers; the body holds any juice beyond it. */
-        const val LAYER_FILL = 0.27f
-        /** How fast the body rises or falls, in share of the glass per frame, and turns toward gravity. */
-        const val BODY_RATE = 0.004f
-        const val BODY_TURN = 0.25f
+        /** Particles that fill a 340 x 440 dp card; scale by area for others. */
+        const val FULL_PARTICLES = 1800
+        /** Three seconds with nothing moving the juice, then it holds still even if it has not settled. */
+        const val IDLE_FRAMES = 180
         const val REFERENCE_AREA = 340f * 440f
         const val POUR_PER_FRAME = 3
         const val POUR_WIDTH = 22f
@@ -217,14 +177,10 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         const val KICK_SCALE = 0.5f
         const val KICK_FROTH = 0.04f
 
-        /** How many particles hold the top of [fill] (0 to 1) of a [widthDp] x [heightDp] glass. */
+        /** How many particles hold [fill] (0 to 1) of a [widthDp] x [heightDp] glass. */
         fun particlesFor(fill: Float, widthDp: Float, heightDp: Float): Int {
             val full = FULL_PARTICLES * (widthDp * heightDp) / REFERENCE_AREA
-            val layer = min(1f, fill.coerceIn(0f, 1f) / LAYER_FILL)
-            return (full * layer).roundToInt().coerceIn(0, LiquidSim.CAPACITY)
+            return (full * fill.coerceIn(0f, 1f)).roundToInt().coerceIn(0, LiquidSim.CAPACITY)
         }
-
-        /** Share of the glass the solid body covers at [fill]: whatever the particle layer cannot. */
-        fun bodyFor(fill: Float): Float = maxOf(0f, fill.coerceIn(0f, 1f) - LAYER_FILL)
     }
 }
