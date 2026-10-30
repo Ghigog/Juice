@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("juice_settings")
@@ -33,6 +34,8 @@ class SettingsRepository(context: Context) {
             swipeDistance = p[SWIPE_DISTANCE]?.let { runCatching { SwipeDistance.valueOf(it) }.getOrNull() }
                 ?: d.swipeDistance,
             flavour = p[FLAVOUR]?.let { runCatching { Flavour.valueOf(it) }.getOrNull() },
+            liquidQuality = p[LIQUID_QUALITY]?.let { runCatching { LiquidQuality.valueOf(it) }.getOrNull() }
+                ?: d.liquidQuality,
         )
     }
 
@@ -52,6 +55,7 @@ class SettingsRepository(context: Context) {
             p[HANDLE_X] = next.handleX.coerceIn(0f, 1f)
             p[HANDLE_Y] = next.handleY.coerceIn(0f, 1f)
             p[SWIPE_DISTANCE] = next.swipeDistance.name
+            p[LIQUID_QUALITY] = next.liquidQuality.name
             if (next.flavour == null) p.remove(FLAVOUR) else p[FLAVOUR] = next.flavour.name
         }
     }
@@ -71,6 +75,7 @@ class SettingsRepository(context: Context) {
         val HANDLE_X = floatPreferencesKey("handle_x")
         val HANDLE_Y = floatPreferencesKey("handle_y")
         val SWIPE_DISTANCE = stringPreferencesKey("swipe_distance")
+        val LIQUID_QUALITY = stringPreferencesKey("liquid_quality")
         val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     }
 }

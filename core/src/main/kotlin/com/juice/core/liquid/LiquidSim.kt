@@ -68,6 +68,9 @@ class LiquidSim(width: Float, height: Float, private val random: Random = Random
         cellCount = IntArray(cols * rows); cellStart = IntArray(cols * rows + 1); fillPos = IntArray(cols * rows)
     }
 
+    /** Changes the interaction radius (particle size), keeping the particles where they are. */
+    fun setRadius(radius: Float) { p.h = radius; resizeGrid() }
+
     fun resize(w: Float, h: Float) {
         val sx = w / width; val sy = h / height
         for (i in 0 until count) { x[i] *= sx; y[i] *= sy; px[i] *= sx; py[i] *= sy }

@@ -1,5 +1,6 @@
 package com.juice.settings
 
+import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackSettings
 
@@ -20,6 +21,8 @@ data class JuiceSettings(
     val swipeDistance: SwipeDistance = SwipeDistance.Medium,
     /** The flavour the player picked; null follows the highest one unlocked. */
     val flavour: Flavour? = null,
+    /** How much work the juice does: Fast for slower phones, Best for the finest detail. */
+    val liquidQuality: LiquidQuality = LiquidQuality.BALANCED,
 ) {
     /** Slosh and particles are the overlay's motion effects; reduce motion turns both off. */
     val sloshEnabled: Boolean get() = !reduceMotion

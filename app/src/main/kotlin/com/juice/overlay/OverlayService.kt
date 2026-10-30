@@ -499,6 +499,7 @@ class OverlayService : Service() {
                 SideEffect {
                     reservoir.sloshEnabled = current.sloshEnabled
                     reservoir.particlesEnabled = current.particlesEnabled
+                    reservoir.quality = current.liquidQuality
                 }
                 val hud = session.hud()
                 OverlayShell(

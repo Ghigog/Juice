@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.juice.ui.liquid.JuiceLiquidView
+import com.juice.ui.liquid.LiquidRunner
 import org.junit.Rule
 import kotlin.random.Random
 import kotlin.test.Test
@@ -27,7 +28,7 @@ class OverlayServiceTest {
 
     @Test
     fun reservoirShowsTheMeterAndFollowsIt() {
-        val reservoir = JuiceLiquidView(ApplicationProvider.getApplicationContext(), Random(1))
+        val reservoir = JuiceLiquidView(ApplicationProvider.getApplicationContext(), Random(1), LiquidRunner.immediate)
         val fill = mutableFloatStateOf(0.39f)
         compose.setContent { ReservoirHost(reservoir, fill.floatValue, Modifier) }
         compose.runOnIdle { assertEquals(0.39f, reservoir.fill) }

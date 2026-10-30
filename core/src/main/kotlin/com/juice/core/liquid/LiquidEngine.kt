@@ -64,10 +64,17 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
     }
 
     /** Fills the glass to [fill] (0 to 1) at once. */
-    fun fill(fill: Float) = pour(particlesFor(fill, sim.width, sim.height))
+    fun fill(fill: Float) = pour(particlesFor(fill, sim.width, sim.height, sim.p.h))
 
     /** Heads for [fill] (0 to 1): juice streams in or drains from the surface. */
-    fun fillTo(fill: Float) = pourTo(particlesFor(fill, sim.width, sim.height))
+    fun fillTo(fill: Float) = pourTo(particlesFor(fill, sim.width, sim.height, sim.p.h))
+
+    /** Switches to [quality]'s particle size and refills the glass to [fill] at once, already resting. */
+    fun setQuality(quality: LiquidQuality, fill: Float) {
+        if (quality.h == sim.p.h) return
+        sim.setRadius(quality.h)
+        fill(fill)
+    }
 
     /** Streams juice in, or drains it from the surface, until there are [particles]. */
     fun pourTo(particles: Int) {
@@ -166,8 +173,9 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
     val isTouching get() = fingerDown
 
     companion object {
-        /** Particles that fill a 340 x 440 dp card; scale by area for others. */
+        /** Particles that fill a 340 x 440 dp card at [REFERENCE_H]; scale by area, and by size for other radii. */
         const val FULL_PARTICLES = 1800
+        const val REFERENCE_H = 30f
         /** Three seconds with nothing moving the juice, then it holds still even if it has not settled. */
         const val IDLE_FRAMES = 180
         const val REFERENCE_AREA = 340f * 440f
@@ -177,9 +185,10 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         const val KICK_SCALE = 0.5f
         const val KICK_FROTH = 0.04f
 
-        /** How many particles hold [fill] (0 to 1) of a [widthDp] x [heightDp] glass. */
-        fun particlesFor(fill: Float, widthDp: Float, heightDp: Float): Int {
-            val full = FULL_PARTICLES * (widthDp * heightDp) / REFERENCE_AREA
+        /** How many particles of interaction radius [radius] hold [fill] (0 to 1) of a [widthDp] x [heightDp] glass. */
+        fun particlesFor(fill: Float, widthDp: Float, heightDp: Float, radius: Float = REFERENCE_H): Int {
+            val size = REFERENCE_H / radius
+            val full = FULL_PARTICLES * (widthDp * heightDp) / REFERENCE_AREA * size * size
             return (full * fill.coerceIn(0f, 1f)).roundToInt().coerceIn(0, LiquidSim.CAPACITY)
         }
     }
