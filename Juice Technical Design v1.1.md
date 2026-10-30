@@ -141,7 +141,7 @@ $$\text{Juice Earned} = \text{Base XP} \times M_{\text{Thirst}}$$
 | Goal | 100 | +30% |
 | Project | 500 | +50% |
 
-All fill and drain values are tunables. Starting drain: 1% of the meter per hour.
+All fill and drain values are tunables. Starting drain: 1% of the meter every 15 minutes (4% per hour).
 
 ### 6.2 Thirst multiplier
 - **Thirsty** (0 to 25% full): $M = 1\times$

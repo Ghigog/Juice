@@ -13,8 +13,8 @@ data class EconomyConfig(
         ItemType.NOTE to 5.0, ItemType.TASK to 12.0, ItemType.LIST to 25.0, ItemType.GOAL to 30.0, ItemType.PROJECT to 50.0,
         ItemType.ROUTINE to 12.0,
     ),
-    /** Meter percent lost per minute of drain; the default is 1% per hour. */
-    val drainPercentPerMinute: Double = 1.0 / 60,
+    /** Meter percent lost per minute of drain; the default is 1% every 15 minutes. */
+    val drainPercentPerMinute: Double = 1.0 / 15,
     /** Meter at or below this is Thirsty (1×). */
     val thirstyMax: Double = 25.0,
     /** Meter above this is Satiated. Hydrated spans (thirstyMax, satiatedAbove]. */
