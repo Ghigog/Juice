@@ -42,6 +42,11 @@
     <string name="settings_swipe_short">Short</string>
     <string name="settings_swipe_medium">Medium</string>
     <string name="settings_swipe_long">Long</string>
+    <string name="settings_liquid_quality">Liquid quality</string>
+    <string name="settings_liquid_fast">Fast</string>
+    <string name="settings_liquid_balanced">Balanced</string>
+    <string name="settings_liquid_best">Best</string>
+    <string name="settings_liquid_quality_note">Fast uses bigger drops and a softer surface, for smoother motion on slower phones.</string>
     <string name="overlay_complete">Complete</string>
     <string name="overlay_dismiss">Dismiss</string>
     <string name="settings_open">Settings</string>

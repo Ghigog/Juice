@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.CharacterSettings
@@ -84,32 +85,23 @@ internal fun SettingsSheet(
         Toggle(R.string.settings_tap_buttons, R.string.settings_tap_buttons_note, settings.tapButtons, hud) { v -> change { it.copy(tapButtons = v) } }
         Toggle(R.string.settings_on_device_only, R.string.settings_on_device_only_note, settings.onDeviceOnly, hud) { v -> change { it.copy(onDeviceOnly = v) } }
         SectionLabel(R.string.settings_swipe_distance)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SwipeDistance.entries.forEach { distance ->
-                val on = settings.swipeDistance == distance
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(if (on) hud.accent else JuiceColors.white(0.14f))
-                        .selectable(selected = on, role = Role.RadioButton) {
-                            change { it.copy(swipeDistance = distance) }
-                            onSwipeDistance()
-                            actions.feedback(FeedbackEvent.CAPTURE)
-                        }
-                        .testTag(TAG_SWIPE_DISTANCE_PREFIX + distance.name),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        stringResource(distance.label()),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (on) JuiceColors.Ink else Color.White,
-                    )
-                }
-            }
+        ChoiceRow(SwipeDistance.entries, settings.swipeDistance, hud, { stringResource(it.label()) }, { TAG_SWIPE_DISTANCE_PREFIX + it.name }) { distance ->
+            change { it.copy(swipeDistance = distance) }
+            onSwipeDistance()
+            actions.feedback(FeedbackEvent.CAPTURE)
         }
+        SectionLabel(R.string.settings_liquid_quality)
+        ChoiceRow(LiquidQuality.entries, settings.liquidQuality, hud, { stringResource(it.label()) }, { TAG_LIQUID_QUALITY_PREFIX + it.name }) { quality ->
+            change { it.copy(liquidQuality = quality) }
+            actions.feedback(FeedbackEvent.CAPTURE)
+        }
+        Text(
+            stringResource(R.string.settings_liquid_quality_note),
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            color = JuiceColors.white(0.7f),
+            modifier = Modifier.padding(top = 8.dp),
+        )
         SectionLabel(R.string.settings_flavour)
         Flavour.entries.chunked(2).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -144,6 +136,46 @@ private fun SectionLabel(text: Int) {
         color = JuiceColors.white(0.7f),
         modifier = Modifier.padding(top = 20.dp, bottom = 10.dp),
     )
+}
+
+/** A row of pill buttons, one per option, with [selected] filled in the flavour's accent. */
+@Composable
+private fun <T> ChoiceRow(
+    options: List<T>,
+    selected: T,
+    hud: Hud,
+    label: @Composable (T) -> String,
+    tag: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            val on = selected == option
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(if (on) hud.accent else JuiceColors.white(0.14f))
+                    .selectable(selected = on, role = Role.RadioButton) { onSelect(option) }
+                    .testTag(tag(option)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label(option),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (on) JuiceColors.Ink else Color.White,
+                )
+            }
+        }
+    }
+}
+
+internal fun LiquidQuality.label(): Int = when (this) {
+    LiquidQuality.FAST -> R.string.settings_liquid_fast
+    LiquidQuality.BALANCED -> R.string.settings_liquid_balanced
+    LiquidQuality.BEST -> R.string.settings_liquid_best
 }
 
 internal fun SwipeDistance.label(): Int = when (this) {

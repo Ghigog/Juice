@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.liquid.LiquidEngine
+import com.juice.core.liquid.LiquidQuality
 import com.juice.core.liquid.ScreenGravity
 import kotlin.random.Random
 import kotlin.test.Test
@@ -23,7 +24,7 @@ class JuiceLiquidViewTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     private fun view(fill: Float = 0.5f, configure: JuiceLiquidView.() -> Unit = {}) =
-        JuiceLiquidView(context, Random(1)).apply {
+        JuiceLiquidView(context, Random(1), LiquidRunner.immediate).apply {
             this.fill = fill
             configure()
             measure(View.MeasureSpec.makeMeasureSpec(340, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(440, View.MeasureSpec.EXACTLY))
@@ -31,10 +32,10 @@ class JuiceLiquidViewTest {
         }
 
     private val JuiceLiquidView.dp get() = resources.displayMetrics.density
-    private fun JuiceLiquidView.expected(fill: Float) = LiquidEngine.particlesFor(fill, width / dp, height / dp)
+    private fun JuiceLiquidView.expected(fill: Float) = LiquidEngine.particlesFor(fill, width / dp, height / dp, quality.h)
 
     @Test fun thereIsNoJuiceUntilTheViewHasASize() {
-        assertNull(JuiceLiquidView(context, Random(1)).apply { fill = 1f }.engine)
+        assertNull(JuiceLiquidView(context, Random(1), LiquidRunner.immediate).apply { fill = 1f }.engine)
     }
 
     @Test fun theFirstPourHoldsTheMeterAlreadyResting() {
@@ -115,7 +116,7 @@ class JuiceLiquidViewTest {
 
     @Test fun aFullMeterStartsWithTheCardFull() {
         val e = view(1f).engine!!
-        assertEquals(LiquidEngine.particlesFor(1f, e.sim.width, e.sim.height), e.sim.count)
+        assertEquals(LiquidEngine.particlesFor(1f, e.sim.width, e.sim.height, e.sim.p.h), e.sim.count)
         assertEquals(0, e.pending)
     }
 
@@ -137,5 +138,24 @@ class JuiceLiquidViewTest {
         assertTrue(v.animating)
         v.onVisibilityAggregated(false)
         assertFalse(v.animating)
+    }
+
+    @Test fun qualityStartsBalancedAndSwitchesParticleSize() {
+        val v = view(0.6f)
+        val e = v.engine!!
+        assertEquals(LiquidQuality.BALANCED.h, e.sim.p.h)
+        val balanced = e.sim.count
+        v.quality = LiquidQuality.FAST
+        assertEquals(LiquidQuality.FAST.h, e.sim.p.h)
+        assertEquals(v.expected(0.6f), e.sim.count)
+        assertTrue(e.sim.count < balanced)
+        v.quality = LiquidQuality.BEST
+        assertTrue(e.sim.count > balanced)
+    }
+
+    @Test fun aQualityChosenBeforeLayoutIsUsedForTheFirstPour() {
+        val v = view(0.5f) { quality = LiquidQuality.FAST }
+        assertEquals(LiquidQuality.FAST.h, v.engine!!.sim.p.h)
+        assertEquals(v.expected(0.5f), v.engine!!.sim.count)
     }
 }

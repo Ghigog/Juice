@@ -159,6 +159,7 @@ const val TAG_SETTINGS = "settings_button"
 const val TAG_SETTINGS_DONE = "settings_done"
 const val TAG_FLAVOUR_PREFIX = "flavour_"
 const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
+const val TAG_LIQUID_QUALITY_PREFIX = "liquid_quality_"
 const val TAG_BANNER = "banner"
 const val MAX_CARD_SCALE = 1.15f
 
