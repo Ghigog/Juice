@@ -23,7 +23,6 @@ import android.view.Surface
 import android.view.View
 import androidx.annotation.ColorInt
 import com.juice.core.liquid.Froth
-import com.juice.core.liquid.JuiceBody
 import com.juice.core.liquid.LiquidEngine
 import com.juice.core.liquid.LiquidSim
 import com.juice.core.liquid.ScreenGravity
@@ -103,8 +102,6 @@ class JuiceLiquidView(context: Context, private val random: Random = Random.Defa
     private var cellBmp = foamCellBitmap()
     private val rect = RectF()
     private val clip = Path()
-    private val bodyPath = Path()
-    private val bodyPaint = Paint().apply { blendMode = BlendMode.PLUS; color = Color.RED }
 
     // three foam cells per particle, with fixed offsets and sizes
     private val cellOx = FloatArray(LiquidSim.CAPACITY * 3)
@@ -271,7 +268,7 @@ class JuiceLiquidView(context: Context, private val random: Random = Random.Defa
         rc.scale(d, d)
         for (i in 0 until sim.count) {
             val f = sim.foam[i]
-            val rad = KERNEL_DP * (1f + 0.35f * f)
+            val rad = KERNEL_DP * sim.p.h / LAB_H * (1f + 0.35f * f)
             rect.set(sim.x[i] - rad, sim.y[i] - rad, sim.x[i] + rad, sim.y[i] + rad)
             val juice = 1f - f
             if (juice > 0.004f) {
@@ -281,8 +278,6 @@ class JuiceLiquidView(context: Context, private val random: Random = Random.Defa
             }
             if (f > 0.004f) { stamp.alpha = (0.5f * f * 255f).roundToInt(); rc.drawBitmap(kernelB, null, rect, stamp) }
         }
-        // the solid body under the particles, full strength juice
-        if (bodyPath(e)) rc.drawPath(bodyPath, bodyPaint)
         fieldNode.endRecording()
 
         // 2. threshold and shade with AGSL
@@ -345,26 +340,9 @@ class JuiceLiquidView(context: Context, private val random: Random = Random.Defa
         }
     }
 
-    /** Fills [bodyPath] (in dp) with the engine's solid body; false when there is none. */
-    private fun bodyPath(e: LiquidEngine): Boolean {
-        if (e.body <= 0f) return false
-        val poly = JuiceBody.polygon(e.bodyNx, e.bodyNy, e.sim.floorLevel, e.sim.width, e.sim.height)
-        if (poly.isEmpty()) return false
-        bodyPath.rewind()
-        bodyPath.moveTo(poly[0], poly[1])
-        for (i in 1 until poly.size / 2) bodyPath.lineTo(poly[2 * i], poly[2 * i + 1])
-        bodyPath.close()
-        return true
-    }
-
     private fun drawFallback(canvas: Canvas, e: LiquidEngine) {
         val sim = e.sim
         speck.color = withAlpha(accent, 0.9f)
-        if (bodyPath(e)) {
-            canvas.save(); canvas.clipPath(clip); canvas.scale(density, density)
-            canvas.drawPath(bodyPath, speck)
-            canvas.restore()
-        }
         for (i in 0 until sim.count) canvas.drawCircle(sim.x[i] * density, sim.y[i] * density, FALLBACK_DOT_DP * density, speck)
     }
 
@@ -431,7 +409,9 @@ class JuiceLiquidView(context: Context, private val random: Random = Random.Defa
     private companion object {
         const val TAG = "JuiceLiquidView"
         const val STEP_MS = 1000f / 60f
+        /** Blob radius at the lab's interaction radius [LAB_H]; it scales with the sim's. */
         const val KERNEL_DP = 15f
+        const val LAB_H = 26f
         const val FALLBACK_DOT_DP = 6f
         const val SATIATED_FILL = 0.75f
         /** Chance per frame of a bubble rising on its own while Satiated. */

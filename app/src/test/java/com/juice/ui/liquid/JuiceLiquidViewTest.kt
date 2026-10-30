@@ -55,7 +55,7 @@ class JuiceLiquidViewTest {
         assertEquals(v.expected(0.05f), e.sim.count)
         v.fill = 7f
         assertEquals(1f, v.fill)
-        assertEquals(LiquidEngine.bodyFor(1f), e.bodyTarget)
+        assertEquals(v.expected(1f), e.target)
     }
 
     @Test fun satiatedJuiceSparkles() {
@@ -115,17 +115,8 @@ class JuiceLiquidViewTest {
 
     @Test fun aFullMeterStartsWithTheCardFull() {
         val e = view(1f).engine!!
-        assertEquals(LiquidEngine.bodyFor(1f), e.body)
         assertEquals(LiquidEngine.particlesFor(1f, e.sim.width, e.sim.height), e.sim.count)
-    }
-
-    @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    @Test fun aSoftwareCanvasDrawsTheBodyAsASolidFill() {
-        val v = view(1f)
-        v.setFlavour(Color.RED, Color.BLACK)
-        val bmp = Bitmap.createBitmap(340, 440, Bitmap.Config.ARGB_8888)
-        v.draw(Canvas(bmp))
-        assertEquals(Color.RED, bmp.getPixel(170, 420) or 0xFF000000.toInt())
+        assertEquals(0, e.pending)
     }
 
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
