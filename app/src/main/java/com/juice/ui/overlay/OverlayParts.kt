@@ -89,6 +89,10 @@ class OverlayActions(
     val onTick: () -> Unit = {},
     /** Items for the Recap: active ones and those completed at or after the given instant. */
     val recapItems: suspend (since: Instant) -> List<Item> = { emptyList() },
+    /** How hard the phone is being shaken right now, 0 to 3; read every frame while the meter is full. */
+    val shake: () -> Float = { 0f },
+    /** The full meter's juice was shaken until it burst; heaves the reservoir. */
+    val onErupt: () -> Unit = {},
 )
 
 /** A rising "+250 x2.4" over the card. */

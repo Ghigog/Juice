@@ -24,6 +24,8 @@ class Froth(private val sim: LiquidSim, private val random: Random = Random.Defa
 
     /** 0 to 3. Rises with sudden changes in tilt (shakes) and fast finger swipes, decays on its own. */
     var agitation = 0f; private set
+    /** 0 to 3. Like [agitation], but only from shaking the phone, not from fingers, kicks or splashes. */
+    var shake = 0f; private set
     /** Particles that are currently at least a little foamy. */
     var foamLive = 0; private set
 
@@ -40,7 +42,7 @@ class Froth(private val sim: LiquidSim, private val random: Random = Random.Defa
 
     /** Clears every bubble, pop and bit of foam. */
     fun reset() {
-        bubbles.clear(); pops.clear(); agitation = 0f; foamLive = 0
+        bubbles.clear(); pops.clear(); agitation = 0f; shake = 0f; foamLive = 0
         sim.foam.fill(0f)
     }
 
@@ -51,8 +53,9 @@ class Froth(private val sim: LiquidSim, private val random: Random = Random.Defa
     fun sense(gx: Float, gy: Float) {
         val hx = gx - lpx; val hy = gy - lpy
         lpx += hx * 0.08f; lpy += hy * 0.08f
-        val jerk = hypot(hx, hy)
-        agitation = min(3f, agitation * 0.965f + max(0f, jerk - 0.35f) * 0.5f)
+        val kick = max(0f, hypot(hx, hy) - 0.35f) * 0.5f
+        agitation = min(3f, agitation * 0.965f + kick)
+        shake = min(3f, shake * 0.965f + kick)
     }
 
     fun fingerSpeed(sp: Float) { agitation = min(3f, agitation + max(0f, sp - 14f) * 0.006f) }

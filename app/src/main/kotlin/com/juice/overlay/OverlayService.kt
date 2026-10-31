@@ -456,6 +456,8 @@ class OverlayService : Service() {
             },
             onTick = session::tick,
             recapItems = repository::recapItems,
+            shake = { reservoir.shake },
+            onErupt = reservoir::erupt,
         )
         // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
         run {
