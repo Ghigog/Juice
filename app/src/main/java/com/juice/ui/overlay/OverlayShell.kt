@@ -666,6 +666,7 @@ internal fun CardRow(
                     onEditingChange = { editing = it },
                 )
                 Floats(effects, hud, Modifier.fillMaxSize())
+                ShakeReward(hud, settings.reduceMotion, actions, Modifier.fillMaxSize())
             }
         }
     }
@@ -690,7 +691,7 @@ private fun overlayTint(blurred: Boolean): Brush {
  * [withFrameNanos] that tests can pause: Compose's own `withInfiniteAnimationFrameNanos` is internal, so go through the
  * public [InfiniteAnimationPolicy] it uses, which keeps this endless loop from blocking test idling.
  */
-private suspend fun <R> withInfiniteFrameNanos(onFrame: (Long) -> R): R {
+internal suspend fun <R> withInfiniteFrameNanos(onFrame: (Long) -> R): R {
     val policy = coroutineContext[InfiniteAnimationPolicy] ?: return withFrameNanos(onFrame)
     return policy.onInfiniteOperation { withFrameNanos(onFrame) }
 }

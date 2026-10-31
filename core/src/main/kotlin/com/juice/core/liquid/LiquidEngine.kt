@@ -114,6 +114,15 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         froth.agitate(amount); wake()
     }
 
+    /** Heaves the juice up against gravity and froths it hard: the geyser's burst. Nothing under reduce motion. */
+    fun erupt(strength: Float) {
+        if (!motion) return
+        val (nx, ny) = down()
+        sim.impulse(-nx * strength, -ny * strength)
+        if (frothEnabled) froth.agitate(3f)
+        wake()
+    }
+
     fun wake() { sleeping = false; calmFrames = 0; idleFrames = 0 }
 
     /** Advances one 60 Hz frame. Returns false while asleep (nothing to draw). */

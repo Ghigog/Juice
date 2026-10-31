@@ -105,6 +105,35 @@ class LiquidEngineTest {
         assertTrue(e.froth.bubbles.isNotEmpty() || e.froth.pops.isNotEmpty())
     }
 
+    @Test fun onlyShakingThePhoneCountsAsAShake() {
+        val e = engine()
+        e.kick(8f); e.splash(2f)
+        e.run(5)
+        assertTrue(e.froth.agitation > 0.5f)
+        assertEquals(0f, e.froth.shake)
+        e.shake(60)
+        assertTrue(e.froth.shake > 1f)
+    }
+
+    @Test fun anEruptionHeavesTheJuiceUpAndFrothsIt() {
+        val e = engine()
+        e.run(600)
+        val before = e.meanY()
+        e.erupt(6f)
+        e.run(4)
+        assertTrue(e.meanY() < before)
+        assertTrue(e.froth.agitation > 2f)
+        assertTrue(e.allInsideTheGlass())
+    }
+
+    @Test fun reduceMotionStopsAnEruption() {
+        val e = engine()
+        e.run(600)
+        e.motion = false
+        e.erupt(6f)
+        assertEquals(0f, e.froth.agitation)
+    }
+
     @Test fun stillDrinksFoamButGrowNoBubbles() {
         val e = engine().apply { froth.carbonated = false }
         var bubbles = 0

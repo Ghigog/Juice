@@ -178,6 +178,13 @@ class JuiceLiquidView internal constructor(
     /** A burst of froth: [count] is how big, about 40 for reaching Satiated and 10 for a completion. */
     fun emitParticles(count: Int = 40) = onEngine { it.splash(count * SPLASH_PER_PARTICLE); startLoop() }
 
+    /** How hard the phone is being shaken, 0 to 3, as of the last step; 0 while the juice rests. Any thread may read it. */
+    @Volatile var shake = 0f
+        private set
+
+    /** The geyser's burst: heaves the juice up and froths it. */
+    fun erupt() = onEngine { it.erupt(ERUPT_STRENGTH); startLoop() }
+
     /** A finger on the card at ([x], [y]), both 0..1 across the view. */
     fun touchDown(x: Float, y: Float) {
         val tx = x * width / density; val ty = y * height / density
@@ -260,6 +267,7 @@ class JuiceLiquidView internal constructor(
             if (steps > 0) stats.stepped(steps, System.nanoTime() - t0, e.sim.count)
             if (steps == 3) accumulatorMs = 0f
             if (changed) publish(e)
+            shake = if (e.sleeping) 0f else e.froth.shake
             if (e.sleeping) { running = false; lastNanos = 0L; accumulatorMs = 0f }
             else runner.postFrame(this)
         }
@@ -278,7 +286,7 @@ class JuiceLiquidView internal constructor(
     }
 
     /** On the engine's thread. */
-    private fun stopLoop() { runner.removeFrame(frame); running = false }
+    private fun stopLoop() { runner.removeFrame(frame); running = false; shake = 0f }
 
     // ---------- visibility: sensors and loop only run while shown ----------
     /** Only touched on the engine's thread. */
@@ -500,6 +508,8 @@ class JuiceLiquidView internal constructor(
         /** Chance per frame of a bubble rising on its own while Satiated. */
         const val SATIATED_SPARKLE = 0.25f
         const val SPLASH_PER_PARTICLE = 0.04f
+        /** dp per frame the geyser's burst throws the juice up. */
+        const val ERUPT_STRENGTH = 7f
         const val WATER_XSPH = 0.05f
         const val WATER_DAMP = 0.006f
         const val HONEY_XSPH = 0.22f

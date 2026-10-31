@@ -9,15 +9,15 @@
 #      newest run (green tick). To build the current code on demand, click
 #      "Run workflow" (top right of the run list) first and wait ~5 minutes.
 #   3. Scroll to the bottom of the run page to the "Artifacts" section and
-#      click "juice-debug-apk". That downloads juice-debug-apk.zip.
-#   4. Unzip it. Inside is app-debug.apk.
+#      click "juice-alpha". That downloads juice-alpha.zip.
+#   4. Unzip it. Inside is juice-alpha.apk.
 #
 # HOW TO INSTALL ON A PIXEL:
-#   1. Get app-debug.apk onto the phone (download the zip on the phone and
+#   1. Get juice-alpha.apk onto the phone (download the zip on the phone and
 #      unzip it with Files, or copy the unzipped APK over USB / Drive).
 #   2. Tap the APK. When Android asks, allow your browser/Files app to
 #      "Install unknown apps", then tap Install.
-#   (Or, with USB debugging on:  adb install -r app-debug.apk)
+#   (Or, with USB debugging on:  adb install -r juice-alpha.apk)
 #   Testing is scoped to Pixel devices only.
 name: Build APK for testing
 
@@ -48,9 +48,12 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: ./gradlew :app:assembleDebug
 
+      - name: Name the APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk juice-alpha.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: juice-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: juice-alpha
+          path: juice-alpha.apk
           if-no-files-found: error
