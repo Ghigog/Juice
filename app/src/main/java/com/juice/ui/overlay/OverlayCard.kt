@@ -152,6 +152,8 @@ internal fun CentreCard(
     }
     var chipBounds by remember(chips) { mutableStateOf<List<Rect>>(emptyList()) }
     val stepBounds = remember { mutableStateMapOf<String, Rect>() }
+    // The gesture below outlives recompositions, so it reads the card's latest steps through this.
+    val liveItem by rememberUpdatedState(item)
     val shake = remember { Animatable(0f) }
     val flyX = remember(item?.id) { Animatable(0f) }
     val flyY = remember(item?.id) { Animatable(0f) }
@@ -232,7 +234,7 @@ internal fun CentreCard(
         val centre = if (points.isEmpty()) Offset.Zero else Offset(
             (points.minOf { it.x } + points.maxOf { it.x }) / 2, (points.minOf { it.y } + points.maxOf { it.y }) / 2,
         )
-        val step = item?.steps?.firstOrNull { stepBounds[it.id]?.contains(centre) == true }
+        val step = liveItem?.steps?.firstOrNull { stepBounds[it.id]?.contains(centre) == true }
         scope.launch {
             delay(380)
             strokes.clear()
@@ -294,7 +296,7 @@ internal fun CentreCard(
             }
             // A quick tap on a step ticks it, like a check drawn over it.
             if (outcome == true && !stillLifted && strokes.isEmpty()) {
-                val tapped = item?.steps?.firstOrNull { stepBounds[it.id]?.contains(down.position) == true }
+                val tapped = liveItem?.steps?.firstOrNull { stepBounds[it.id]?.contains(down.position) == true }
                 if (tapped != null) {
                     current.clear()
                     actOnStep(item, tapped, complete = true)
