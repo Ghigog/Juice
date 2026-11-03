@@ -409,7 +409,9 @@ class OverlayShellState(
     }
 
     /** Ticks a step of [project]; ticking the last open one completes the Project. */
-    fun completeStep(project: Item, stepId: String) {
+    fun completeStep(stale: Item, stepId: String) {
+        // The card's gesture handler can hold an older copy; tick against the live one so earlier ticks stay.
+        val project = live(stale)
         val card = project.toCard().completeStep(stepId)
         if (!card.completed) return updateSteps(project, card.steps)
         // Undo takes the Project back with its last step still open.
@@ -418,7 +420,12 @@ class OverlayShellState(
     }
 
     /** Crosses off a step of [project]: it is removed from the card. */
-    fun removeStep(project: Item, stepId: String) = updateSteps(project, project.toCard().removeStep(stepId).steps)
+    fun removeStep(stale: Item, stepId: String) {
+        val project = live(stale)
+        updateSteps(project, project.toCard().removeStep(stepId).steps)
+    }
+
+    private fun live(item: Item): Item = items.firstOrNull { it.id == item.id } ?: item
 
     private fun updateSteps(project: Item, steps: List<Step>) {
         val changed = project.copy(steps = steps)

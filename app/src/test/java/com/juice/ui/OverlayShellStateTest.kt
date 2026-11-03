@@ -201,6 +201,20 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun tickingWithAStaleCopyKeepsEarlierTicks() = runBlocking {
+        val list = project.copy(steps = listOf(Step("sa", "a"), Step("sb", "b"), Step("sc", "c")))
+        repository.save(list)
+        val state = state(list)
+        // The card's gesture handler still holds the copy from before any tick.
+        state.completeStep(list, "sa")
+        state.completeStep(list, "sb")
+        assertEquals(listOf(true, true, false), state.items.single().steps.map { it.done })
+        assertEquals(listOf(true, true, false), repository.get("p")?.steps?.map { it.done })
+        state.removeStep(list, "sc")
+        assertEquals(listOf("sa", "sb"), state.items.single().steps.map { it.id })
+    }
+
+    @Test
     fun crossingAStepRemovesItFromTheProject() = runBlocking {
         repository.save(project)
         val state = state(project)
