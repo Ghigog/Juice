@@ -12,3 +12,14 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(kotlin("test"))
 }
+
+kover {
+    reports {
+        verify {
+            rule {
+                // :core line coverage alone, so :app cannot mask a drop; measured 98.0% when set.
+                minBound(85)
+            }
+        }
+    }
+}

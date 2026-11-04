@@ -121,3 +121,14 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
+
+kover {
+    reports {
+        verify {
+            rule {
+                // :app line coverage alone, so :core cannot mask a drop; measured 75.3% when set.
+                minBound(60)
+            }
+        }
+    }
+}
