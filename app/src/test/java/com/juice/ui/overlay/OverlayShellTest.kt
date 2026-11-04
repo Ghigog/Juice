@@ -860,6 +860,8 @@ class OverlayShellTest {
         assertTrue(overlayGroundAlpha(blurred = true) < overlayGroundAlpha(blurred = false))
     }
 
+    private val LANDING_MAX_STEPS = 50
+
     private fun landsNotDueToday(reduceMotion: Boolean) {
         val note = Item("n", ItemType.Note, "water plants every week")
         runBlocking { repository.save(note) }
@@ -868,7 +870,16 @@ class OverlayShellTest {
         val notToday = DayOfWeek.values().first { it != TODAY.dayOfWeek }
         state.land("n", com.juice.core.intake.ParsedItem(ItemType.Routine, "water plants", cadence = Cadence(setOf(notToday))))
         // The repository's emission reaches the state on the main looper, then the shell reacts to it.
-        repeat(3) { idle() }
+        // The main clock is paused here, so waitUntil would never move it: advance it in steps until the landing has reached the shell.
+        // Landed once the card has left the carousel and the shell has reacted: the ghost is up, or with reduce motion it is already cleared.
+        val reached = {
+            state.items.none { it.id == "n" } &&
+                if (reduceMotion) state.draining == null
+                else compose.onAllNodesWithTag(TAG_DRAIN_GHOST).fetchSemanticsNodes().isNotEmpty()
+        }
+        var steps = 0
+        while (!reached() && steps++ < LANDING_MAX_STEPS) idle()
+        assertTrue("the landing never reached the shell", reached())
     }
 
     @Test
