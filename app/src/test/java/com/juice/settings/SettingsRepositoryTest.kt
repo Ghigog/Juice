@@ -2,6 +2,7 @@ package com.juice.settings
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.juice.core.card.CardOrder
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -29,6 +30,15 @@ class SettingsRepositoryTest {
         assertEquals(false, current.sound)
         assertEquals(SwipeDistance.Long, current.swipeDistance)
         assertEquals(0.25f, current.handleX)
+    }
+
+    @Test
+    fun cardOrderDefaultsToNewestAndRoundTrips() = runBlocking {
+        assertEquals(CardOrder.Newest, repository.current().cardOrder)
+
+        repository.update { it.copy(cardOrder = CardOrder.Oldest) }
+
+        assertEquals(CardOrder.Oldest, repository.current().cardOrder)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.juice.settings
 
+import com.juice.core.card.CardOrder
 import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackSettings
@@ -23,6 +24,8 @@ data class JuiceSettings(
     val flavour: Flavour? = null,
     /** How much work the juice does: Fast for slower phones, Best for the finest detail. */
     val liquidQuality: LiquidQuality = LiquidQuality.BALANCED,
+    /** How the carousel orders cards: newest created first unless the user picks otherwise. */
+    val cardOrder: CardOrder = CardOrder.Newest,
 ) {
     /** Slosh and particles are the overlay's motion effects; reduce motion turns both off. */
     val sloshEnabled: Boolean get() = !reduceMotion

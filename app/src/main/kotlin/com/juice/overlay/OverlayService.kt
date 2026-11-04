@@ -64,6 +64,7 @@ import com.juice.notify.ReminderScheduler
 import com.juice.data.JuiceDatabase
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
+import com.juice.core.card.CardOrder
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
@@ -475,6 +476,8 @@ class OverlayService : Service() {
                 },
                 onCompletionUndone = { session.undo() },
                 onCaptured = intake::submit,
+                cardOrder = settings.cardOrder,
+                onCustomOrder = { scope.launch { settingsRepository.update { it.copy(cardOrder = CardOrder.Custom) } } },
                 characters = characters,
                 registry = characters.registry(),
                 pendingCards = pendingCards,
@@ -498,6 +501,7 @@ class OverlayService : Service() {
             composeView.setContent {
                 val current by settingsRepository.settings.collectAsState(settings)
                 LaunchedEffect(current.flavour) { session.applyFlavour() }
+                LaunchedEffect(current.cardOrder) { state.setCardOrder(current.cardOrder) }
                 SideEffect {
                     reservoir.sloshEnabled = current.sloshEnabled
                     reservoir.particlesEnabled = current.particlesEnabled

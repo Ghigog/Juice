@@ -3,6 +3,7 @@ package com.juice.ui
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.juice.core.card.CardOrder
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.model.Item
@@ -42,6 +43,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
@@ -393,6 +395,66 @@ class OverlayShellStateTest {
         assertEquals(false, s.drop())
         assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
         assertNull(s.held)
+    }
+
+    private fun dated(id: String, day: Int) =
+        Item(id, ItemType.Task, id, createdAt = Instant.parse("2026-01-0${day}T00:00:00Z"))
+
+    private val jan = listOf(dated("a", 1), dated("b", 2), dated("c", 3))
+
+    private fun ordered(order: CardOrder, items: List<Item> = jan, onCustom: () -> Unit = {}) = OverlayShellState(
+        repository, CoroutineScope(Dispatchers.Unconfined), items, newId = { "new" }, today = sunday,
+        clock = { Instant.parse("2026-01-04T00:00:00Z") }, cardOrder = order, onCustomOrder = onCustom,
+    )
+
+    @Test
+    fun newestOrderShowsTheLatestCreatedCardFirst() {
+        assertEquals(listOf("c", "b", "a"), ordered(CardOrder.Newest).items.map { it.id })
+    }
+
+    @Test
+    fun observingSortsByCreationAndLandsACaptureOnTop() = runBlocking {
+        jan.forEach { repository.save(it) }
+        val s = ordered(CardOrder.Newest, emptyList())
+        s.observe()
+        assertEquals(listOf("c", "b", "a"), s.items.map { it.id })
+        repository.save(dated("d", 4))
+        assertEquals(listOf("d", "c", "b", "a"), s.items.map { it.id })
+    }
+
+    @Test
+    fun oldestOrderPutsACaptureLast() {
+        val s = ordered(CardOrder.Oldest)
+        assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
+        s.capture("fresh")
+        assertEquals("new", s.items.last().id)
+    }
+
+    @Test
+    fun newestOrderPutsACaptureFirst() {
+        val s = ordered(CardOrder.Newest)
+        s.capture("fresh")
+        assertEquals("new", s.items.first().id)
+    }
+
+    @Test
+    fun settingTheOrderSortsTheCardsAtOnce() {
+        val s = ordered(CardOrder.Newest)
+        s.setCardOrder(CardOrder.Oldest)
+        assertEquals(listOf("a", "b", "c"), s.items.map { it.id })
+    }
+
+    @Test
+    fun droppingUnderADatedOrderSwitchesToCustomAndKeepsTheDrop() = runBlocking {
+        jan.forEach { repository.save(it) }
+        var custom = 0
+        val s = ordered(CardOrder.Newest, onCustom = { custom++ })
+        s.pickUp(s.items[0])
+        s.moveTarget(2)
+        assertEquals(true, s.drop())
+        assertEquals(listOf("b", "a", "c"), s.items.map { it.id })
+        assertEquals(CardOrder.Custom, s.cardOrder)
+        assertEquals(1, custom)
     }
 
     @Test
