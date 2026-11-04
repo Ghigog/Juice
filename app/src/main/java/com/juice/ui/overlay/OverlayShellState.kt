@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.juice.core.card.Card
+import com.juice.core.card.CardOrder
+import com.juice.core.card.sortedFor
 import com.juice.core.card.completeStep
 import com.juice.core.card.open
 import com.juice.core.card.removeStep
@@ -83,9 +85,22 @@ class OverlayShellState(
     private val listsRoutines: Boolean = false,
     /** The time a title is read against: "tomorrow" in an edited title, "next week" in a landed one. */
     private val clock: () -> Instant = Instant::now,
+    /** How the carousel is ordered; Custom keeps the dragged `position` order. */
+    cardOrder: CardOrder = CardOrder.Custom,
+    /** Called when a drag switches the order to Custom, so the setting can be saved. */
+    private val onCustomOrder: () -> Unit = {},
 ) {
-    var items by mutableStateOf(initial)
+    private var currentOrder by mutableStateOf(cardOrder)
+    val cardOrder: CardOrder get() = currentOrder
+    var items by mutableStateOf(initial.sortedFor(cardOrder))
         private set
+
+    /** Switches the order and re-sorts the cards on screen at once. */
+    fun setCardOrder(order: CardOrder) {
+        if (order == cardOrder) return
+        currentOrder = order
+        items = items.sortedFor(order)
+    }
     var undo by mutableStateOf<Undo?>(null)
         private set
 
@@ -173,7 +188,7 @@ class OverlayShellState(
         val title = text.trim()
         if (title.isEmpty()) return null
         val note = Item(newId(), ItemType.Note, title)
-        items = listOf(note) + items
+        items = if (cardOrder == CardOrder.Oldest) items + note else listOf(note) + items
         scope.launch {
             repository.save(note)
             if (onCaptured(note)) {
@@ -189,7 +204,7 @@ class OverlayShellState(
     val routines: OverlayShellState by lazy {
         OverlayShellState(
             repository, scope, onCompleted = onCompleted, onCompletionUndone = onCompletionUndone,
-            today = today, io = io, listsRoutines = true,
+            today = today, io = io, listsRoutines = true, cardOrder = cardOrder,
         )
     }
 
@@ -219,7 +234,7 @@ class OverlayShellState(
                 }
                 val known = items.mapNotNull { byId[it.id] }
                 val added = byId.values.filter { s -> items.none { it.id == s.id } }
-                items = known + added
+                items = (known + added).sortedFor(cardOrder)
             }
         }
     }
@@ -250,6 +265,10 @@ class OverlayShellState(
         val reordered = rest.take(target) + card + rest.drop(target)
         if (reordered == items) return false
         items = reordered
+        if (cardOrder != CardOrder.Custom) {
+            currentOrder = CardOrder.Custom
+            onCustomOrder()
+        }
         scope.launch { repository.reorder(reordered.map { it.id }) }
         return true
     }

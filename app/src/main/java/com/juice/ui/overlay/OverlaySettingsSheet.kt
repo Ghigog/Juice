@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.core.card.CardOrder
 import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
@@ -44,6 +45,8 @@ import com.juice.settings.CharactersSection
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SwipeDistance
 import com.juice.ui.theme.FlavourTheme
+
+const val TAG_CARD_ORDER_PREFIX = "card_order_"
 
 /** Comfort switches and the flavour picker, inside the overlay. */
 @Composable
@@ -90,6 +93,18 @@ internal fun SettingsSheet(
             onSwipeDistance()
             actions.feedback(FeedbackEvent.CAPTURE)
         }
+        SectionLabel(R.string.settings_card_order)
+        ChoiceRow(CardOrder.entries, settings.cardOrder, hud, { stringResource(it.label()) }, { TAG_CARD_ORDER_PREFIX + it.name }) { order ->
+            change { it.copy(cardOrder = order) }
+            actions.feedback(FeedbackEvent.CAPTURE)
+        }
+        Text(
+            stringResource(R.string.settings_card_order_note),
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            color = JuiceColors.white(0.7f),
+            modifier = Modifier.padding(top = 8.dp),
+        )
         SectionLabel(R.string.settings_liquid_quality)
         ChoiceRow(LiquidQuality.entries, settings.liquidQuality, hud, { stringResource(it.label()) }, { TAG_LIQUID_QUALITY_PREFIX + it.name }) { quality ->
             change { it.copy(liquidQuality = quality) }
@@ -176,6 +191,12 @@ internal fun LiquidQuality.label(): Int = when (this) {
     LiquidQuality.FAST -> R.string.settings_liquid_fast
     LiquidQuality.BALANCED -> R.string.settings_liquid_balanced
     LiquidQuality.BEST -> R.string.settings_liquid_best
+}
+
+internal fun CardOrder.label(): Int = when (this) {
+    CardOrder.Newest -> R.string.settings_card_order_newest
+    CardOrder.Oldest -> R.string.settings_card_order_oldest
+    CardOrder.Custom -> R.string.settings_card_order_custom
 }
 
 internal fun SwipeDistance.label(): Int = when (this) {
