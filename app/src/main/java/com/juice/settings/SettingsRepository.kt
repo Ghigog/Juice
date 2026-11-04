@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.juice.core.card.CardOrder
 import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 
@@ -36,6 +37,7 @@ class SettingsRepository(context: Context) {
             flavour = p[FLAVOUR]?.let { runCatching { Flavour.valueOf(it) }.getOrNull() },
             liquidQuality = p[LIQUID_QUALITY]?.let { runCatching { LiquidQuality.valueOf(it) }.getOrNull() }
                 ?: d.liquidQuality,
+            cardOrder = p[CARD_ORDER]?.let { runCatching { CardOrder.valueOf(it) }.getOrNull() } ?: d.cardOrder,
         )
     }
 
@@ -56,6 +58,7 @@ class SettingsRepository(context: Context) {
             p[HANDLE_Y] = next.handleY.coerceIn(0f, 1f)
             p[SWIPE_DISTANCE] = next.swipeDistance.name
             p[LIQUID_QUALITY] = next.liquidQuality.name
+            p[CARD_ORDER] = next.cardOrder.name
             if (next.flavour == null) p.remove(FLAVOUR) else p[FLAVOUR] = next.flavour.name
         }
     }
@@ -76,6 +79,7 @@ class SettingsRepository(context: Context) {
         val HANDLE_Y = floatPreferencesKey("handle_y")
         val SWIPE_DISTANCE = stringPreferencesKey("swipe_distance")
         val LIQUID_QUALITY = stringPreferencesKey("liquid_quality")
+        val CARD_ORDER = stringPreferencesKey("card_order")
         val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     }
 }

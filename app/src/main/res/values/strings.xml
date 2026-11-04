@@ -42,6 +42,11 @@
     <string name="settings_swipe_short">Short</string>
     <string name="settings_swipe_medium">Medium</string>
     <string name="settings_swipe_long">Long</string>
+    <string name="settings_card_order">Card order</string>
+    <string name="settings_card_order_newest">Newest first</string>
+    <string name="settings_card_order_oldest">Oldest first</string>
+    <string name="settings_card_order_custom">As arranged</string>
+    <string name="settings_card_order_note">Newest and Oldest go by the day a card was created. Dragging a card switches to As arranged.</string>
     <string name="settings_liquid_quality">Liquid quality</string>
     <string name="settings_liquid_fast">Fast</string>
     <string name="settings_liquid_balanced">Balanced</string>
