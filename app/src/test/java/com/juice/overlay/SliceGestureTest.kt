@@ -34,6 +34,9 @@ class SliceGestureTest {
         assertFalse(gesture.move(550f, 500f, radius = 90f))
         assertTrue(gesture.move(595f, 500f, radius = 90f))
         assertFalse(gesture.move(620f, 500f, radius = 90f))
+        gesture.up()
+        gesture.down(500f, 500f)
+        assertTrue(gesture.move(595f, 500f, radius = 90f))
     }
 
     @Test fun aTapDoesNothing() {
