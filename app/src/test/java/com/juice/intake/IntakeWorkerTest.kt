@@ -105,6 +105,22 @@ class IntakeWorkerTest {
     }
 
     @Test
+    fun onDeviceOnlyClassifiesLocallyAndNeverCallsGroq() = runBlocking {
+        val settings = SettingsRepository(context)
+        settings.update { it.copy(onDeviceOnly = true) }
+        try {
+            assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+            val rules = RulesFallback.classify("do laundry", NOW)
+            val landed = items.get("i1")!!
+            assertEquals(rules.type, landed.type)
+            assertEquals(rules.deadline, landed.deadline)
+            assertEquals(0, server.requestCount)
+        } finally {
+            settings.update { it.copy(onDeviceOnly = false) }
+        }
+    }
+
+    @Test
     fun aGroqRateLimitRetries() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(429))
         assertEquals(Result.retry(), worker("text" to "do laundry", "itemId" to "i1").doWork())
