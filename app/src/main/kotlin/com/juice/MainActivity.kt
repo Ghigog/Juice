@@ -39,7 +39,7 @@ import com.juice.overlay.OverlayService
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
-import com.juice.settings.SettingsScreen
+import com.juice.ui.settings.SettingsScreen
 import java.io.File
 import kotlinx.coroutines.launch
 

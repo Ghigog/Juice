@@ -1,7 +1,7 @@
 package com.juice.feedback
 
 import com.juice.core.audio.Cue
-import com.juice.ui.theme.SoundSet
+import com.juice.feedback.SoundSet
 
 /** Moments that produce audio and haptic feedback (design doc §9, plus the overlay's smaller moments). */
 enum class FeedbackEvent { SNAP, CHECKMARK, DISMISS, SATIATED_PEAK, CAPTURE, NOT_RECOGNISED, UNDO, OPEN, LEVEL_UP, RECAP_OPEN, RECAP_REVEAL, CARD_POP }

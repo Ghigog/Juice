@@ -1,4 +1,4 @@
-package com.juice.settings
+package com.juice.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.R
+import com.juice.settings.CharacterSettings
+import com.juice.settings.JuiceSettings
+import com.juice.settings.SwipeDistance
 import com.juice.ui.overlay.label
 
 @Composable

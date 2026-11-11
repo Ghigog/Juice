@@ -9,7 +9,7 @@ import android.os.VibratorManager
 import com.juice.core.audio.Cue
 import com.juice.core.audio.Synth
 import com.juice.core.audio.wav
-import com.juice.ui.theme.SoundSet
+import com.juice.feedback.SoundSet
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
