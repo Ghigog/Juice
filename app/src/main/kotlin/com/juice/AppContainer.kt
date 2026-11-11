@@ -2,6 +2,7 @@ package com.juice
 
 import android.content.Context
 import com.juice.coach.CoachClient
+import com.juice.core.intake.GroqKey
 import com.juice.core.progression.Progression
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
@@ -17,6 +18,7 @@ import com.juice.intake.IntakeDependencies
 import com.juice.llm.GroqClient
 import com.juice.notify.ReminderScheduler
 import com.juice.settings.CharacterSettings
+import com.juice.settings.GroqKeyStore
 import com.juice.settings.SettingsRepository
 import java.io.File
 import java.io.IOException
@@ -46,21 +48,23 @@ class AppContainer(context: Context) : IntakeDependencies {
         )
     }
 
-    /** Null without a built-in Groq key. */
-    override val groq: GroqClient? by lazy { BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let(::GroqClient) }
+    val groqKeyStore: GroqKeyStore by lazy { GroqKeyStore(context) }
 
-    /** Makes a coach client, or null without a built-in Groq key. */
-    val coachClient: () -> CoachClient? = { BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) } }
+    override val key: () -> GroqKey? = { groqKeyStore.load() }
+    override val groqFor: (GroqKey) -> GroqClient = { GroqClient(it.value) }
+
+    /** Makes a coach client from the saved Groq key, or null when there is none. */
+    val coachClient: () -> CoachClient? = { groqKeyStore.load()?.let { CoachClient(it.value) } }
 
     val characters: CharacterRepository by lazy {
         CharacterRepository(
             characterStore, items, conversationStore, memoryStore, createdStore,
             CharacterGenerator(llm = { hobby ->
-                val client = groq
-                if (client == null || runBlocking { settings.current().onDeviceOnly }) {
-                    throw IOException("Needs cloud access: turn off On-device only")
+                val key = groqKeyStore.load()
+                if (key == null || runBlocking { settings.current().onDeviceOnly }) {
+                    throw IOException("Needs cloud access: save a Groq key and turn off On-device only")
                 }
-                client.generatePersona(hobby)
+                groqFor(key).generatePersona(hobby)
             }),
         )
     }

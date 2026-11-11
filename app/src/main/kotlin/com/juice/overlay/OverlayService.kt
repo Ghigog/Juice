@@ -5,8 +5,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -49,6 +47,7 @@ import com.juice.feedback.VibratorOutput
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
 import com.juice.settings.JuiceSettings
+import com.juice.llm.GroqClient
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
 import com.juice.ui.liquid.JuiceLiquidView
@@ -73,6 +72,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.juice.llm.KeyCheck
 
 /** Foreground service owning the slice handle window and the full-screen overlay window. */
 class OverlayService : Service() {
@@ -94,6 +96,8 @@ class OverlayService : Service() {
     private val sounds by lazy { SoundPoolOutput(this) }
     private val container get() = (applicationContext as JuiceApplication).container
     private val settingsRepository get() = container.settings
+    private val groqKeyStore get() = container.groqKeyStore
+    private val groqKeyMasked = MutableStateFlow<String?>(null)
     @Volatile private var settings = JuiceSettings()
     private val characterStore get() = container.characterStore
     private val memoryStore get() = container.memoryStore
@@ -334,10 +338,8 @@ class OverlayService : Service() {
         overlayDialog?.window?.setBackgroundBlurRadius(windowBlurRadius(backdrop.value, blurRadius))
     }
 
-    /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
-    private fun reportOverlayFailure(e: Exception) {
-        getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText("Juice error", Log.getStackTraceString(e)))
+    /** Puts the failure on screen as a toast. Nothing goes to the clipboard, which other apps and the keyboard can read. */
+    internal fun reportOverlayFailure(e: Exception) {
         Toast.makeText(this, getString(R.string.overlay_failed, e.javaClass.simpleName, e.message), Toast.LENGTH_LONG).show()
     }
 
@@ -416,8 +418,8 @@ class OverlayService : Service() {
         val intake = CaptureIntake(
             repository,
             onDeviceOnly = { settingsRepository.current().onDeviceOnly },
-            enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
-            cloudAvailable = { IntakeWorker.cloudAvailable },
+            enqueue = { id -> IntakeWorker.enqueue(this, id) },
+            cloudAvailable = { groqKeyStore.hasKey.value },
         )
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
@@ -437,7 +439,24 @@ class OverlayService : Service() {
             recapItems = repository::recapItems,
             shake = { reservoir.shake },
             onErupt = reservoir::erupt,
+            groqKeyMasked = groqKeyMasked,
+            onSaveGroqKey = { key, onChecked ->
+                scope.launch {
+                    val check = withContext(Dispatchers.IO) {
+                        groqKeyStore.save(key)
+                        runCatching { GroqClient(key.value).checkKey() }.getOrDefault(KeyCheck.Unreachable)
+                    }
+                    groqKeyMasked.value = key.masked
+                    if (!settings.reduceMotion) reservoir.emitParticles(10)
+                    onChecked(check)
+                }
+            },
+            onRemoveGroqKey = {
+                groqKeyStore.remove()
+                groqKeyMasked.value = null
+            },
         )
+        if (groqKeyStore.hasKey.value) scope.launch { groqKeyMasked.value = withContext(Dispatchers.IO) { groqKeyStore.load()?.masked } }
         // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
         run {
             val state = OverlayShellState(
@@ -489,6 +508,7 @@ class OverlayService : Service() {
                 OverlayShell(
                     state,
                     settings = current,
+                    groqKeySaved = groqKeyStore.hasKey.collectAsState().value,
                     hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
                     onRevealProgress = ::rampBlur,

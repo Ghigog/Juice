@@ -16,6 +16,10 @@ import com.juice.R
 import com.juice.core.model.Item
 import com.juice.core.notify.plan
 import com.juice.core.economy.EconomyConfig
+import com.juice.core.intake.GroqKey
+import com.juice.llm.KeyCheck
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import com.juice.core.economy.ItemType as EconomyItemType
 import com.juice.core.intake.ItemType
 import com.juice.core.progression.Flavour
@@ -93,6 +97,12 @@ class OverlayActions(
     val shake: () -> Float = { 0f },
     /** The full meter's juice was shaken until it burst; heaves the reservoir. */
     val onErupt: () -> Unit = {},
+    /** The saved Groq key in its masked form (`gsk_…1234`); null when none is saved. The full key is never exposed. */
+    val groqKeyMasked: StateFlow<String?> = MutableStateFlow(null),
+    /** Saves the pasted key and checks it off the main thread; [onChecked] gets the result on the main thread. */
+    val onSaveGroqKey: (GroqKey, onChecked: (KeyCheck) -> Unit) -> Unit = { _, onChecked -> onChecked(KeyCheck.Works) },
+    /** Forgets the saved key; Groq mode locks again. */
+    val onRemoveGroqKey: () -> Unit = {},
 )
 
 /** A rising "+250 x2.4" over the card. */
