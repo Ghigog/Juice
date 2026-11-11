@@ -1,7 +1,8 @@
 package com.juice.coach
 
-import com.juice.intake.GroqClient
-import com.juice.intake.GroqHttpException
+import com.juice.data.ChatMessage
+import com.juice.llm.GroqClient
+import com.juice.llm.GroqHttpException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException

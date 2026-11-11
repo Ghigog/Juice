@@ -4,13 +4,13 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.juice.coach.ChatMessage
 import com.juice.coach.CoachConversation
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
 import com.juice.core.character.CoachTask
 import com.juice.core.model.Item
 import com.juice.data.CharacterRepository
+import com.juice.data.ChatMessage
 import com.juice.feedback.Feedback
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.CoroutineDispatcher

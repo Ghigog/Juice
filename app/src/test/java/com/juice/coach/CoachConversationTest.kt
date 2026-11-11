@@ -1,14 +1,16 @@
 package com.juice.coach
 
 import com.juice.core.character.Characters
-import com.juice.core.character.CoachVoice
 import com.juice.core.character.CoachTask
+import com.juice.core.character.CoachVoice
 import com.juice.core.character.Expression
 import com.juice.core.intake.ItemType
+import com.juice.core.memory.Memory
 import com.juice.core.model.Item
 import com.juice.core.routine.Cadence
-import com.juice.core.memory.Memory
-import com.juice.memory.MemoryStore
+import com.juice.data.ChatMessage
+import com.juice.data.ConversationStore
+import com.juice.data.MemoryStore
 import java.io.File
 import java.time.DayOfWeek
 import kotlin.test.AfterTest

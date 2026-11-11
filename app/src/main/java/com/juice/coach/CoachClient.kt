@@ -1,14 +1,14 @@
 package com.juice.coach
 
-import com.juice.core.character.Expression
-import com.juice.intake.GroqClient
-import com.juice.intake.GroqHttpException
+import com.juice.data.ChatMessage
+import com.juice.llm.GroqClient
+import com.juice.llm.GroqHttpException
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.net.URL
+import java.net.UnknownHostException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -16,9 +16,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-
-/** One turn of a coach conversation; [role] is "user" or "assistant". */
-data class ChatMessage(val role: String, val content: String, val expression: Expression = Expression.NEUTRAL)
 
 /**
  * Multi-turn Groq chat completions for the coach. A rate limit, a Groq outage, a timeout or invalid JSON is tried

@@ -12,8 +12,9 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.BuildConfig
 import com.juice.data.ItemRepository
-import com.juice.notify.ReminderScheduler
 import com.juice.data.JuiceDatabase
+import com.juice.llm.GroqClient
+import com.juice.notify.ReminderScheduler
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 

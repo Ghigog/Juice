@@ -1,6 +1,7 @@
 package com.juice.intake
 
 import com.juice.core.intake.ItemType
+import com.juice.llm.GroqClient
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime

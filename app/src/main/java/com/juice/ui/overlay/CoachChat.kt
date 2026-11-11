@@ -78,10 +78,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
-import com.juice.coach.ChatMessage
 import com.juice.core.character.CoachTask
 import com.juice.core.character.Expression
 import com.juice.core.character.face.FaceAnimator
+import com.juice.data.ChatMessage
 import com.juice.ui.face.AnimatedCharacterFace
 import com.juice.ui.face.FaceColors
 import com.juice.ui.face.rememberFaceAnimator

@@ -6,8 +6,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
-import com.juice.coach.ChatMessage
-import com.juice.coach.ConversationStore
 import com.juice.core.character.Availability
 import com.juice.core.character.CharacterState
 import java.io.File
@@ -16,7 +14,6 @@ import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
 import com.juice.core.memory.Memory
 import com.juice.core.model.Item
-import com.juice.memory.MemoryStore
 import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
 import java.time.Instant
