@@ -1,4 +1,4 @@
-package com.juice.settings
+package com.juice.ui.settings
 
 import android.content.Context
 import androidx.compose.ui.test.assertCountEquals
@@ -25,6 +25,7 @@ import com.juice.data.CreatedCharacterStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.data.MemoryStore
+import com.juice.settings.CharacterSettings
 import java.io.File
 import java.time.DayOfWeek
 import kotlin.test.assertEquals

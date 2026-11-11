@@ -41,7 +41,7 @@ import com.juice.core.liquid.LiquidQuality
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.CharacterSettings
-import com.juice.settings.CharactersSection
+import com.juice.ui.settings.CharactersSection
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SwipeDistance
 import com.juice.ui.theme.FlavourTheme

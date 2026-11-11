@@ -9,7 +9,7 @@ import com.juice.data.EconomyStore
 import com.juice.core.progression.Flavour
 import com.juice.core.progression.Progression
 import com.juice.ui.theme.FlavourTheme
-import com.juice.ui.theme.SoundSet
+import com.juice.feedback.SoundSet
 import com.juice.feedback.Feedback
 import com.juice.feedback.FeedbackEvent
 import org.junit.Test
