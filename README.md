@@ -15,7 +15,7 @@ The current scope is the **Android MVP** (Kotlin, Jetpack Compose, min SDK 33). 
 ./gradlew build
 ```
 
-To build only the debug APK: `./gradlew :app:assembleDebug`. The optional `GROQ_API_KEY` is read from `local.properties`.
+To build only the debug APK: `./gradlew :app:assembleDebug`. No Groq key is built into the app: each person pastes their own in the overlay settings to unlock Groq mode, and everything stays on device by default.
 
 ## Documentation
 

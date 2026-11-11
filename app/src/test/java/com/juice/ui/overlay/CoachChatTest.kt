@@ -190,7 +190,7 @@ class CoachChatTest {
     @Test
     fun onDeviceOnlySendsNothingTellsThePlayerAndKeepsTheCard() {
         show(meet, onDeviceOnly = true)
-        waitForText("needs cloud access")
+        waitForText("needs a Groq key")
         waitFor { compose.onAllNodesWithTagCount(TAG_COACH_CHAT) == 0 }
         assertEquals(0, server.requestCount)
         assertEquals(ItemStatus.Active, runBlocking { repository.get("meet-jim")?.status })
