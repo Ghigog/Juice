@@ -53,6 +53,8 @@ class CoachConversation(
 ) {
     private val earlier = store.load(character.id)
     private val messages = mutableListOf<ChatMessage>()
+    /** Indices in [messages] of the proposal JSON replies, which are replayed as they are. */
+    private val proposalReplies = mutableSetOf<Int>()
 
     /** The expression of the coach's last message in the earlier history, neutral if there is none. */
     val lastExpression: Expression = earlier.lastOrNull { it.role == "assistant" }?.expression ?: Expression.NEUTRAL
@@ -63,7 +65,7 @@ class CoachConversation(
         if (client == null || onDeviceOnly()) return CoachReply.CloudRequired
         val turn = messages + ChatMessage("user", userText)
         return try {
-            val raw = client.chat(systemPrompt(), turn).trimEnd()
+            val raw = client.chat(systemPrompt(), replayed() + turn.last()).trimEnd()
             val ready = raw.endsWith(READY_TAG)
             val (expression, text) = Expression.parse(if (ready) raw.removeSuffix(READY_TAG).trimEnd() else raw)
             messages += turn.last()
@@ -85,10 +87,11 @@ class CoachConversation(
         if (client == null || onDeviceOnly()) return CoachFinish.CloudRequired
         val ask = ChatMessage("user", "Please propose the tasks we agreed as JSON only.")
         return try {
-            val json = client.chat(systemPrompt(), messages + ask, jsonMode = true)
+            val json = client.chat(systemPrompt(), replayed() + ask, jsonMode = true)
             when (val result = CoachProposal.validate(json, coachTasks().map { it.id }.toSet())) {
                 is CoachProposalResult.Valid -> {
                     messages += ask
+                    proposalReplies += messages.size
                     messages += ChatMessage("assistant", json)
                     store.save(character.id, messages)
                     updateMemory()
@@ -99,6 +102,11 @@ class CoachConversation(
         } catch (e: Exception) {
             CoachFinish.Error(GroqClient.reason(e))
         }
+    }
+
+    /** [messages] as the client should see them: each chat reply from the coach carries its tag, as the prompt tells the model to write it. */
+    private fun replayed(): List<ChatMessage> = messages.mapIndexed { i, m ->
+        if (m.role == "assistant" && i !in proposalReplies) m.copy(content = "${m.expression.tag} ${m.content}") else m
     }
 
     private fun systemPrompt(): String = buildString {
