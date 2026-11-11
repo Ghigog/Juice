@@ -186,6 +186,34 @@ class CoachConversationTest {
         )
     }
 
+    @Test fun tagsAfterSentencesAreStrippedAndTheLastOneIsTheExpression() {
+        reply("How many minutes could you set aside?[neutral] What's driving you to get moving now?[stern]")
+        val text = "How many minutes could you set aside? What's driving you to get moving now?"
+        assertEquals(CoachReply.Reply(text, Expression.STERN), conversation().send("hi"))
+        assertEquals(ChatMessage("assistant", text, Expression.STERN), ConversationStore(storeFile).load(Characters.JIM_ID).last())
+    }
+
+    @Test fun earlierCoachRepliesAreReplayedWithTheirTagButProposalJsonIsNot() {
+        reply("[stern] Why now?")
+        val convo = conversation()
+        convo.send("I want to start")
+        server.takeRequest()
+        reply("[happy] Great")
+        convo.send("Because health")
+        val second = server.takeRequest().body.readUtf8()
+        assertTrue("[stern] Why now?" in second)
+        assertEquals("Why now?", ConversationStore(storeFile).load(Characters.JIM_ID)[1].content)
+        reply(validProposal)
+        reply("""{"shared":[],"characters":{}}""")
+        convo.finish()
+        server.takeRequest()
+        server.takeRequest()
+        reply("[sad] Anything else?")
+        convo.send("more")
+        val later = server.takeRequest().body.readUtf8()
+        assertTrue("""\"tasks\":[]""" in later && """[neutral] {""" !in later && "[happy] Great" in later)
+    }
+
     @Test fun untaggedReplyIsNeutralWithFullText() {
         reply("Plain answer")
         assertEquals(CoachReply.Reply("Plain answer", Expression.NEUTRAL), conversation().send("hi"))
