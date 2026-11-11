@@ -45,6 +45,7 @@ internal fun RoutinesView(
     state: OverlayShellState,
     hud: Hud,
     settings: JuiceSettings,
+    groqKeySaved: Boolean,
     actions: OverlayActions,
     effects: OverlayEffects,
     reservoir: @Composable (Modifier) -> Unit,
@@ -83,7 +84,7 @@ internal fun RoutinesView(
                 modifier = Modifier.weight(1f).testTag(TAG_ROUTINES_EMPTY),
             )
         } else {
-            CardRow(state, hud, settings, actions, effects, reservoir, centre, onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth())
+            CardRow(state, hud, settings, groqKeySaved, actions, effects, reservoir, centre, onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth())
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().height(44.dp)) {
