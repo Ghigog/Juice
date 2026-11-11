@@ -17,7 +17,11 @@ import com.juice.data.JuiceDatabase
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 
-/** Parses a note with Groq in the background; retries with backoff while the request cannot reach Groq. */
+/**
+ * Parses a note with Groq in the background. The rules result always lands first. While Groq cannot be
+ * reached (offline, 429, 5xx) it retries with backoff, but only while `runAttemptCount < MAX_ATTEMPTS`;
+ * at the cap it succeeds, so an outage ends with the card keeping the rules parse instead of retrying forever.
+ */
 class IntakeWorker(
     context: Context,
     params: WorkerParameters,
@@ -42,10 +46,13 @@ class IntakeWorker(
         val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }, clock = clock).parse(text)
         // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
         items.land(itemId, result.item)
-        return if (result.retryLater) Result.retry() else Result.success()
+        return if (result.retryLater && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
     }
 
     companion object {
+        /** Attempts allowed before a transient failure stops retrying and the card keeps the rules parse. */
+        const val MAX_ATTEMPTS = 5
+
         private const val KEY_TEXT = "text"
         private const val KEY_ITEM_ID = "itemId"
 
