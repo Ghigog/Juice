@@ -1,6 +1,6 @@
 # Unit tests
 #
-# Compiles and runs every debug unit test, runs lint and compiles the androidTest sources
+# Compiles and runs every unit test (debug and release variants), runs lint and compiles the androidTest sources
 # on each push to main and each pull request,
 # so a broken test build can't reach main unnoticed.
 name: Unit tests
@@ -26,8 +26,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run debug unit tests and verify coverage
-        run: ./gradlew :app:testDebugUnitTest :core:test koverVerify
+      - name: Run unit tests and verify coverage
+        run: ./gradlew test koverVerify
 
   lint-and-android-test-compile:
     runs-on: ubuntu-latest

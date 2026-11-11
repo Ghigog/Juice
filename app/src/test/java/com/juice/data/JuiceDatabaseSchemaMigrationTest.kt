@@ -5,10 +5,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.juice.BuildConfig
 import kotlin.test.assertEquals
 
 /** Runs the registered migrations over the exported schemas in app/schemas, validating the result against the entity. */
@@ -24,6 +26,10 @@ class JuiceDatabaseSchemaMigrationTest {
 
     @Test
     fun everyMigrationFromTheOldestExportedSchemaMatchesTheEntity() {
+        // Debug-only on purpose: the exported schemas are packaged as assets for the debug variant alone (see app/build.gradle.kts),
+        // because they must not ship in the release APK, and MigrationTestHelper can only read them as assets.
+        // The release unit-test run skips this test; the debug run still covers it.
+        assumeTrue("Room schemas are debug-only assets", BuildConfig.DEBUG)
         helper.createDatabase(name, 1).use { db ->
             db.execSQL("INSERT INTO items (id, type, title, status) VALUES ('a', 'Task', 'A', 'Active')")
         }
