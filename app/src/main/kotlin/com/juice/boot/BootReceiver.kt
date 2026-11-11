@@ -3,8 +3,7 @@ package com.juice.boot
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.juice.data.ItemRepository
-import com.juice.data.JuiceDatabase
+import com.juice.JuiceApplication
 import com.juice.notify.ReminderScheduler
 import com.juice.overlay.OverlayPermission
 import com.juice.overlay.OverlayService
@@ -30,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         scope.launch {
             try {
-                val items = ItemRepository(JuiceDatabase.open(context).itemDao()).active()
+                val items = (context.applicationContext as JuiceApplication).container.items.active()
                 ReminderScheduler(context, clock).rescheduleAll(items)
             } finally {
                 pending?.finish()
