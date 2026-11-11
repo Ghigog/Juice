@@ -37,8 +37,9 @@ Keep `juice-release.jks` and its passwords somewhere safe outside the repository
 
 Locally, the build reads the keystore path and passwords from `JUICE_KEYSTORE_FILE`,
 `JUICE_KEYSTORE_PASSWORD`, `JUICE_KEY_ALIAS` and `JUICE_KEY_PASSWORD`. When they are absent it signs with
-`app/debug.keystore`, so `./gradlew :app:assembleRelease` still works. The workflow logs a warning when
-`JUICE_KEYSTORE_BASE64` is not set.
+`app/debug.keystore`, so `./gradlew :app:assembleRelease` still works. The release workflow is stricter: when
+`JUICE_KEYSTORE_BASE64` is not set it fails with an error before building, so a debug-signed APK is never
+published. Release builds are minified with R8 (`app/proguard-rules.pro`).
 
 ## Changing the signing key
 
