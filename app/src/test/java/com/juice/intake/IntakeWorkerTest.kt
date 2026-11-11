@@ -49,9 +49,10 @@ class IntakeWorkerTest {
         server.shutdown()
     }
 
-    private fun worker(vararg input: Pair<String, Any?>) =
+    private fun worker(vararg input: Pair<String, Any?>, runAttemptCount: Int = 0) =
         TestListenableWorkerBuilder<IntakeWorker>(context)
             .setInputData(workDataOf(*input))
+            .setRunAttemptCount(runAttemptCount)
             .setWorkerFactory(object : androidx.work.WorkerFactory() {
                 override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
                     IntakeWorker(
@@ -118,6 +119,30 @@ class IntakeWorkerTest {
         } finally {
             settings.update { it.copy(onDeviceOnly = false) }
         }
+    }
+
+    @Test
+    fun aGroqServerErrorBelowTheCapRetriesAndKeepsTheRulesParse() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(503))
+        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS - 1).doWork()
+        assertEquals(Result.retry(), result)
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
+    }
+
+    @Test
+    fun aGroqServerErrorAtTheCapSucceedsAndKeepsTheRulesParse() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(503))
+        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
+        assertEquals(Result.success(), result)
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
+    }
+
+    @Test
+    fun offlineAtTheCapSucceedsAndKeepsTheRulesParse() = runBlocking {
+        server.shutdown()
+        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
+        assertEquals(Result.success(), result)
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
     }
 
     @Test

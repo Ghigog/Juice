@@ -157,4 +157,46 @@ class OverlayServiceTest {
         controller.startCommand(0, 1)
         assertTrue(shadowOf(controller.get()).isStoppedBySelf)
     }
+
+    @Test
+    fun handleSlicesPickUpARoutineThatFallsDueAfterMidnight() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        val clock = MutableClock(java.time.Instant.parse("2026-01-01T23:59:00Z"))
+        // The database is one shared instance, so other tests' rows may still be in it.
+        val database = com.juice.data.JuiceDatabase.open(context)
+        val repository = com.juice.data.ItemRepository(database.itemDao())
+        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            database.clearAllTables()
+            repository.save(
+                com.juice.core.model.Item(
+                    "r", com.juice.core.intake.ItemType.Routine, "Water plants",
+                    cadence = com.juice.core.routine.Cadence(setOf(java.time.DayOfWeek.FRIDAY)),
+                    nextDueOn = java.time.LocalDate.parse("2026-01-02"),
+                ),
+            )
+        }
+        val controller = Robolectric.buildService(OverlayService::class.java).create()
+        controller.get().clock = clock
+        controller.startCommand(0, 1)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        awaitOpenItems(controller.get(), 0)
+
+        clock.now = java.time.Instant.parse("2026-01-02T00:01:00Z")
+        context.sendBroadcast(android.content.Intent(android.content.Intent.ACTION_DATE_CHANGED))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        awaitOpenItems(controller.get(), 1)
+        assertEquals(1, controller.get().handleSlices)
+    }
+
+    // Room's query executors run off the main thread; hand the looper over until the count lands.
+    private fun awaitOpenItems(service: OverlayService, count: Int) {
+        val looper = shadowOf(android.os.Looper.getMainLooper())
+        repeat(200_000) {
+            looper.idle()
+            if (service.openItemCount == count) return
+            Thread.yield()
+        }
+        assertEquals(count, service.openItemCount)
+    }
 }
