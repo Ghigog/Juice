@@ -25,22 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.core.Juice
-import com.juice.core.progression.Progression
-import com.juice.data.CharacterRepository
-import com.juice.data.CharacterStore
-import com.juice.data.ConversationStore
-import com.juice.data.EconomyStore
-import com.juice.data.ItemRepository
-import com.juice.data.JuiceDatabase
-import com.juice.data.MemoryStore
 import com.juice.onboarding.OnboardingScreen
 import com.juice.overlay.OverlayPermission
 import com.juice.overlay.OverlayService
-import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
-import com.juice.settings.SettingsRepository
 import com.juice.ui.settings.SettingsScreen
-import java.io.File
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -56,14 +45,10 @@ class MainActivity : ComponentActivity() {
         offerBatteryExemptionOnce()
         setContent {
             MaterialTheme {
-                val repository = remember { SettingsRepository(this@MainActivity) }
+                val container = (applicationContext as JuiceApplication).container
+                val repository = container.settings
                 val scope = rememberCoroutineScope()
-                val characterSettings = remember {
-                    val store = CharacterStore(this@MainActivity)
-                    val items = ItemRepository(JuiceDatabase.open(this@MainActivity).itemDao(), hiddenCharacterIds = store::disabledIds, hiddenChanges = store.changes())
-                    val conversations = ConversationStore(File(filesDir, "conversations.json"))
-                    CharacterSettings(CharacterRepository(store, items, conversations, MemoryStore(File(filesDir, "memory.json"))), scope, level = { Progression.levelFor(EconomyStore(this@MainActivity).load()?.state?.juice ?: 0L) })
-                }
+                val characterSettings = remember { container.characterSettings(scope) }
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())
                 if (onboardingSeen == false) {

@@ -35,35 +35,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.juice.BuildConfig
+import com.juice.JuiceApplication
 import com.juice.R
-import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.core.card.CardOrder
 import com.juice.core.economy.EconomyConfig
 import com.juice.core.intake.ItemType
 import com.juice.core.progression.Progression
-import com.juice.data.CharacterRepository
-import com.juice.data.CharacterStore
-import com.juice.data.ConversationStore
-import com.juice.data.CreatedCharacterStore
-import com.juice.data.EconomyStore
-import com.juice.data.ItemRepository
-import com.juice.data.JuiceDatabase
-import com.juice.data.MemoryStore
-import com.juice.data.PendingCoachCardStore
 import com.juice.feedback.FeedbackEvent
 import com.juice.feedback.FeedbackPlayer
 import com.juice.feedback.SoundPoolOutput
 import com.juice.feedback.VibratorOutput
 import com.juice.intake.CaptureIntake
-import com.juice.intake.CharacterGenerator
 import com.juice.intake.IntakeWorker
-import com.juice.llm.GroqClient
-import com.juice.notify.ReminderScheduler
-import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
-import com.juice.settings.SettingsRepository
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
 import com.juice.ui.liquid.JuiceLiquidView
@@ -80,8 +65,6 @@ import com.juice.ui.overlay.hud
 import com.juice.ui.overlay.multiplierLabel
 import com.juice.ui.overlay.toEconomy
 import com.juice.ui.theme.FlavourTheme
-import java.io.File
-import java.io.IOException
 import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,30 +92,16 @@ class OverlayService : Service() {
     private val closeRequest = CloseRequest(reduceMotion = { settings.reduceMotion }, finish = ::closeOverlay)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
-    private val settingsRepository by lazy { SettingsRepository(this) }
+    private val container get() = (applicationContext as JuiceApplication).container
+    private val settingsRepository get() = container.settings
     @Volatile private var settings = JuiceSettings()
-    private val characterStore by lazy { CharacterStore(this) }
-    private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
-    private val pendingCards by lazy { PendingCoachCardStore(File(filesDir, "pending-coach-cards.txt")) }
-    private val conversationStore by lazy { ConversationStore(File(filesDir, "conversations.json")) }
-    private val repository by lazy {
-        ItemRepository(JuiceDatabase.open(this).itemDao(), hiddenCharacterIds = characterStore::disabledIds, hiddenChanges = characterStore.changes(),
-            reminders = ReminderScheduler(this, java.time.Clock.systemDefaultZone()),
-        )
-    }
-    private val createdStore by lazy { CreatedCharacterStore(this) }
-    private val characters by lazy {
-        CharacterRepository(
-            characterStore, repository, conversationStore, memoryStore, createdStore,
-            CharacterGenerator(llm = { hobby ->
-                if (BuildConfig.GROQ_API_KEY.isBlank() || runBlocking { settingsRepository.current().onDeviceOnly }) {
-                    throw IOException("Needs cloud access: turn off On-device only")
-                }
-                GroqClient(BuildConfig.GROQ_API_KEY).generatePersona(hobby)
-            }),
-        )
-    }
-    private val characterSettings by lazy { CharacterSettings(characters, scope, level = { Progression.levelFor(EconomyStore(this).load()?.state?.juice ?: 0L) }) }
+    private val characterStore get() = container.characterStore
+    private val memoryStore get() = container.memoryStore
+    private val pendingCards get() = container.pendingCards
+    private val conversationStore get() = container.conversationStore
+    private val repository get() = container.items
+    private val characters get() = container.characters
+    private val characterSettings by lazy { container.characterSettings(scope) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
     /** Service has no constructor arguments; tests set this before onCreate. */
     internal var clock: Clock = Clock.systemDefaultZone()
@@ -274,7 +243,7 @@ class OverlayService : Service() {
 
     /** The flavour the handle wears: the player's pick once unlocked, else the highest unlocked. */
     private fun styleHandle(view: SliceHandleView) {
-        val juice = EconomyStore(this).load()?.state?.juice ?: 0L
+        val juice = container.economyStore.load()?.state?.juice ?: 0L
         val level = Progression.levelFor(juice)
         val flavour = settings.flavour?.takeIf { it.unlockLevel <= level } ?: Progression.flavourFor(level)
         view.style = SliceStyle.of(flavour)
@@ -408,7 +377,7 @@ class OverlayService : Service() {
         val effects = OverlayEffects()
         val feedback = FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback }
         val session = GameSession(
-            EconomyStore(this),
+            container.economyStore,
             feedback,
             onSatiated = {
                 reservoir.emitParticles()
@@ -495,7 +464,7 @@ class OverlayService : Service() {
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
                             character,
-                            BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
+                            container.coachClient(),
                             conversationStore,
                             memoryStore,
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },

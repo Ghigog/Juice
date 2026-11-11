@@ -12,9 +12,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.BuildConfig
 import com.juice.data.ItemRepository
-import com.juice.data.JuiceDatabase
 import com.juice.llm.GroqClient
-import com.juice.notify.ReminderScheduler
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 
@@ -31,13 +29,19 @@ class IntakeWorker(
     private val items: ItemRepository,
     private val clock: () -> java.time.ZonedDateTime = { java.time.ZonedDateTime.now() },
 ) : CoroutineWorker(context, params) {
-    /** The constructor WorkManager's default factory uses: the app's own settings, Groq client and database. */
+    /** The constructor WorkManager's default factory uses: the application's own settings, Groq client and items. */
+    private constructor(context: Context, params: WorkerParameters, deps: IntakeDependencies) : this(
+        context,
+        params,
+        deps.settings,
+        deps.groq ?: GroqClient(BuildConfig.GROQ_API_KEY),
+        deps.items,
+    )
+
     constructor(context: Context, params: WorkerParameters) : this(
         context,
         params,
-        SettingsRepository(context),
-        GroqClient(BuildConfig.GROQ_API_KEY),
-        ItemRepository(JuiceDatabase.open(context).itemDao(), reminders = ReminderScheduler(context, java.time.Clock.systemDefaultZone())),
+        (context.applicationContext as IntakeDependencies.Provider).intakeDependencies,
     )
 
     override suspend fun doWork(): Result {
