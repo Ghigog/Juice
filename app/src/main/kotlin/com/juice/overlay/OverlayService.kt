@@ -6,8 +6,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -365,10 +363,8 @@ class OverlayService : Service() {
         overlayDialog?.window?.setBackgroundBlurRadius(windowBlurRadius(backdrop.value, blurRadius))
     }
 
-    /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
-    private fun reportOverlayFailure(e: Exception) {
-        getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText("Juice error", Log.getStackTraceString(e)))
+    /** Puts the failure on screen as a toast. Nothing goes to the clipboard, which other apps and the keyboard can read. */
+    internal fun reportOverlayFailure(e: Exception) {
         Toast.makeText(this, getString(R.string.overlay_failed, e.javaClass.simpleName, e.message), Toast.LENGTH_LONG).show()
     }
 
@@ -447,7 +443,7 @@ class OverlayService : Service() {
         val intake = CaptureIntake(
             repository,
             onDeviceOnly = { settingsRepository.current().onDeviceOnly },
-            enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
+            enqueue = { id -> IntakeWorker.enqueue(this, id) },
             cloudAvailable = { IntakeWorker.cloudAvailable },
         )
         val actions = OverlayActions(
