@@ -107,6 +107,13 @@ class IntakeParserTest {
         assertFalse(result.retryLater)
     }
 
+    @Test fun invalidModelOutputGivesNoteWithoutRetry() {
+        reply("not json")
+        val result = parser().parse("ideas for the garden")
+        assertEquals(ItemType.Note, result.item.type)
+        assertFalse(result.retryLater)
+    }
+
     @Test fun groqNoteWithoutDeadlineKeepsTheRulesDeadline() {
         reply("""{"type":"Note","title":"Call the dentist","deadline":null}""")
         val result = parser().parse("call the dentist tomorrow at 3pm")
