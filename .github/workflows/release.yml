@@ -34,12 +34,12 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.JUICE_KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/juice-release.jks"
-            echo "JUICE_KEYSTORE_FILE=$RUNNER_TEMP/juice-release.jks" >> "$GITHUB_ENV"
-          else
-            echo "::warning::JUICE_KEYSTORE_BASE64 is not set; the release APK is signed with the debug keystore and will not update over a release signed with a real key."
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::JUICE_KEYSTORE_BASE64 is not set; refusing to publish a debug-signed release APK"
+            exit 1
           fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/juice-release.jks"
+          echo "JUICE_KEYSTORE_FILE=$RUNNER_TEMP/juice-release.jks" >> "$GITHUB_ENV"
 
       - name: Build release APK
         env:

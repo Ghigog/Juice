@@ -39,7 +39,7 @@ android {
             keyPassword = "android"
         }
         // Release key comes from the environment (see docs/releasing.md). Without it the release
-        // build falls back to the debug key so it still builds; the release workflow warns about that.
+        // build falls back to the debug key so local builds work; the release workflow refuses to run without the key.
         create("release") {
             val keystorePath = System.getenv("JUICE_KEYSTORE_FILE")
             if (!keystorePath.isNullOrBlank()) {
@@ -56,8 +56,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            // Not minified: Room and serialization would need keep rules, unverified.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
