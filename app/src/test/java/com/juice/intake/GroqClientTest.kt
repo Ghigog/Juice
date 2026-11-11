@@ -5,6 +5,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -28,4 +29,31 @@ class GroqClientTest {
     @Test fun choiceWithoutMessageThrowsIOException() = assertMalformed("""{"choices":[{"index":0}]}""")
 
     @Test fun messageWithoutContentThrowsIOException() = assertMalformed("""{"choices":[{"message":{"role":"assistant"}}]}""")
+
+    private fun check(response: MockResponse): KeyCheck {
+        server.enqueue(response)
+        return GroqClient("key-1", server.url("/").toString().trimEnd('/')).checkKey()
+    }
+
+    @Test fun checkKeyRejectedOn401AfterOneRequest() {
+        assertEquals(KeyCheck.Rejected, check(MockResponse().setResponseCode(401)))
+        assertEquals(1, server.requestCount)
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/models", request.path)
+        assertEquals("Bearer key-1", request.getHeader("Authorization"))
+    }
+
+    @Test fun checkKeyWorksOn200() = assertEquals(KeyCheck.Works, check(MockResponse().setBody("{}")))
+
+    @Test fun checkKeyRejectedOn403() = assertEquals(KeyCheck.Rejected, check(MockResponse().setResponseCode(403)))
+
+    @Test fun checkKeyUnreachableOnServerError() =
+        assertEquals(KeyCheck.Unreachable, check(MockResponse().setResponseCode(500)))
+
+    @Test fun checkKeyUnreachableOnIOException() {
+        val client = GroqClient("key-1", server.url("/").toString().trimEnd('/'))
+        server.shutdown()
+        assertEquals(KeyCheck.Unreachable, client.checkKey())
+    }
 }
