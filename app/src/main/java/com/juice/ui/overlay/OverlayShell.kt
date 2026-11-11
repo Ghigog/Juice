@@ -469,6 +469,7 @@ fun OverlayShell(
             ) {
                 SettingsSheet(
                     settings, hud, actions,
+                    groqKeySaved = groqKeySaved,
                     onDone = { settingsOpen = false },
                     onSwipeDistance = { ringPreview++ },
                     characters = characters,

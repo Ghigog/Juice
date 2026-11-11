@@ -62,6 +62,14 @@
     <string name="settings_blur_note">Falls back to a dark scrim when off</string>
     <string name="settings_tap_buttons_note">Complete and Dismiss on the card</string>
     <string name="settings_on_device_only_note">Local rules, nothing leaves the phone</string>
+    <string name="settings_on_device_only_locked">Paste your Groq key to unlock</string>
+    <string name="settings_groq_key_hint">Groq key</string>
+    <string name="settings_groq_key_paste">Paste</string>
+    <string name="settings_groq_key_save">Save</string>
+    <string name="settings_groq_key_remove">Remove</string>
+    <string name="settings_groq_key_works">Key works</string>
+    <string name="settings_groq_key_rejected">Groq rejected this key</string>
+    <string name="settings_groq_key_unreachable">Couldn\'t reach Groq, saved anyway</string>
     <string name="settings_flavour">Flavor</string>
     <string name="settings_flavour_note">Flavors unlock as you level up. Each one recolors the liquid and swaps the sounds.</string>
     <string name="settings_flavour_level">Level %1$d</string>

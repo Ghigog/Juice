@@ -82,6 +82,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.juice.intake.KeyCheck
 import com.juice.R
 import com.juice.ui.liquid.JuiceLiquidView
 import com.juice.core.progression.Progression
@@ -109,6 +112,7 @@ class OverlayService : Service() {
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
     private val groqKeyStore by lazy { GroqKeyStore(this) }
+    private val groqKeyMasked = MutableStateFlow<String?>(null)
     @Volatile private var settings = JuiceSettings()
     private val characterStore by lazy { CharacterStore(this) }
     private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
@@ -466,7 +470,24 @@ class OverlayService : Service() {
             recapItems = repository::recapItems,
             shake = { reservoir.shake },
             onErupt = reservoir::erupt,
+            groqKeyMasked = groqKeyMasked,
+            onSaveGroqKey = { key, onChecked ->
+                scope.launch {
+                    val check = withContext(Dispatchers.IO) {
+                        groqKeyStore.save(key)
+                        runCatching { GroqClient(key.value).checkKey() }.getOrDefault(KeyCheck.Unreachable)
+                    }
+                    groqKeyMasked.value = key.masked
+                    if (!settings.reduceMotion) reservoir.emitParticles(10)
+                    onChecked(check)
+                }
+            },
+            onRemoveGroqKey = {
+                groqKeyStore.remove()
+                groqKeyMasked.value = null
+            },
         )
+        if (groqKeyStore.hasKey.value) scope.launch { groqKeyMasked.value = withContext(Dispatchers.IO) { groqKeyStore.load()?.masked } }
         // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
         run {
             val state = OverlayShellState(
