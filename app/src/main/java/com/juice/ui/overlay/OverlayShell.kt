@@ -4,10 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,14 +11,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -38,72 +31,39 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -111,29 +71,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.juice.R
-import com.juice.core.model.Item
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.ui.logo.SliceLogoPainter
-import com.juice.ui.logo.SliceStyle
 import java.time.Clock
-import kotlin.coroutines.coroutineContext
-import kotlin.math.roundToInt
-import com.juice.ui.Tier
 import kotlin.math.abs
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+
 
 const val TAG_CAPTURE_FIELD = "capture_field"
 const val TAG_ADD = "add_button"
@@ -171,14 +122,14 @@ internal fun tapIsInCarouselGap(y: Float, itemSpans: List<IntRange>): Boolean {
     return y > first && y < last && itemSpans.none { y >= it.first && y <= it.last }
 }
 
-private const val CAROUSEL_ITEM_DP = 56
-private const val CAROUSEL_GAP_DP = 8
-private const val BANNER_MILLIS = 2200L
+internal const val CAROUSEL_ITEM_DP = 56
+internal const val CAROUSEL_GAP_DP = 8
+internal const val BANNER_MILLIS = 2200L
 /** A longer banner, such as why a coach could not be reached, stays up long enough to read. */
-private const val BANNER_MILLIS_PER_CHAR = 60L
-private const val FLOAT_MILLIS = 1300
-private const val RING_PREVIEW_MILLIS = 1400L
-private const val BACKDROP_MAX_DP = 280f
+internal const val BANNER_MILLIS_PER_CHAR = 60L
+internal const val FLOAT_MILLIS = 1300
+internal const val RING_PREVIEW_MILLIS = 1400L
+internal const val BACKDROP_MAX_DP = 280f
 
 /** Below this height (a phone on its side) the overlay tightens its gaps and floats the undo prompt over the cards. */
 internal val COMPACT_HEIGHT = 480.dp
@@ -188,10 +139,10 @@ internal val COMPACT_HEIGHT = 480.dp
  * the height, so on a phone on its side it stays in the corner instead of covering the header.
  */
 internal fun backdropSliceDp(screenHeightDp: Float): Float = minOf(BACKDROP_MAX_DP, screenHeightDp / 2)
-private const val WIGGLE_MILLIS = 110
-private const val WIGGLE_DEGREES = 1.5f
-private const val WIGGLE_DP = 1.5f
-private const val HELD_ALPHA = 0.4f
+internal const val WIGGLE_MILLIS = 110
+internal const val WIGGLE_DEGREES = 1.5f
+internal const val WIGGLE_DP = 1.5f
+internal const val HELD_ALPHA = 0.4f
 
 /** Scale of a card whose centre is [distance] px from the focal dot, falling off over [reach] px. */
 internal fun focalScale(distance: Float, reach: Float): Float =
@@ -587,42 +538,13 @@ fun OverlayShell(
     }
 }
 
-private const val FROTH_SEED = 44L
+internal const val FROTH_SEED = 44L
 
 /** The settings sheet is no wider than this, so on a phone on its side it stays a sheet. */
-private val SHEET_MAX_WIDTH = 560.dp
+internal val SHEET_MAX_WIDTH = 560.dp
 
 /** The carousel's list is inset this far from its left edge. */
-private val CAROUSEL_LIST_START = 12.dp
-
-/** The carousel's cards popping away on close: which of them are on screen, top to bottom, and how far the popping has run. */
-internal class CardPops {
-    var visibleIndices: () -> List<Int> = { emptyList() }
-    var popping by mutableStateOf<List<Int>>(emptyList())
-
-    /** The visible cards' centres in root coordinates, top to bottom; read once when closing starts. */
-    var visibleCentres: () -> List<Offset> = { emptyList() }
-
-    /** The popping cards' centres in the shell's drawing coordinates, taken when closing started. */
-    var centres by mutableStateOf<List<Offset>>(emptyList())
-    val elapsed = Animatable(0f)
-
-    /** The capture field's bounds in root coordinates, kept current by its layout. */
-    var captureBounds: Rect? = null
-
-    /** Where the froth bursts, in the shell's drawing coordinates, taken when closing started. */
-    var frothAt by mutableStateOf<List<Offset>>(emptyList())
-
-    /** A pop for a non-card element once the cards are gone: slot 0 is the centre card, slot 1 the capture field. */
-    fun element(slot: Int): Modifier = Modifier.graphicsLayer {
-        val p = elementPopProgress(elapsed.value, popping.size, slot)
-        if (p > 0f) {
-            scaleX = popScale(p)
-            scaleY = popScale(p)
-            alpha = popAlpha(p)
-        }
-    }
-}
+internal val CAROUSEL_LIST_START = 12.dp
 
 /** The carousel beside the centre card for the items of [state]; shared by the main view and the Routines view. */
 @Composable
@@ -668,599 +590,6 @@ internal fun CardRow(
                 Floats(effects, hud, Modifier.fillMaxSize())
                 ShakeReward(hud, settings.reduceMotion, actions, Modifier.fillMaxSize())
             }
-        }
-    }
-}
-
-/** The ground's alpha: lighter than the old 0.55 and 0.97, so the screen behind shows through. */
-internal fun overlayGroundAlpha(blurred: Boolean): Float = if (blurred) 0.35f else 0.75f
-
-/**
- * The overlay's ground: the mockup's dark teal-to-indigo glass. Over the blur it stays thin
- * enough for the blurred screen to show through; at 0.9 it hid the blur completely. It is drawn over the
- * slice backdrop and also backs the panels, so it stays light but dark enough for white text.
- */
-private fun overlayTint(blurred: Boolean): Brush {
-    val alpha = overlayGroundAlpha(blurred)
-    return Brush.linearGradient(
-        listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
-    )
-}
-
-/**
- * [withFrameNanos] that tests can pause: Compose's own `withInfiniteAnimationFrameNanos` is internal, so go through the
- * public [InfiniteAnimationPolicy] it uses, which keeps this endless loop from blocking test idling.
- */
-internal suspend fun <R> withInfiniteFrameNanos(onFrame: (Long) -> R): R {
-    val policy = coroutineContext[InfiniteAnimationPolicy] ?: return withFrameNanos(onFrame)
-    return policy.onInfiniteOperation { withFrameNanos(onFrame) }
-}
-
-const val TAG_BACKDROP_SLICE = "backdrop_slice"
-const val BACKDROP_SHOWN = "shown"
-const val BACKDROP_HIDDEN = "hidden"
-
-/**
- * The big slice in the top-right corner behind the content; it takes no touches. It is drawn sharp, as a
- * plain vector draw; the ground in front of it supplies any dimming or softening.
- */
-@Composable
-private fun SliceBackdrop(hud: Hud, slices: Int, active: Int, spin: SpinMomentum, shown: Boolean) {
-    val painter = remember { SliceLogoPainter() }
-    val style = SliceStyle.of(hud.flavour)
-    var turn by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(spin) {
-        if (!spin.enabled) return@LaunchedEffect
-        var last = withInfiniteFrameNanos { it }
-        while (true) {
-            val now = withInfiniteFrameNanos { it }
-            turn = spin.step(now - last)
-            last = now
-        }
-    }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Matches backdropSliceSpot, where the handle's slice flies to and from.
-        val side = backdropSliceDp(maxHeight.value).dp
-        Canvas(
-            Modifier
-                .align(Alignment.TopEnd)
-                .offset(side / 4, -side / 4)
-                .size(side)
-                .semantics { stateDescription = if (shown) BACKDROP_SHOWN else BACKDROP_HIDDEN }
-                .testTag(TAG_BACKDROP_SLICE)
-                // Hidden while the stage's flying slice opens or closes the overlay, so one slice is on screen.
-                .graphicsLayer {
-                    alpha = if (shown) 1f else 0f
-                    rotationZ = turn
-                },
-        ) {
-            drawIntoCanvas { painter.draw(it.nativeCanvas, size.width / 2, size.height / 2, size.width, style, slices, active, shadow = false) }
-        }
-    }
-}
-
-/** Previews the swipe distance around the handle's saved position. */
-@Composable
-private fun SwipeRing(settings: JuiceSettings, hud: Hud) {
-    val painter = remember { SliceLogoPainter() }
-    val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val cx = constraints.maxWidth * settings.handleX.coerceIn(0f, 1f)
-        val cy = constraints.maxHeight * settings.handleY.coerceIn(0f, 1f)
-        val radius = with(density) { settings.swipeDistance.dp.dp.toPx() }
-        Canvas(Modifier.fillMaxSize()) {
-            drawIntoCanvas { painter.drawRing(it.nativeCanvas, cx, cy, radius, 0f, false, hud.accent.toArgb(), density.density) }
-        }
-    }
-}
-
-@Composable
-private fun Header(
-    hud: Hud,
-    entrance: () -> Float,
-    pop: Modifier,
-    onRecap: () -> Unit,
-    onRoutines: () -> Unit,
-    onSettings: () -> Unit,
-    onRoutinesBounds: (Rect) -> Unit,
-    /** Shown between the level and the multiplier, where a wide screen has room. */
-    middle: (@Composable () -> Unit)? = null,
-) {
-    Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false).then(pop), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Row {
-                Text(stringResource(R.string.overlay_level, hud.level), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    hud.flavour.displayName,
-                    fontSize = 13.sp,
-                    color = JuiceColors.white(0.75f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(JuiceColors.white(0.18f))) {
-                Box(Modifier.fillMaxWidth(hud.levelProgress).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(hud.accent))
-            }
-        }
-        if (middle != null) {
-            Box(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 16.dp)) { middle() }
-        }
-        }
-        MultiplierBadge(hud)
-        Spacer(Modifier.width(10.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(String.format("%,d", hud.juice), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)
-            Text(stringResource(R.string.overlay_juice_label), fontSize = 11.sp, letterSpacing = 1.sp, color = JuiceColors.white(0.75f))
-        }
-        Spacer(Modifier.width(8.dp))
-        val recapLabel = stringResource(R.string.recap_open)
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(JuiceColors.white(0.14f))
-                .clickable(onClick = onRecap)
-                .semantics { contentDescription = recapLabel }
-                .testTag(TAG_RECAP),
-            contentAlignment = Alignment.Center,
-        ) {
-            // Three bars stepping down, like a burndown.
-            Canvas(Modifier.size(20.dp)) {
-                val u = size.width / 24f
-                fun bar(x: Float, top: Float) =
-                    drawRoundRect(Color.White, Offset(x * u, top * u), androidx.compose.ui.geometry.Size(4f * u, (20f - top) * u), androidx.compose.ui.geometry.CornerRadius(u))
-                bar(3f, 4f); bar(10f, 10f); bar(17f, 15f)
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        val routinesLabel = stringResource(R.string.routines_open)
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(JuiceColors.white(0.14f))
-                .onGloballyPositioned { onRoutinesBounds(it.boundsInRoot()) }
-                .clickable(onClick = onRoutines)
-                .semantics { contentDescription = routinesLabel }
-                .testTag(TAG_ROUTINES),
-            contentAlignment = Alignment.Center,
-        ) {
-            // A circling arrow: the Routine comes round again.
-            Canvas(Modifier.size(20.dp)) {
-                val u = size.width / 24f
-                drawArc(Color.White, 40f, 280f, false, Offset(4f * u, 4f * u), androidx.compose.ui.geometry.Size(16f * u, 16f * u), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-                drawPath(
-                    Path().apply { moveTo(16f * u, 1f * u); lineTo(21f * u, 6f * u); lineTo(14f * u, 7f * u); close() },
-                    Color.White,
-                )
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        val label = stringResource(R.string.settings_open)
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(JuiceColors.white(0.14f))
-                .clickable(onClick = onSettings)
-                .semantics { contentDescription = label }
-                .testTag(TAG_SETTINGS),
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(Modifier.size(20.dp)) {
-                val w = 2.dp.toPx()
-                val u = size.width / 24f
-                fun line(x0: Float, y: Float, x1: Float) =
-                    drawLine(Color.White, Offset(x0 * u, y * u), Offset(x1 * u, y * u), w, StrokeCap.Round)
-                line(4f, 7f, 14f); line(18f, 7f, 20f); line(4f, 17f, 6f); line(10f, 17f, 20f)
-                drawCircle(Color.White, 2f * u, Offset(16f * u, 7f * u), style = Stroke(w))
-                drawCircle(Color.White, 2f * u, Offset(8f * u, 17f * u), style = Stroke(w))
-            }
-        }
-    }
-}
-
-/** The left column: cards scale up near the focal dot and snap to it. Tap a card to bring it in. */
-@Composable
-private fun Carousel(
-    items: List<Item>,
-    hud: Hud,
-    actions: OverlayActions,
-    state: OverlayShellState,
-    reduceMotion: Boolean,
-    entrance: () -> Float,
-    onCentre: (Int) -> Unit,
-    spin: SpinMomentum,
-    cardPops: CardPops,
-    modifier: Modifier,
-) {
-    val listState = rememberLazyListState()
-    SideEffect { cardPops.visibleIndices = { listState.layoutInfo.visibleItemsInfo.map { it.index } } }
-    var carouselRoot by remember { mutableStateOf(Offset.Zero) }
-    val listStartPx = with(LocalDensity.current) { CAROUSEL_LIST_START.toPx() }
-    SideEffect {
-        cardPops.visibleCentres = {
-            val info = listState.layoutInfo
-            val x = carouselRoot.x + listStartPx + info.viewportSize.width / 2f
-            info.visibleItemsInfo.map { Offset(x, carouselRoot.y + it.offset + it.size / 2f) }
-        }
-    }
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val centreIndex by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
-            info.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2 - middle) }?.index ?: 0
-        }
-    }
-    var lastCentre by remember { mutableStateOf<Int?>(null) }
-    // Only finger-driven scrolling turns the slice; animated and snap scrolls never do.
-    val spinNow by rememberUpdatedState(spin)
-    val spinConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput) spinNow.drag(-available.y * DRAG_DEG_PER_PX)
-                return Offset.Zero
-            }
-
-            // Pre, not post: it fires even when the list is already at its first or last card.
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                spinNow.kick(spinForFling(available.y))
-                return Velocity.Zero
-            }
-        }
-    }
-    val held = state.held
-    val heldIndex = items.indexOfFirst { it.id == held }
-    // While a card is held, the card at the focal dot is where it would land.
-    LaunchedEffect(centreIndex, held) { if (held != null) state.moveTarget(centreIndex) }
-    val wiggle: State<Float> = if (held != null && !reduceMotion) {
-        rememberInfiniteTransition(label = "wiggle")
-            .animateFloat(-1f, 1f, infiniteRepeatable(tween(WIGGLE_MILLIS, easing = LinearEasing), RepeatMode.Reverse), label = "wiggle")
-    } else {
-        remember { mutableStateOf(0f) }
-    }
-    val lineColor = hud.accent
-    LaunchedEffect(centreIndex) {
-        onCentre(centreIndex)
-        val previous = lastCentre
-        lastCentre = centreIndex
-        if (previous != null && previous != centreIndex) {
-            actions.feedback(FeedbackEvent.SNAP)
-            actions.onScroll(centreIndex - previous)
-        }
-    }
-    // A capture lands first: bring it to the focal dot.
-    val firstId = items.firstOrNull()?.id
-    LaunchedEffect(firstId) {
-        if (firstId != null && centreIndex != 0) listState.animateScrollToItem(0)
-    }
-    // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
-    BoxWithConstraints(
-        modifier
-            .onGloballyPositioned { carouselRoot = it.positionInRoot() }
-            .pointerInput(spin) {
-                // Initial pass and never consumes: a touch stops the spin without disturbing taps or reordering.
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    spinNow.grab()
-                    do {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                    } while (event.changes.any { it.pressed })
-                    spinNow.release()
-                }
-            }
-            .pointerInput(held) {
-                if (held == null) detectTapGestures { tap ->
-                    val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
-                    val committed = state.commitTitleEdit()
-                    if (!committed && !tapIsInCarouselGap(tap.y, spans)) actions.onClose()
-                }
-            }
-            .testTag(TAG_CAROUSEL),
-    ) {
-        val pad = (maxHeight - CAROUSEL_ITEM_DP.dp) / 2
-        LazyColumn(
-            state = listState,
-            flingBehavior = rememberSnapFlingBehavior(listState),
-            contentPadding = PaddingValues(top = pad, bottom = pad),
-            verticalArrangement = Arrangement.spacedBy(CAROUSEL_GAP_DP.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize().nestedScroll(spinConnection).padding(start = CAROUSEL_LIST_START),
-        ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
-                val isCentre = index == centreIndex
-                Column(
-                    Modifier
-                        .entrance(entrance, index)
-                        .size(width = 88.dp, height = CAROUSEL_ITEM_DP.dp)
-                        .graphicsLayer {
-                            val info = listState.layoutInfo
-                            val own = info.visibleItemsInfo.firstOrNull { it.index == index }
-                            if (own != null) {
-                                val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2f
-                                val distance = own.offset + own.size / 2f - middle
-                                val s = focalScale(distance, own.size * 1.2f)
-                                val steps = abs(distance) / (own.size + with(density) { CAROUSEL_GAP_DP.dp.toPx() })
-                                scaleX = s * (1f - steps * 0.08f).coerceAtLeast(0.78f)
-                                scaleY = scaleX
-                                alpha = (1f - steps * 0.26f).coerceIn(0.3f, 1f)
-                            }
-                            val rank = cardPops.popping.indexOf(index)
-                            if (rank >= 0) {
-                                val p = cardPopProgress(cardPops.elapsed.value, rank)
-                                scaleX *= popScale(p)
-                                scaleY *= popScale(p)
-                                alpha *= popAlpha(p)
-                            }
-                            if (item.id == held) {
-                                alpha *= HELD_ALPHA
-                            } else if (held != null) {
-                                rotationZ = wiggle.value * WIGGLE_DEGREES * if (index % 2 == 0) 1 else -1
-                                translationX = wiggle.value * WIGGLE_DP.dp.toPx()
-                            }
-                        }
-                        .drawBehind {
-                            // The line sits in the gap between the focal card and the side the held card would land on.
-                            if (held != null && index == state.target && heldIndex >= 0 && heldIndex != index) {
-                                val y = if (index > heldIndex) size.height + CAROUSEL_GAP_DP.dp.toPx() / 2 else -CAROUSEL_GAP_DP.dp.toPx() / 2
-                                drawLine(lineColor, Offset(0f, y), Offset(size.width, y), 3.dp.toPx(), StrokeCap.Round)
-                            }
-                        }
-                        .roundedClip(RoundedCornerShape(16.dp))
-                        .background(JuiceColors.white(if (isCentre) 0.24f else 0.12f))
-                        .clickable {
-                            scope.launch { listState.animateScrollToItem(index) }
-                        }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    val typeColor = JuiceColors.of(item.type)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(6.dp).clip(CircleShape).background(typeColor))
-                        Spacer(Modifier.width(5.dp))
-                        Text(item.type.name.uppercase(), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = typeColor)
-                    }
-                    Text(item.title, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-                }
-            }
-        }
-        Box(Modifier.align(Alignment.CenterStart).size(8.dp).clip(CircleShape).background(hud.accent))
-    }
-}
-
-@Composable
-internal fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
-    val left = remember(undo) { Animatable(1f) }
-    LaunchedEffect(undo) { left.animateTo(0f, tween(OverlayShellState.UNDO_WINDOW_MILLIS.toInt(), easing = LinearEasing)) }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(22.dp))
-            .background(JuiceColors.Toast)
-            .border(1.dp, JuiceColors.white(0.18f), RoundedCornerShape(22.dp)),
-    ) {
-        Row(Modifier.fillMaxSize().padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(if (undo.dismissed) R.string.overlay_undo_archived else R.string.overlay_undo_completed, undo.item.title),
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Box(
-                Modifier
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(hud.accent)
-                    .clickable(onClick = onUndo)
-                    .padding(horizontal = 16.dp)
-                    .testTag(TAG_UNDO),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(stringResource(R.string.overlay_undo), color = JuiceColors.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(left.value).height(3.dp).background(hud.accent))
-    }
-}
-
-/** The tier and fill percent, e.g. "HYDRATED: 37%", above the centre card. */
-@Composable
-private fun HydrationLabel(hud: Hud, modifier: Modifier = Modifier) {
-    val label = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 1f), 6f))
-    Text(
-        stringResource(R.string.overlay_thirst, hud.tier.name, Math.round(hud.fill * 100)),
-        fontSize = 11.sp,
-        letterSpacing = 1.5.sp,
-        fontWeight = FontWeight.Bold,
-        style = LocalTextStyle.current.merge(label),
-        modifier = modifier.testTag(TAG_HYDRATION),
-    )
-}
-
-/** The multiplier pill; it pulses while Satiated. */
-@Composable
-private fun MultiplierBadge(hud: Hud) {
-    val satiated = hud.tier == Tier.SATIATED
-    val pulse by rememberInfiniteTransition(label = "badge").animateFloat(
-        1f, if (satiated) 1.08f else 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse",
-    )
-    Box(
-        Modifier
-            .graphicsLayer { scaleX = pulse; scaleY = pulse }
-            .widthIn(min = 56.dp)
-            .height(34.dp)
-            .clip(RoundedCornerShape(17.dp))
-            .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
-            .border(if (satiated) 2.dp else 1.dp, hud.accent, RoundedCornerShape(17.dp))
-            .padding(horizontal = 12.dp)
-            .testTag(TAG_MULTIPLIER),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(hud.multiplierLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-/** Tells the host whether the shell is in writing mode and lets it end that mode, for the BACK key. */
-class WritingBack {
-    internal var isWriting: () -> Boolean = { false }
-    internal var leave: () -> Unit = {}
-    internal var isRecapOpen: () -> Boolean = { false }
-    internal var closeRecap: () -> Unit = {}
-    internal var isRoutinesOpen: () -> Boolean = { false }
-    internal var closeRoutines: () -> Unit = {}
-
-    /** BACK closes the Recap or the Routines view while one is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
-    fun back(close: () -> Unit) = when {
-        isRecapOpen() -> closeRecap()
-        isRoutinesOpen() -> closeRoutines()
-        isWriting() -> leave()
-        else -> close()
-    }
-}
-
-/** A still liquid, for previews and tests; the overlay passes the AGSL reservoir instead. */
-@Composable
-fun PlainReservoir(hud: Hud, modifier: Modifier) {
-    Canvas(modifier) {
-        val top = size.height * (1f - hud.fill * 0.9f)
-        drawRect(Brush.verticalGradient(listOf(hud.accent, hud.deep), startY = top, endY = size.height), Offset(0f, top))
-    }
-}
-
-@Composable
-private fun Capture(
-    hud: Hud,
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    writing: Boolean,
-    onWritingChange: (Boolean) -> Unit,
-    onLeave: () -> Unit,
-    modifier: Modifier,
-    onSubmit: (String) -> Unit,
-) {
-    fun submit() {
-        if (draft.isBlank()) return
-        onSubmit(draft)
-        onDraftChange("")
-        onLeave()
-    }
-    val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
-    Row(
-        modifier.fillMaxWidth().then(if (writing) Modifier else Modifier.height(56.dp)),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        BasicTextField(
-            value = draft,
-            onValueChange = onDraftChange,
-            singleLine = !writing,
-            textStyle = LocalTextStyle.current.copy(fontSize = if (writing) 20.sp else 15.sp),
-            cursorBrush = SolidColor(Color.White),
-            keyboardOptions = KeyboardOptions(imeAction = if (writing) ImeAction.Default else ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .onFocusChanged { onWritingChange(it.isFocused) }
-                .testTag(TAG_CAPTURE_FIELD),
-            decorationBox = { field ->
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .clip(shape)
-                        .background(JuiceColors.white(0.14f))
-                        .border(1.dp, JuiceColors.white(0.25f), shape)
-                        .padding(horizontal = 20.dp, vertical = if (writing) 18.dp else 0.dp),
-                    contentAlignment = if (writing) Alignment.TopStart else Alignment.CenterStart,
-                ) {
-                    if (draft.isEmpty()) Text(stringResource(R.string.overlay_capture_hint), fontSize = if (writing) 20.sp else 15.sp, color = JuiceColors.white(0.6f))
-                    field()
-                }
-            },
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (writing) {
-                Spacer(Modifier.weight(1f))
-            }
-        val label = stringResource(R.string.overlay_add)
-        Box(
-            Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(hud.accent)
-                .clickable { submit() }
-                .semantics { contentDescription = label }
-                .testTag(TAG_ADD),
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(Modifier.size(22.dp)) {
-                val w = 2.6.dp.toPx()
-                val u = size.width / 24f
-                drawPath(
-                    Path().apply { moveTo(12 * u, 5 * u); lineTo(12 * u, 19 * u); moveTo(5 * u, 12 * u); lineTo(19 * u, 12 * u) },
-                    JuiceColors.Ink,
-                    style = Stroke(w, cap = StrokeCap.Round),
-                )
-            }
-        }
-        }
-    }
-}
-
-@Composable
-private fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
-    val banner = effects.banner
-    LaunchedEffect(banner) {
-        if (banner != null) {
-            delay(maxOf(BANNER_MILLIS, banner.second.length * BANNER_MILLIS_PER_CHAR))
-            effects.clearBanner(banner.first)
-        }
-    }
-    AnimatedVisibility(banner != null, modifier = modifier, enter = fadeIn(), exit = fadeOut()) {
-        var last by remember { mutableStateOf("") }
-        if (banner != null) last = banner.second
-        Box(
-            Modifier
-                .width(310.dp)
-                .heightIn(min = 40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(hud.accent)
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .testTag(TAG_BANNER),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(last, color = JuiceColors.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-/** "+250 x2.4" rising and fading over the card. */
-@Composable
-private fun Floats(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
-    Box(modifier) {
-        effects.floats.forEach { float ->
-            val progress = remember(float.id) { Animatable(0f) }
-            LaunchedEffect(float.id) {
-                progress.animateTo(1f, tween(FLOAT_MILLIS, easing = LinearEasing))
-                effects.clearFloat(float.id)
-            }
-            Text(
-                float.text,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = hud.accent,
-                textAlign = TextAlign.Center,
-                style = LocalTextStyle.current.merge(TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 2f), 12f))),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = 146.dp - 60.dp * progress.value)
-                    .graphicsLayer { alpha = ((1f - progress.value) * 2f).coerceIn(0f, 1f) },
-            )
         }
     }
 }
