@@ -1,13 +1,21 @@
 package com.juice.ui.overlay
 
 import android.content.Context
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.platform.testTag
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.RegisterComposeActivity
@@ -41,6 +49,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -408,6 +417,40 @@ class CoachChatTest {
         waitFor { !chat.open }
         chat.cancel()
         assertEquals(1, failed)
+    }
+
+    private fun showShort(chat: CoachChatState) {
+        compose.setContent { Box(Modifier.width(360.dp).height(360.dp).testTag("short_box")) { CoachChat(chat, Hud(), animate = false) } }
+    }
+
+    private fun assertInsideBox(tag: String) {
+        compose.onNodeWithTag(tag).assertIsDisplayed()
+        val box = compose.onNodeWithTag("short_box").getUnclippedBoundsInRoot()
+        val b = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+        assertTrue("$tag $b not inside $box", b.top >= box.top && b.bottom <= box.bottom && b.left >= box.left && b.right <= box.right)
+    }
+
+    @Test
+    fun inAShortChatTheInputAndTheLineStayInsideTheBoxAndTakeTyping() {
+        showShort(chat {})
+        listOf(TAG_COACH_INPUT, TAG_COACH_SEND, TAG_COACH_LINE).forEach { assertInsideBox(it) }
+        assertTrue(compose.onNodeWithTag(TAG_COACH_LINE).getUnclippedBoundsInRoot().let { it.bottom - it.top } > 0.dp)
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("typing")
+        compose.onNodeWithTag(TAG_COACH_INPUT).assertTextContains("typing")
+        assertEquals(0, compose.onAllNodesWithTagCount(TAG_COACH_HISTORY_BUTTON))
+    }
+
+    @Test
+    fun inAShortChatTheProposalButtonsStayInsideTheBox() {
+        val chat = chat {}
+        showShort(chat)
+        reply("Ready [ready]")
+        reply("""{"tasks":[${add("Walk")}]}""")
+        reply("""{"shared":[],"characters":{}}""")
+        compose.onNodeWithTag(TAG_COACH_INPUT).performTextInput("go")
+        compose.onNodeWithTag(TAG_COACH_SEND).performClick()
+        waitFor { chat.proposal != null }
+        listOf(TAG_COACH_CONFIRM, TAG_COACH_CANCEL).forEach { assertInsideBox(it) }
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTagCount(tag: String) =
