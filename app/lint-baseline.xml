@@ -7,8 +7,8 @@
         errorLine1="            Text(String.format(&quot;%,d&quot;, hud.juice), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)"
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="796"
+            file="src/main/java/com/juice/ui/overlay/OverlayHeader.kt"
+            line="84"
             column="18"/>
     </issue>
 
@@ -30,7 +30,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/juice/overlay/OverlayService.kt"
-            line="191"
+            line="195"
             column="13"/>
     </issue>
 
@@ -41,7 +41,7 @@
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="28"
+            line="22"
             column="9"/>
     </issue>
 
@@ -74,7 +74,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="108"
+            line="107"
             column="20"/>
     </issue>
 
@@ -85,7 +85,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="109"
+            line="108"
             column="20"/>
     </issue>
 
@@ -96,7 +96,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="110"
+            line="109"
             column="24"/>
     </issue>
 
@@ -107,7 +107,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="118"
+            line="117"
             column="31"/>
     </issue>
 
@@ -118,7 +118,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="119"
+            line="118"
             column="31"/>
     </issue>
 
@@ -129,7 +129,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="127"
+            line="126"
             column="24"/>
     </issue>
 
@@ -206,7 +206,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="111"
+            line="110"
             column="20"/>
     </issue>
 
@@ -217,7 +217,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="126"
+            line="125"
             column="24"/>
     </issue>
 
@@ -228,7 +228,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="128"
+            line="127"
             column="24"/>
     </issue>
 
@@ -239,7 +239,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="129"
+            line="128"
             column="24"/>
     </issue>
 
@@ -293,9 +293,20 @@
         errorLine1="    fun element(slot: Int): Modifier = Modifier.graphicsLayer {"
         errorLine2="        ~~~~~~~">
         <location
-            file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="617"
+            file="src/main/java/com/juice/ui/overlay/OverlayCarousel.kt"
+            line="262"
             column="9"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be named modifier"
+        errorLine1="    pop: Modifier,"
+        errorLine2="    ~~~">
+        <location
+            file="src/main/java/com/juice/ui/overlay/OverlayHeader.kt"
+            line="49"
+            column="5"/>
     </issue>
 
     <issue
@@ -305,18 +316,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/OverlaySettingsSheet.kt"
-            line="60"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="ModifierParameter"
-        message="Modifier parameter should be named modifier"
-        errorLine1="    pop: Modifier,"
-        errorLine2="    ~~~">
-        <location
-            file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="761"
+            line="79"
             column="5"/>
     </issue>
 
@@ -355,12 +355,23 @@
 
     <issue
         id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        remember { mutableStateOf(0f) }"
+        errorLine2="                   ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/juice/ui/overlay/OverlayCarousel.kt"
+            line="133"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
         message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
         errorLine1="    var centre by remember { mutableStateOf(0) }"
         errorLine2="                             ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="248"
+            line="201"
             column="30"/>
     </issue>
 
@@ -371,19 +382,8 @@
         errorLine2="                                  ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="329"
+            line="282"
             column="35"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
-        errorLine1="        remember { mutableStateOf(0f) }"
-        errorLine2="                   ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="926"
-            column="20"/>
     </issue>
 
     <issue
@@ -404,7 +404,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/RoutinesView.kt"
-            line="54"
+            line="55"
             column="30"/>
     </issue>
 
@@ -415,7 +415,7 @@
         errorLine2="                         ~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/CoachChat.kt"
-            line="264"
+            line="284"
             column="26"/>
     </issue>
 
@@ -425,8 +425,8 @@
         errorLine1="                    .offset(y = 146.dp - 60.dp * progress.value)"
         errorLine2="                     ~~~~~~">
         <location
-            file="src/main/java/com/juice/ui/overlay/OverlayShell.kt"
-            line="1261"
+            file="src/main/java/com/juice/ui/overlay/OverlayHud.kt"
+            line="186"
             column="22"/>
     </issue>
 
@@ -624,7 +624,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="108"
+            line="107"
             column="20"/>
     </issue>
 
@@ -635,7 +635,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="109"
+            line="108"
             column="20"/>
     </issue>
 
@@ -646,7 +646,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="110"
+            line="109"
             column="24"/>
     </issue>
 
@@ -657,7 +657,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="111"
+            line="110"
             column="20"/>
     </issue>
 
@@ -668,7 +668,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="117"
+            line="116"
             column="31"/>
     </issue>
 
@@ -679,7 +679,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="118"
+            line="117"
             column="31"/>
     </issue>
 
@@ -690,7 +690,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="119"
+            line="118"
             column="31"/>
     </issue>
 
@@ -701,7 +701,7 @@
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="121"
+            line="120"
             column="25"/>
     </issue>
 
@@ -712,7 +712,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="123"
+            line="122"
             column="24"/>
     </issue>
 
@@ -723,7 +723,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="126"
+            line="125"
             column="24"/>
     </issue>
 
@@ -734,7 +734,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="127"
+            line="126"
             column="24"/>
     </issue>
 
@@ -745,7 +745,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="128"
+            line="127"
             column="24"/>
     </issue>
 
@@ -756,7 +756,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="129"
+            line="128"
             column="24"/>
     </issue>
 
