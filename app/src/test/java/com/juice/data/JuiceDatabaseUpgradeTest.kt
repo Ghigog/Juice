@@ -8,7 +8,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
+import java.time.Clock
 import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
@@ -21,6 +23,7 @@ import kotlin.test.assertNotNull
 class JuiceDatabaseUpgradeTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val name = "upgrade-test.db"
+    private val clock = Clock.fixed(Instant.parse("2026-10-28T12:00:00Z"), ZoneOffset.UTC)
     private var db: JuiceDatabase? = null
 
     @After
@@ -76,7 +79,7 @@ class JuiceDatabaseUpgradeTest {
 
     private fun upgradeFrom(version: Int) {
         seed(version)
-        val opened = JuiceDatabase.build(context, name).also { db = it }
+        val opened = JuiceDatabase.build(context, name, clock).also { db = it }
         runBlocking {
             seeded.forEach { (id, status) ->
                 val item = assertNotNull(opened.itemDao().get(id), "row $id lost from v$version")
@@ -127,12 +130,21 @@ class JuiceDatabaseUpgradeTest {
     }
 
     @Test
+    fun versionSixCompletedRowIsStampedFromTheClockAndActiveRowsStayNull() {
+        upgradeFrom(6)
+        val stamp = clock.millis()
+        val rows = runBlocking { listOf("a", "c").map { db!!.itemDao().get(it)!! } }
+        assertEquals(listOf<Long?>(null, stamp), rows.map { it.completedAtMillis })
+        assertEquals(listOf<Long?>(null, stamp), rows.map { it.createdAtMillis })
+    }
+
+    @Test
     fun savedItemsSurviveClosingAndReopeningTheFile() = runBlocking {
-        val first = JuiceDatabase.build(context, name)
+        val first = JuiceDatabase.build(context, name, clock)
         val repository = ItemRepository(first.itemDao()) { Instant.ofEpochMilli(1_000) }
         listOf("x", "y", "w").forEach { repository.save(Item(it, ItemType.Task, "Title $it")) }
         first.close()
-        db = JuiceDatabase.build(context, name)
+        db = JuiceDatabase.build(context, name, clock)
         assertEquals(listOf("x", "y", "w"), ItemRepository(db!!.itemDao()).active().map { it.id })
     }
 }

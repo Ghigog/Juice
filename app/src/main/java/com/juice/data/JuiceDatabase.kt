@@ -8,6 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
+import java.time.Clock
 
 @Database(entities = [ItemEntity::class], version = 9, exportSchema = true)
 abstract class JuiceDatabase : RoomDatabase() {
@@ -40,12 +41,12 @@ abstract class JuiceDatabase : RoomDatabase() {
             }
         }
 
-        internal val addTimes = object : Migration(6, 7) {
+        internal fun addTimes(clock: Clock) = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN createdAtMillis INTEGER")
                 db.execSQL("ALTER TABLE items ADD COLUMN completedAtMillis INTEGER")
                 // Completed rows have no recorded time; stamp them now so the Recap (which filters on it) keeps them.
-                val now = System.currentTimeMillis()
+                val now = clock.millis()
                 db.execSQL("UPDATE items SET completedAtMillis = ?, createdAtMillis = ? WHERE status = 'Completed'", arrayOf<Any>(now, now))
             }
         }
@@ -57,9 +58,9 @@ abstract class JuiceDatabase : RoomDatabase() {
         }
 
         /** Room takes one step per version pair, so the two 6→7 column additions run together. */
-        internal val addTimesAndCharacterId = object : Migration(6, 7) {
+        internal fun addTimesAndCharacterId(clock: Clock) = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                addTimes.migrate(db)
+                addTimes(clock).migrate(db)
                 addCharacterId.migrate(db)
             }
         }
@@ -115,14 +116,20 @@ abstract class JuiceDatabase : RoomDatabase() {
         @Volatile private var instance: JuiceDatabase? = null
 
         /** One shared instance, so the overlay's observers see writes made by the intake worker. */
-        fun open(context: Context): JuiceDatabase = instance ?: synchronized(this) {
-            instance ?: build(context, "juice.db").also { instance = it }
+        fun open(context: Context, clock: Clock = Clock.systemDefaultZone()): JuiceDatabase = instance ?: synchronized(this) {
+            instance ?: build(context, "juice.db", clock).also { instance = it }
         }
 
+        /** Every registered migration, in version order; [clock] stamps the rows the 6→7 step has no time for. */
+        internal fun migrations(clock: Clock): Array<Migration> = arrayOf(
+            addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence,
+            addTimesAndCharacterId(clock), addStarredAt, addNotification,
+        )
+
         /** A database file called [name] with every registered migration; never falls back to wiping data. */
-        internal fun build(context: Context, name: String): JuiceDatabase =
+        internal fun build(context: Context, name: String, clock: Clock = Clock.systemDefaultZone()): JuiceDatabase =
             Room.databaseBuilder(context.applicationContext, JuiceDatabase::class.java, name)
-                .addMigrations(addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence, addTimesAndCharacterId, addStarredAt, addNotification)
+                .addMigrations(*migrations(clock))
                 .build()
     }
 }
