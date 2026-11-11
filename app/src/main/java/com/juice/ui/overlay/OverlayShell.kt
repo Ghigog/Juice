@@ -158,6 +158,8 @@ fun OverlayShell(
     state: OverlayShellState,
     modifier: Modifier = Modifier,
     settings: JuiceSettings = JuiceSettings(),
+    /** Whether a Groq key is saved; without one Groq is never used, so the parsing chip says on device. */
+    groqKeySaved: Boolean = false,
     hud: Hud = Hud(),
     blurred: Boolean = false,
     actions: OverlayActions = OverlayActions(),
@@ -385,7 +387,7 @@ fun OverlayShell(
                     )
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
                     CardRow(
-                        state, hud, settings, actions, effects, reservoir, centre,
+                        state, hud, settings, groqKeySaved, actions, effects, reservoir, centre,
                         onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(),
                         entrance = entranceProgress, spin = spin, cardPops = cardPops,
                         onJuiceBoxBounds = { juiceBoxBounds = it },
@@ -480,7 +482,7 @@ fun OverlayShell(
             }
             if (routinesOpen) {
                 RoutinesView(
-                    state.routines, hud, settings, actions, effects, reservoir,
+                    state.routines, hud, settings, groqKeySaved, actions, effects, reservoir,
                     onClose = { routinesOpen = false },
                     modifier = Modifier
                         .fillMaxSize()
@@ -552,6 +554,7 @@ internal fun CardRow(
     state: OverlayShellState,
     hud: Hud,
     settings: JuiceSettings,
+    groqKeySaved: Boolean,
     actions: OverlayActions,
     effects: OverlayEffects,
     reservoir: @Composable (Modifier) -> Unit,
@@ -580,7 +583,7 @@ internal fun CardRow(
                     hud = hud,
                     tapButtons = settings.tapButtons,
                     reduceMotion = settings.reduceMotion,
-                    onDeviceOnly = settings.onDeviceOnly,
+                    onDeviceOnly = settings.onDeviceOnly || !groqKeySaved,
                     actions = actions,
                     effects = effects,
                     reservoir = reservoir,

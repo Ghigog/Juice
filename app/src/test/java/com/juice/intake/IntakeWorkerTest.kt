@@ -12,6 +12,7 @@ import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.core.intake.GroqKey
 import com.juice.settings.SettingsRepository
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -35,16 +36,23 @@ class IntakeWorkerTest {
     private val server = MockWebServer().apply { start() }
     private lateinit var db: JuiceDatabase
     private lateinit var items: ItemRepository
+    private var savedKey: GroqKey? = GroqKey.parse("gsk_test_key")
+    private val settings = SettingsRepository(context)
 
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java).allowMainThreadQueries().build()
         items = ItemRepository(db.itemDao())
-        runBlocking { items.save(Item("i1", ItemType.Note, "do laundry")) }
+        runBlocking {
+            items.save(Item("i1", ItemType.Note, "do laundry"))
+            settings.update { it.copy(onDeviceOnly = false) }
+        }
     }
 
     @After
     fun tearDown() {
+        // The settings store outlives the test; put the default back for the next one.
+        runBlocking { settings.update { it.copy(onDeviceOnly = true) } }
         db.close()
         server.shutdown()
     }
@@ -59,12 +67,34 @@ class IntakeWorkerTest {
                         appContext,
                         workerParameters,
                         SettingsRepository(appContext),
-                        GroqClient("key", server.url("/").toString().trimEnd('/')),
+                        { savedKey },
+                        { GroqClient(it.value, server.url("/").toString().trimEnd('/')) },
                         items,
                         { NOW },
                     )
             })
             .build()
+
+    @Test
+    fun noSavedKeyClassifiesLocallyAndNeverCallsGroq() = runBlocking {
+        savedKey = null
+        settings.update { it.copy(onDeviceOnly = false) }
+        assertEquals(Result.success(), worker("itemId" to "i1").doWork())
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aSavedKeyWithOnDeviceOnlyOffCallsGroqAndRemovingItFallsBackToRules() = runBlocking {
+        settings.update { it.copy(onDeviceOnly = false) }
+        server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"{\"type\":\"Goal\",\"title\":\"Do laundry\",\"completion_condition\":\"done\",\"deadline\":null,\"sub_items\":null}"}}]}"""))
+        assertEquals(Result.success(), worker("itemId" to "i1").doWork())
+        assertEquals(1, server.requestCount)
+        savedKey = null
+        assertEquals(Result.success(), worker("itemId" to "i1").doWork())
+        assertEquals(1, server.requestCount)
+        assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
+    }
 
     @Test
     fun anItemThatIsGoneSucceedsAsANoOp() = runBlocking {
@@ -118,7 +148,7 @@ class IntakeWorkerTest {
             assertEquals(rules.deadline, landed.deadline)
             assertEquals(0, server.requestCount)
         } finally {
-            settings.update { it.copy(onDeviceOnly = false) }
+            settings.update { it.copy(onDeviceOnly = true) }
         }
     }
 

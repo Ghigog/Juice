@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.juice.BuildConfig
 import com.juice.core.intake.ItemType
 import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
@@ -64,6 +63,7 @@ import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
 import com.juice.core.card.CardOrder
 import com.juice.settings.CharacterSettings
+import com.juice.settings.GroqKeyStore
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.feedback.FeedbackPlayer
@@ -108,6 +108,7 @@ class OverlayService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
+    private val groqKeyStore by lazy { GroqKeyStore(this) }
     @Volatile private var settings = JuiceSettings()
     private val characterStore by lazy { CharacterStore(this) }
     private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
@@ -123,10 +124,11 @@ class OverlayService : Service() {
         CharacterRepository(
             characterStore, repository, conversationStore, memoryStore, createdStore,
             CharacterGenerator(llm = { hobby ->
-                if (BuildConfig.GROQ_API_KEY.isBlank() || runBlocking { settingsRepository.current().onDeviceOnly }) {
-                    throw IOException("Needs cloud access: turn off On-device only")
+                val key = groqKeyStore.load()
+                if (key == null || runBlocking { settingsRepository.current().onDeviceOnly }) {
+                    throw IOException("Needs cloud access: save a Groq key and turn off On-device only")
                 }
-                GroqClient(BuildConfig.GROQ_API_KEY).generatePersona(hobby)
+                GroqClient(key.value).generatePersona(hobby)
             }),
         )
     }
@@ -444,7 +446,7 @@ class OverlayService : Service() {
             repository,
             onDeviceOnly = { settingsRepository.current().onDeviceOnly },
             enqueue = { id -> IntakeWorker.enqueue(this, id) },
-            cloudAvailable = { IntakeWorker.cloudAvailable },
+            cloudAvailable = { groqKeyStore.hasKey.value },
         )
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
@@ -491,7 +493,7 @@ class OverlayService : Service() {
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
                             character,
-                            BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
+                            groqKeyStore.load()?.let { CoachClient(it.value) },
                             conversationStore,
                             memoryStore,
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
@@ -516,6 +518,7 @@ class OverlayService : Service() {
                 OverlayShell(
                     state,
                     settings = current,
+                    groqKeySaved = groqKeyStore.hasKey.collectAsState().value,
                     hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
                     onRevealProgress = ::rampBlur,

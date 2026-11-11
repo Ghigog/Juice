@@ -5,7 +5,7 @@ Juice is an Android overlay productivity and memory aid (Kotlin, Jetpack Compose
 ## Modules
 
 - `:core` — pure Kotlin/JVM (JDK 17 toolchain), no Android types. Holds the engine under `com.juice.core`: economy, progression, intake parsing, cadence/routines, recap, gestures, characters and personas, physics, audio synth. Source in `core/src/main`, tests in `core/src/test/kotlin` (kotlin.test + JUnit).
-- `:app` — the Android application (`com.juice`): overlay UI in Compose, services, persistence and the Groq-backed AI intake. Depends on `:core`. Tests in `app/src/test` are JVM unit tests using Robolectric and Compose UI test; the optional `GROQ_API_KEY` is read from `local.properties`.
+- `:app` — the Android application (`com.juice`): overlay UI in Compose, services, persistence and the Groq-backed AI intake. Depends on `:core`. Tests in `app/src/test` are JVM unit tests using Robolectric and Compose UI test; no Groq key is built in: each person pastes their own in the overlay settings to unlock Groq mode (on device by default). An integration test that wants a real key reads `GROQ_API_KEY` from `local.properties` itself and skips when absent.
 
 Put logic that does not need Android in `:core` so it stays easy to test.
 

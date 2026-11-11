@@ -20,6 +20,11 @@ class JuiceSettingsTest {
     }
 
     @Test
+    fun `on-device only is the default`() {
+        assertTrue(JuiceSettings().onDeviceOnly)
+    }
+
+    @Test
     fun `haptics off silences vibration but keeps sound`() {
         val f = JuiceSettings(haptics = false).feedback
         assertFalse(f.hapticsEnabled)

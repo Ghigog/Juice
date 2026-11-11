@@ -1,15 +1,9 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kover)
-}
-
-val localProperties = Properties().apply {
-    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -29,9 +23,6 @@ android {
         versionCode = 1
         versionName = "0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // local.properties for local builds; the GROQ_API_KEY environment variable (a repository secret) on CI.
-        val groqKey = localProperties.getProperty("GROQ_API_KEY") ?: System.getenv("GROQ_API_KEY").orEmpty()
-        buildConfigField("String", "GROQ_API_KEY", "\"$groqKey\"")
     }
 
     // One debug key for every build, so a new APK from CI installs over the last one. CI runners

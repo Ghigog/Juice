@@ -127,7 +127,7 @@
     <string name="creator_confirm">Summon</string>
     <string name="creator_progress">Summoning your coach…</string>
     <string name="creator_error">Could not summon a coach: %1$s</string>
-    <string name="coach_needs_cloud">The coach needs cloud access. Turn off On-device only and try again.</string>
+    <string name="coach_needs_cloud">The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again.</string>
     <string name="coach_unreachable">%1$s could not be reached. %2$s</string>
     <string name="chip_picker_deadline">Pick a day</string>
     <string name="chip_picker_interval">Repeat every</string>
