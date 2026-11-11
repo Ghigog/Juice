@@ -36,12 +36,19 @@ Add these repository secrets (Settings → Secrets and variables → Actions):
 Keep `juice-release.jks` and its passwords somewhere safe outside the repository.
 
 Locally, the build reads the keystore path and passwords from `JUICE_KEYSTORE_FILE`,
-`JUICE_KEYSTORE_PASSWORD`, `JUICE_KEY_ALIAS` and `JUICE_KEY_PASSWORD`. When they are absent it signs with
-`app/debug.keystore`, so `./gradlew :app:assembleRelease` still works. The workflow logs a warning when
-`JUICE_KEYSTORE_BASE64` is not set.
+`JUICE_KEYSTORE_PASSWORD`, `JUICE_KEY_ALIAS` and `JUICE_KEY_PASSWORD`. Release builds never fall back to
+`app/debug.keystore`: when `JUICE_KEYSTORE_FILE` is not set, `./gradlew :app:assembleRelease` fails with an error
+naming it. Tests, lint and coverage do not need it. The release workflow fails the same way when
+`JUICE_KEYSTORE_BASE64` is not set, before building, so a debug-signed APK is never published.
+Release builds are minified with R8 (`app/proguard-rules.pro`).
 
 ## Changing the signing key
 
 Android only installs an update when it is signed with the same key as the installed app. If the key
 changes (including going from the debug fallback to a real key), testers must uninstall Juice first, which
 deletes its data. Create the key once and keep it.
+
+## Owner note: rotate the Groq key
+
+Earlier release and CI APKs were built with the Groq API key compiled in. Rotate that key at
+console.groq.com and replace or delete the old Release APKs on GitHub (manual step, not done by the build).

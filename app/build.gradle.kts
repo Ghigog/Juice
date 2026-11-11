@@ -16,6 +16,12 @@ android {
     namespace = "com.juice"
     compileSdk = 36
 
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        baseline = file("lint-baseline.xml")
+    }
+
     defaultConfig {
         applicationId = "com.juice"
         minSdk = 33
@@ -38,8 +44,8 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        // Release key comes from the environment (see docs/releasing.md). Without it the release
-        // build falls back to the debug key so it still builds; the release workflow warns about that.
+        // Release key comes from the environment (see docs/releasing.md). Without it, packaging a
+        // release APK fails (see the packageRelease check below); it never falls back to the debug key.
         create("release") {
             val keystorePath = System.getenv("JUICE_KEYSTORE_FILE")
             if (!keystorePath.isNullOrBlank()) {
@@ -47,8 +53,6 @@ android {
                 storePassword = System.getenv("JUICE_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("JUICE_KEY_ALIAS")
                 keyPassword = System.getenv("JUICE_KEY_PASSWORD")
-            } else {
-                initWith(getByName("debug"))
             }
         }
     }
@@ -56,8 +60,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            // Not minified: Room and serialization would need keep rules, unverified.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
@@ -81,6 +86,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// A release APK must be signed with the release keystore, never the committed debug one.
+// Checked at packaging time so tests, lint and coverage still run without the key.
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    doFirst {
+        if (System.getenv("JUICE_KEYSTORE_FILE").isNullOrBlank()) {
+            throw GradleException("JUICE_KEYSTORE_FILE is not set: release builds must be signed with the release keystore, see docs/releasing.md")
+        }
     }
 }
 
