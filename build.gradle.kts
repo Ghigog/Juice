@@ -22,8 +22,3 @@ kover {
         }
     }
 }
-
-// Kover merges every Android variant, which would pull in testReleaseUnitTest; CI measures debug only.
-project(":app").tasks.configureEach {
-    if (name == "testReleaseUnitTest") enabled = false
-}

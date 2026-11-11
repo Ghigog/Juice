@@ -74,7 +74,7 @@ android {
 
     sourceSets {
         // Exported Room schemas ride along as debug assets (AGP does not merge the test source set's assets into JVM unit tests),
-        // so MigrationTestHelper can load them under Robolectric.
+        // so MigrationTestHelper can load them under Robolectric. Debug only, so the release APK ships no schema JSON.
         getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 
