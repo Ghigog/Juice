@@ -16,6 +16,12 @@ android {
     namespace = "com.juice"
     compileSdk = 36
 
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        baseline = file("lint-baseline.xml")
+    }
+
     defaultConfig {
         applicationId = "com.juice"
         minSdk = 33
