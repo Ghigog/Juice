@@ -1,6 +1,6 @@
 package com.juice.overlay
 
-import java.time.LocalDate
+import java.time.Clock
 import android.app.Dialog
 import android.app.Notification
 import android.app.NotificationChannel
@@ -82,6 +82,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import com.juice.R
 import com.juice.ui.liquid.JuiceLiquidView
@@ -133,7 +134,11 @@ class OverlayService : Service() {
     }
     private val characterSettings by lazy { CharacterSettings(characters, scope, level = { Progression.levelFor(EconomyStore(this).load()?.state?.juice ?: 0L) }) }
     private val handleFeedback by lazy { FeedbackPlayer(sounds, VibratorOutput(this)) { settings.feedback } }
+    /** Service has no constructor arguments; tests set this before onCreate. */
+    internal var clock: Clock = Clock.systemDefaultZone()
     private var openItems = 0
+    internal val openItemCount get() = openItems
+    internal val handleSlices get() = handle?.slices
     // Room the overlay keeps clear for the system bars and cutout; follows the screen as it rotates.
     private val systemBars = mutableStateOf(PaddingValues(0.dp))
     // The screen's size and insets the handle and the overlay were last laid out for.
@@ -199,8 +204,12 @@ class OverlayService : Service() {
                 settingsRepository.settings.collect { applySettings(it) }
             }
             scope.launch {
-                repository.repairCadences(LocalDate.now())
-                repository.observeActive(LocalDate.now()).collect {
+                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                val active = todayChanges(this@OverlayService, clock).flatMapLatest { day ->
+                    repository.repairCadences(day)
+                    repository.observeActive(day)
+                }
+                active.collect {
                     openItems = it.size
                     handle?.slices = SliceLogoPainter.sliceCount(openItems)
                 }
