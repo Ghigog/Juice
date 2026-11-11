@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import okhttp3.mockwebserver.MockResponse
+import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockWebServer
 
 class CoachConversationTest {
@@ -44,7 +45,7 @@ class CoachConversationTest {
         tasks: List<Item> = emptyList(),
     ) = CoachConversation(Characters.Jim, client, store, memoryStore, { onDeviceOnly }, { tasks })
 
-    @Test fun sendPostsPersonaAndMessagesWithoutJsonMode() {
+    @Test fun sendPostsPersonaAndMessagesWithoutJsonMode() = runTest {
         reply("Hi, what do you do now?")
         val result = conversation().send("I want to get fit")
         assertEquals(CoachReply.Reply("Hi, what do you do now?"), result)
@@ -56,7 +57,7 @@ class CoachConversationTest {
         assertTrue("json_object" !in body)
     }
 
-    @Test fun sendSystemPromptHasCoachVoiceAfterPersonaAndKeepsContract() {
+    @Test fun sendSystemPromptHasCoachVoiceAfterPersonaAndKeepsContract() = runTest {
         reply("Hi")
         conversation().send("I want to get fit")
         val system = systemPromptOf(server.takeRequest().body.readUtf8())
@@ -67,7 +68,7 @@ class CoachConversationTest {
         assertTrue("\"tasks\"" in system)
     }
 
-    @Test fun finishSendsCoachVoiceToo() {
+    @Test fun finishSendsCoachVoiceToo() = runTest {
         reply("""{"tasks":[{"action":"add","title":"Walk","cadence":{"days":"daily"}}]}""")
         conversation().finish()
         assertTrue(CoachVoice.PROMPT.lines().first() in systemPromptOf(server.takeRequest().body.readUtf8()))
@@ -79,14 +80,14 @@ class CoachConversationTest {
             .let { it as kotlinx.serialization.json.JsonObject }.getValue("content")
             .let { (it as kotlinx.serialization.json.JsonPrimitive).content }
 
-    @Test fun onDeviceOnlyOrNoKeyIsCloudRequiredWithoutARequest() {
+    @Test fun onDeviceOnlyOrNoKeyIsCloudRequiredWithoutARequest() = runTest {
         assertEquals(CoachReply.CloudRequired, conversation(onDeviceOnly = true).send("hi"))
         assertEquals(CoachFinish.CloudRequired, conversation(onDeviceOnly = true).finish())
         assertEquals(CoachReply.CloudRequired, conversation(client = null).send("hi"))
         assertEquals(0, server.requestCount)
     }
 
-    @Test fun unreachableGroqIsAnErrorAndHistoryIsUnchanged() {
+    @Test fun unreachableGroqIsAnErrorAndHistoryIsUnchanged() = runTest {
         reply("ok")
         val chat = conversation()
         chat.send("first")
@@ -100,7 +101,7 @@ class CoachConversationTest {
         assertTrue("second" !in body)
     }
 
-    @Test fun finishUsesJsonModeAndReturnsValidatedTasks() {
+    @Test fun finishUsesJsonModeAndReturnsValidatedTasks() = runTest {
         reply("""{"tasks":[{"action":"add","title":"Walk","cadence":{"days":"daily"}}]}""")
         val result = conversation().finish()
         assertTrue(result is CoachFinish.Proposal)
@@ -108,14 +109,14 @@ class CoachConversationTest {
         assertTrue("json_object" in server.takeRequest().body.readUtf8())
     }
 
-    @Test fun malformedOrInvalidProposalReturnsNoTasks() {
+    @Test fun malformedOrInvalidProposalReturnsNoTasks() = runTest {
         reply("not json")
         assertTrue(conversation().finish() is CoachFinish.Rejected)
         reply("""{"tasks":[{"action":"remove","id":"nope"}]}""")
         assertTrue(conversation(tasks = listOf(walk)).finish() is CoachFinish.Rejected)
     }
 
-    @Test fun clearForgetsOnlyThatCharactersConversation() {
+    @Test fun clearForgetsOnlyThatCharactersConversation() = runTest {
         store.save("jim", listOf(ChatMessage("user", "hi")))
         store.save("other", listOf(ChatMessage("user", "yo")))
         store.clear("jim")
@@ -126,7 +127,7 @@ class CoachConversationTest {
     private val validProposal = """{"tasks":[]}"""
     private val url get() = server.url("/").toString().trimEnd('/')
 
-    @Test fun checkInPromptIncludesCurrentCoachTasksButNotTheRawTranscript() {
+    @Test fun checkInPromptIncludesCurrentCoachTasksButNotTheRawTranscript() = runTest {
         store.save("jim", listOf(ChatMessage("user", "I will walk on Mondays")))
         reply("Welcome back")
         conversation(tasks = listOf(walk)).send("how am I doing")
@@ -135,7 +136,7 @@ class CoachConversationTest {
         assertTrue("Walk 20 minutes" in body && "t1" in body)
     }
 
-    @Test fun aFactFromAFinishedConversationIsInALaterPromptForAnyCharacter() {
+    @Test fun aFactFromAFinishedConversationIsInALaterPromptForAnyCharacter() = runTest {
         reply("Nice")
         val chat = conversation()
         chat.send("I am vegetarian")
@@ -148,7 +149,7 @@ class CoachConversationTest {
         assertTrue("Player is vegetarian" in server.takeRequest().body.readUtf8())
     }
 
-    @Test fun aCharactersNoteIsAbsentFromAnotherCharactersPrompt() {
+    @Test fun aCharactersNoteIsAbsentFromAnotherCharactersPrompt() = runTest {
         memoryStore.save(Memory(characters = mapOf("jim" to listOf("Jim-only secret"))))
         reply("Hello")
         CoachConversation(Characters.Nutritionist, CoachClient("key-1", url), store, memoryStore, { false }, { emptyList() }).send("hi")
@@ -158,7 +159,7 @@ class CoachConversationTest {
         assertTrue("Jim-only secret" in server.takeRequest().body.readUtf8())
     }
 
-    @Test fun invalidOrFailingMemoryUpdateLeavesNotesAndProposalAlone() {
+    @Test fun invalidOrFailingMemoryUpdateLeavesNotesAndProposalAlone() = runTest {
         val notes = Memory(shared = listOf("old"))
         memoryStore.save(notes)
         reply(validProposal)
@@ -171,7 +172,7 @@ class CoachConversationTest {
         assertEquals(notes, memoryStore.load())
     }
 
-    @Test fun onDeviceOnlySendsNoMemoryCall() {
+    @Test fun onDeviceOnlySendsNoMemoryCall() = runTest {
         val notes = Memory(shared = listOf("old"))
         memoryStore.save(notes)
         assertEquals(CoachFinish.CloudRequired, conversation(onDeviceOnly = true).finish())
@@ -179,7 +180,7 @@ class CoachConversationTest {
         assertEquals(notes, memoryStore.load())
     }
 
-    @Test fun taggedReplyIsStrippedAndSavedWithItsExpression() {
+    @Test fun taggedReplyIsStrippedAndSavedWithItsExpression() = runTest {
         reply("[sad] Tough week")
         assertEquals(CoachReply.Reply("Tough week", Expression.SAD), conversation().send("hi"))
         assertEquals(
@@ -188,28 +189,28 @@ class CoachConversationTest {
         )
     }
 
-    @Test fun untaggedReplyIsNeutralWithFullText() {
+    @Test fun untaggedReplyIsNeutralWithFullText() = runTest {
         reply("Plain answer")
         assertEquals(CoachReply.Reply("Plain answer", Expression.NEUTRAL), conversation().send("hi"))
     }
 
-    @Test fun legacyHistoryWithoutExpressionLoadsAsNeutral() {
+    @Test fun legacyHistoryWithoutExpressionLoadsAsNeutral() = runTest {
         storeFile.writeText("""{"jim":[{"role":"user","content":"hi"},{"role":"assistant","content":"yo","expression":"bogus"}]}""")
         assertEquals(Expression.NEUTRAL, conversation().lastExpression)
         assertEquals(ChatMessage("assistant", "yo"), store.load("jim").last())
     }
 
-    @Test fun historySavedWithAnOldExpressionNameLoadsAsItsMergedOne() {
+    @Test fun historySavedWithAnOldExpressionNameLoadsAsItsMergedOne() = runTest {
         storeFile.writeText("""{"jim":[{"role":"assistant","content":"grr","expression":"angry"},{"role":"assistant","content":"eek","expression":"scared"}]}""")
         assertEquals(listOf(Expression.STERN, Expression.WORRIED), store.load("jim").map { it.expression })
     }
 
-    @Test fun lastExpressionIsTheLastCoachMessagesSavedExpression() {
+    @Test fun lastExpressionIsTheLastCoachMessagesSavedExpression() = runTest {
         store.save("jim", listOf(ChatMessage("assistant", "grr", Expression.STERN), ChatMessage("user", "sorry")))
         assertEquals(Expression.STERN, conversation().lastExpression)
     }
 
-    @Test fun storeSaveFailureIsAnErrorNotAThrow() {
+    @Test fun storeSaveFailureIsAnErrorNotAThrow() = runTest {
         reply("Hello")
         val chat = conversation()
         storeFile.delete()
@@ -218,12 +219,12 @@ class CoachConversationTest {
         assertTrue(chat.send("hi") is CoachReply.Error)
     }
 
-    @Test fun nonIoClientFailureIsAnError() {
+    @Test fun nonIoClientFailureIsAnError() = runTest {
         server.enqueue(MockResponse().setBody("""{"choices":[]}"""))
         assertTrue(conversation().send("hi") is CoachReply.Error)
     }
 
-    @Test fun readyReplyWithValidProposalIsAProposalWithoutTheTag() {
+    @Test fun readyReplyWithValidProposalIsAProposalWithoutTheTag() = runTest {
         reply("[happy] Let's do it [ready]")
         reply("""{"tasks":[{"action":"add","title":"Walk","cadence":{"days":"daily"}}]}""")
         reply("""{"shared":[],"characters":{}}""")
@@ -235,7 +236,7 @@ class CoachConversationTest {
         assertEquals("Let's do it", store.load(Characters.JIM_ID).first { it.role == "assistant" }.content)
     }
 
-    @Test fun readyReplyWithInvalidProposalIsRejectedAndChatContinues() {
+    @Test fun readyReplyWithInvalidProposalIsRejectedAndChatContinues() = runTest {
         reply("Ready [ready]")
         reply("not json")
         val chat = conversation()

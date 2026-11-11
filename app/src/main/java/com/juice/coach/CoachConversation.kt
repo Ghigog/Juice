@@ -50,8 +50,8 @@ class CoachConversation(
     private val client: CoachClient?,
     private val store: ConversationStore,
     private val memoryStore: MemoryStore,
-    private val onDeviceOnly: () -> Boolean,
-    private val coachTasks: () -> List<Item>,
+    private val onDeviceOnly: suspend () -> Boolean,
+    private val coachTasks: suspend () -> List<Item>,
 ) {
     private val earlier = store.load(character.id)
     private val messages = mutableListOf<ChatMessage>()
@@ -59,9 +59,9 @@ class CoachConversation(
     /** The expression of the coach's last message in the earlier history, neutral if there is none. */
     val lastExpression: Expression = earlier.lastOrNull { it.role == "assistant" }?.expression ?: Expression.NEUTRAL
 
-    val cloudRequired: Boolean get() = client == null || onDeviceOnly()
+    suspend fun cloudRequired(): Boolean = client == null || onDeviceOnly()
 
-    fun send(userText: String): CoachReply {
+    suspend fun send(userText: String): CoachReply {
         if (client == null || onDeviceOnly()) return CoachReply.CloudRequired
         val turn = messages + ChatMessage("user", userText)
         return try {
@@ -83,7 +83,7 @@ class CoachConversation(
         }
     }
 
-    fun finish(): CoachFinish {
+    suspend fun finish(): CoachFinish {
         if (client == null || onDeviceOnly()) return CoachFinish.CloudRequired
         val ask = ChatMessage("user", "Please propose the tasks we agreed as JSON only.")
         return try {
@@ -103,7 +103,7 @@ class CoachConversation(
         }
     }
 
-    private fun systemPrompt(): String = buildString {
+    private suspend fun systemPrompt(): String = buildString {
         append(character.personaPrompt).append("\n\n").append(CoachVoice.PROMPT)
         val tasks = coachTasks()
         if (tasks.isNotEmpty()) {

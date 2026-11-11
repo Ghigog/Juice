@@ -34,7 +34,7 @@ class CoachChatState(
     private val characters: CharacterRepository,
     private val scope: CoroutineScope,
     /** The player's current coach tasks, for naming the ones a proposal changes or removes. */
-    private val coachTasks: () -> List<Item> = { emptyList() },
+    private val coachTasks: suspend () -> List<Item> = { emptyList() },
     private val onFailed: () -> Unit = {},
     private val onConfirmed: () -> Unit = {},
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -75,7 +75,7 @@ class CoachChatState(
     /** Closes the chat at once, without sending anything, if the coach cannot be reached from this device. */
     fun start() {
         scope.launch {
-            if (withContext(io) { conversation.cloudRequired }) fail(CoachNotice.CloudRequired)
+            if (withContext(io) { conversation.cloudRequired() }) fail(CoachNotice.CloudRequired)
         }
     }
 
