@@ -5,6 +5,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,6 +16,7 @@ import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 class JuiceDatabaseMigrationTest {
+    private val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
     private var helper: SupportSQLiteOpenHelper? = null
 
     @After
@@ -74,9 +78,10 @@ class JuiceDatabaseMigrationTest {
     @Test
     fun addTimesAndCharacterIdAddsAllThreeColumnsAndStampsCompletedRows() {
         val db = database("$base", task, listOf("c", "Task", "C", "Completed"))
-        JuiceDatabase.addTimesAndCharacterId.migrate(db)
+        JuiceDatabase.addTimesAndCharacterId(clock).migrate(db)
         assertEquals(listOf<String?>(null, null), db.column("SELECT characterId FROM items ORDER BY id"))
-        assertEquals(listOf(true, false), db.column("SELECT completedAtMillis FROM items ORDER BY id").map { it == null })
-        assertEquals(listOf(true, false), db.column("SELECT createdAtMillis FROM items ORDER BY id").map { it == null })
+        val stamp = clock.millis().toString()
+        assertEquals(listOf<String?>(null, stamp), db.column("SELECT completedAtMillis FROM items ORDER BY id"))
+        assertEquals(listOf<String?>(null, stamp), db.column("SELECT createdAtMillis FROM items ORDER BY id"))
     }
 }

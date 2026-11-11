@@ -15,10 +15,12 @@ import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.routine.Cadence
 import java.time.DayOfWeek
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CompletableDeferred
@@ -321,7 +323,7 @@ class ItemRepositoryTest {
                 .build(),
         )
         val db = helper.writableDatabase
-        JuiceDatabase.addTimes.migrate(db)
+        JuiceDatabase.addTimes(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)).migrate(db)
         db.query("SELECT id, createdAtMillis, completedAtMillis FROM items").use {
             assertEquals(true, it.moveToFirst())
             assertEquals("a", it.getString(0))
