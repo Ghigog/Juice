@@ -40,8 +40,9 @@ class IntakeWorker(
     )
 
     override suspend fun doWork(): Result {
-        val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
+        // The note text stays in Room; WorkManager's own database only ever holds the id.
+        val text = items.get(itemId)?.title ?: return Result.success()
         val onDeviceOnly = settings.current().onDeviceOnly
         val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }, clock = clock).parse(text)
         // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
@@ -53,16 +54,15 @@ class IntakeWorker(
         /** Attempts allowed before a transient failure stops retrying and the card keeps the rules parse. */
         const val MAX_ATTEMPTS = 5
 
-        private const val KEY_TEXT = "text"
         private const val KEY_ITEM_ID = "itemId"
 
         /** True when a Groq key was built in; without one, intake stays on device. */
         val cloudAvailable: Boolean get() = BuildConfig.GROQ_API_KEY.isNotBlank()
 
         /** Queues a Groq parse for [itemId]. */
-        fun enqueue(context: Context, itemId: String, text: String) {
+        fun enqueue(context: Context, itemId: String) {
             val request = OneTimeWorkRequestBuilder<IntakeWorker>()
-                .setInputData(workDataOf(KEY_TEXT to text, KEY_ITEM_ID to itemId))
+                .setInputData(workDataOf(KEY_ITEM_ID to itemId))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()

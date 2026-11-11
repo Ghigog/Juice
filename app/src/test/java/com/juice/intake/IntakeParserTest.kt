@@ -54,6 +54,26 @@ class IntakeParserTest {
         assertTrue("\"notify_at\" and \"notify_text\" null when no reminder is useful, for every Routine and for plain Notes" in prompt)
     }
 
+    @Test fun rejectedReplyLogsTheReasonButNeitherTheNoteNorTheReply() {
+        val records = mutableListOf<java.util.logging.LogRecord>()
+        val handler = object : java.util.logging.Handler() {
+            override fun publish(record: java.util.logging.LogRecord) { records += record }
+            override fun flush() {}
+            override fun close() {}
+        }
+        val logger = java.util.logging.Logger.getLogger("IntakeParser")
+        logger.addHandler(handler)
+        try {
+            reply("""{"type":"Banana","title":"call mum about the surgery"}""")
+            parser().parse("call mum about the surgery")
+        } finally {
+            logger.removeHandler(handler)
+        }
+        val messages = records.map { it.message }
+        assertTrue(messages.any { it.startsWith("Groq reply rejected (") })
+        assertTrue(messages.none { "mum" in it || "surgery" in it || "Banana" in it || "{" in it })
+    }
+
     @Test fun httpErrorFallsBackToRulesAndRetries() {
         reply("", status = 503)
         val result = parser().parse("do laundry by 6pm")

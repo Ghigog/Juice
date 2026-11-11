@@ -40,7 +40,7 @@ class IntakeWorkerTest {
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java).allowMainThreadQueries().build()
         items = ItemRepository(db.itemDao())
-        runBlocking { items.save(Item("i1", ItemType.Note, "raw")) }
+        runBlocking { items.save(Item("i1", ItemType.Note, "do laundry")) }
     }
 
     @After
@@ -67,13 +67,14 @@ class IntakeWorkerTest {
             .build()
 
     @Test
-    fun missingTextFails() = runBlocking {
-        assertEquals(Result.failure(), worker("itemId" to "i1").doWork())
+    fun anItemThatIsGoneSucceedsAsANoOp() = runBlocking {
+        assertEquals(Result.success(), worker("itemId" to "gone").doWork())
+        assertEquals(0, server.requestCount)
     }
 
     @Test
     fun missingItemIdFails() = runBlocking {
-        assertEquals(Result.failure(), worker("text" to "do laundry").doWork())
+        assertEquals(Result.failure(), worker().doWork())
     }
 
     @Test
@@ -81,7 +82,7 @@ class IntakeWorkerTest {
         val deadline = NOW.toInstant().plus(2, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS)
         val json = """{\"type\":\"Task\",\"title\":\"Do laundry\",\"completion_condition\":null,\"deadline\":\"$deadline\",\"sub_items\":null}"""
         server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"$json"}}]}"""))
-        assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+        assertEquals(Result.success(), worker("itemId" to "i1").doWork())
         val landed = items.get("i1")!!
         assertEquals(deadline, landed.deadline)
     }
@@ -90,7 +91,7 @@ class IntakeWorkerTest {
     fun aGroqTransportErrorLandsTheRulesResultAndRetries() = runBlocking {
         server.shutdown()
         val text = "do laundry"
-        assertEquals(Result.retry(), worker("text" to text, "itemId" to "i1").doWork())
+        assertEquals(Result.retry(), worker("itemId" to "i1").doWork())
         val rules = RulesFallback.classify(text, NOW)
         val landed = items.get("i1")!!
         assertEquals(rules.type, landed.type)
@@ -101,7 +102,7 @@ class IntakeWorkerTest {
     @Test
     fun aPermanentGroqErrorLandsTheRulesResultAndSucceeds() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(401))
-        assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+        assertEquals(Result.success(), worker("itemId" to "i1").doWork())
         assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
     }
 
@@ -110,7 +111,7 @@ class IntakeWorkerTest {
         val settings = SettingsRepository(context)
         settings.update { it.copy(onDeviceOnly = true) }
         try {
-            assertEquals(Result.success(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+            assertEquals(Result.success(), worker("itemId" to "i1").doWork())
             val rules = RulesFallback.classify("do laundry", NOW)
             val landed = items.get("i1")!!
             assertEquals(rules.type, landed.type)
@@ -124,7 +125,7 @@ class IntakeWorkerTest {
     @Test
     fun aGroqServerErrorBelowTheCapRetriesAndKeepsTheRulesParse() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(503))
-        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS - 1).doWork()
+        val result = worker("itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS - 1).doWork()
         assertEquals(Result.retry(), result)
         assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
     }
@@ -132,7 +133,7 @@ class IntakeWorkerTest {
     @Test
     fun aGroqServerErrorAtTheCapSucceedsAndKeepsTheRulesParse() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(503))
-        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
+        val result = worker("itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
         assertEquals(Result.success(), result)
         assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
     }
@@ -140,7 +141,7 @@ class IntakeWorkerTest {
     @Test
     fun offlineAtTheCapSucceedsAndKeepsTheRulesParse() = runBlocking {
         server.shutdown()
-        val result = worker("text" to "do laundry", "itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
+        val result = worker("itemId" to "i1", runAttemptCount = IntakeWorker.MAX_ATTEMPTS).doWork()
         assertEquals(Result.success(), result)
         assertEquals(RulesFallback.classify("do laundry", NOW).type, items.get("i1")!!.type)
     }
@@ -148,6 +149,6 @@ class IntakeWorkerTest {
     @Test
     fun aGroqRateLimitRetries() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(429))
-        assertEquals(Result.retry(), worker("text" to "do laundry", "itemId" to "i1").doWork())
+        assertEquals(Result.retry(), worker("itemId" to "i1").doWork())
     }
 }
