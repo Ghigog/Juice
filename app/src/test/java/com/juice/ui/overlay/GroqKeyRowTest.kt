@@ -16,7 +16,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performTextInput
 import com.juice.RegisterComposeActivity
 import com.juice.feedback.FeedbackEvent
-import com.juice.intake.KeyCheck
+import com.juice.llm.KeyCheck
 import com.juice.settings.JuiceSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule

@@ -1,4 +1,4 @@
-package com.juice.coach
+package com.juice.data
 
 import com.juice.core.character.Expression
 import java.io.File
@@ -10,6 +10,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
+/** One turn of a coach conversation; [role] is "user" or "assistant". */
+data class ChatMessage(val role: String, val content: String, val expression: Expression = Expression.NEUTRAL)
 
 /** The last conversation with each character, kept in one JSON file on the device (e.g. in the app's files dir). */
 class ConversationStore(private val file: File) {

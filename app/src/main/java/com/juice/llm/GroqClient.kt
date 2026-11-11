@@ -1,4 +1,4 @@
-package com.juice.intake
+package com.juice.llm
 
 import java.io.IOException
 import java.net.SocketException

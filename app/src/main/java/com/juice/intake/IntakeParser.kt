@@ -4,6 +4,9 @@ import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.RulesFallback
 import com.juice.core.intake.improvingOn
+import com.juice.llm.GroqClient
+import com.juice.llm.GroqEnvelopeException
+import com.juice.llm.GroqHttpException
 import java.io.IOException
 import java.time.ZonedDateTime
 import java.util.logging.Logger

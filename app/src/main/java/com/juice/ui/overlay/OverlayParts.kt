@@ -17,7 +17,7 @@ import com.juice.core.model.Item
 import com.juice.core.notify.plan
 import com.juice.core.economy.EconomyConfig
 import com.juice.core.intake.GroqKey
-import com.juice.intake.KeyCheck
+import com.juice.llm.KeyCheck
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.juice.core.economy.ItemType as EconomyItemType

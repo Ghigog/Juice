@@ -1,9 +1,10 @@
 package com.juice.intake
 
+import com.juice.data.GenerationResult
 import java.io.IOException
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import org.junit.Test
 
 class CharacterGeneratorTest {
     @Test

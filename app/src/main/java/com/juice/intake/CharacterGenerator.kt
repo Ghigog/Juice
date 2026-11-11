@@ -4,13 +4,11 @@ import com.juice.core.character.Character
 import com.juice.core.character.GeneratedPersona
 import com.juice.core.character.GeneratedPersonaResult
 import com.juice.core.character.toCharacter
+import com.juice.data.GenerationResult
+import com.juice.data.PersonaGenerator
+import com.juice.llm.GroqClient
 import java.io.IOException
 import java.util.UUID
-
-sealed interface GenerationResult {
-    data class Success(val character: Character) : GenerationResult
-    data class Failure(val message: String) : GenerationResult
-}
 
 /**
  * Turns a hobby into a [Character] with the model's persona. [llm] returns the model's JSON for a hobby and throws [IOException] on failure,
@@ -19,8 +17,8 @@ sealed interface GenerationResult {
 class CharacterGenerator(
     private val llm: (hobby: String) -> String,
     private val newId: () -> String = { "created-${UUID.randomUUID()}" },
-) {
-    fun generate(hobby: String): GenerationResult {
+) : PersonaGenerator {
+    override fun generate(hobby: String): GenerationResult {
         val topic = hobby.trim()
         if (topic.isEmpty()) return GenerationResult.Failure("Hobby is empty")
         val json = try {

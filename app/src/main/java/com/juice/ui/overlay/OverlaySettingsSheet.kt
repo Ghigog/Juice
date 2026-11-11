@@ -35,7 +35,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.juice.core.intake.GroqKey
-import com.juice.intake.KeyCheck
+import com.juice.llm.KeyCheck
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text

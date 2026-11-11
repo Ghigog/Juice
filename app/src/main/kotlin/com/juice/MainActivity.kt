@@ -17,31 +17,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juice.core.Juice
 import com.juice.core.progression.Progression
-import com.juice.data.EconomyStore
-import com.juice.onboarding.OnboardingScreen
 import com.juice.data.CharacterRepository
-import com.juice.coach.ConversationStore
-import java.io.File
 import com.juice.data.CharacterStore
-import com.juice.memory.MemoryStore
+import com.juice.data.ConversationStore
+import com.juice.data.EconomyStore
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
+import com.juice.data.MemoryStore
+import com.juice.onboarding.OnboardingScreen
+import com.juice.overlay.OverlayPermission
+import com.juice.overlay.OverlayService
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.settings.SettingsScreen
+import java.io.File
 import kotlinx.coroutines.launch
-import com.juice.overlay.OverlayPermission
-import com.juice.overlay.OverlayService
 
 class MainActivity : ComponentActivity() {
     private var overlayGranted by mutableStateOf(false)

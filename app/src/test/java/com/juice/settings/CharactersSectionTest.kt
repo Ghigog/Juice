@@ -12,20 +12,24 @@ import androidx.compose.ui.test.performClick
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.RegisterComposeActivity
-import com.juice.core.character.CoachTask
+import com.juice.core.character.Character
 import com.juice.core.character.Characters
+import com.juice.core.character.CoachTask
+import com.juice.core.character.Face
+import com.juice.core.character.Shape
+import com.juice.core.memory.Memory
 import com.juice.core.routine.Cadence
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.CreatedCharacterStore
-import com.juice.core.character.Character
-import com.juice.core.character.Face
-import com.juice.core.character.Shape
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
-import com.juice.core.memory.Memory
-import com.juice.memory.MemoryStore
+import com.juice.data.MemoryStore
+import java.io.File
 import java.time.DayOfWeek
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,10 +43,6 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.io.File
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")

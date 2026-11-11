@@ -13,6 +13,7 @@ import com.juice.core.model.Item
 import com.juice.data.ItemRepository
 import com.juice.data.JuiceDatabase
 import com.juice.core.intake.GroqKey
+import com.juice.llm.GroqClient
 import com.juice.settings.SettingsRepository
 import java.time.Instant
 import java.time.ZonedDateTime

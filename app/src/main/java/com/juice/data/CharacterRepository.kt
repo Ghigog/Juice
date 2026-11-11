@@ -1,6 +1,5 @@
 package com.juice.data
 
-import com.juice.coach.ConversationStore
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
 import com.juice.core.character.CharacterRegistry
@@ -11,9 +10,6 @@ import com.juice.core.character.CoachTask
 import com.juice.core.intake.ItemType
 import com.juice.core.memory.Memory
 import com.juice.core.model.Item
-import com.juice.intake.CharacterGenerator
-import com.juice.intake.GenerationResult
-import com.juice.memory.MemoryStore
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -36,7 +32,7 @@ class CharacterRepository(
     private val conversations: ConversationStore? = null,
     private val memory: MemoryStore? = null,
     private val created: CreatedCharacterStore? = null,
-    private val generator: CharacterGenerator? = null,
+    private val generator: PersonaGenerator? = null,
 ) {
     /** Every built-in character plus the ones the player created. */
     fun registry(): CharacterRegistry = CharacterRegistry { created?.list().orEmpty() }

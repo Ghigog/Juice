@@ -1,4 +1,4 @@
-package com.juice.memory
+package com.juice.data
 
 import com.juice.core.memory.Memory
 import java.io.File

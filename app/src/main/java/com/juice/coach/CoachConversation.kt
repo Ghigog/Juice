@@ -1,18 +1,20 @@
 package com.juice.coach
 
 import com.juice.core.character.Character
+import com.juice.core.character.Characters
 import com.juice.core.character.CoachProposal
-import com.juice.core.character.CoachVoice
 import com.juice.core.character.CoachProposalResult
 import com.juice.core.character.CoachTask
-import com.juice.core.character.Characters
+import com.juice.core.character.CoachVoice
 import com.juice.core.character.Expression
 import com.juice.core.memory.MemoryPrompt
 import com.juice.core.memory.MemoryUpdate
 import com.juice.core.memory.MemoryUpdateResult
 import com.juice.core.model.Item
-import com.juice.intake.GroqClient
-import com.juice.memory.MemoryStore
+import com.juice.data.ChatMessage
+import com.juice.data.ConversationStore
+import com.juice.data.MemoryStore
+import com.juice.llm.GroqClient
 import java.io.IOException
 
 sealed interface CoachReply {
