@@ -5,8 +5,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -62,6 +60,7 @@ import com.juice.intake.IntakeWorker
 import com.juice.llm.GroqClient
 import com.juice.notify.ReminderScheduler
 import com.juice.settings.CharacterSettings
+import com.juice.settings.GroqKeyStore
 import com.juice.settings.JuiceSettings
 import com.juice.settings.SettingsRepository
 import com.juice.ui.GameSession
@@ -90,6 +89,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.juice.llm.KeyCheck
 
 /** Foreground service owning the slice handle window and the full-screen overlay window. */
 class OverlayService : Service() {
@@ -110,6 +112,8 @@ class OverlayService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val sounds by lazy { SoundPoolOutput(this) }
     private val settingsRepository by lazy { SettingsRepository(this) }
+    private val groqKeyStore by lazy { GroqKeyStore(this) }
+    private val groqKeyMasked = MutableStateFlow<String?>(null)
     @Volatile private var settings = JuiceSettings()
     private val characterStore by lazy { CharacterStore(this) }
     private val memoryStore by lazy { MemoryStore(File(filesDir, "memory.json")) }
@@ -125,10 +129,11 @@ class OverlayService : Service() {
         CharacterRepository(
             characterStore, repository, conversationStore, memoryStore, createdStore,
             CharacterGenerator(llm = { hobby ->
-                if (BuildConfig.GROQ_API_KEY.isBlank() || runBlocking { settingsRepository.current().onDeviceOnly }) {
-                    throw IOException("Needs cloud access: turn off On-device only")
+                val key = groqKeyStore.load()
+                if (key == null || runBlocking { settingsRepository.current().onDeviceOnly }) {
+                    throw IOException("Needs cloud access: save a Groq key and turn off On-device only")
                 }
-                GroqClient(BuildConfig.GROQ_API_KEY).generatePersona(hobby)
+                GroqClient(key.value).generatePersona(hobby)
             }),
         )
     }
@@ -365,10 +370,8 @@ class OverlayService : Service() {
         overlayDialog?.window?.setBackgroundBlurRadius(windowBlurRadius(backdrop.value, blurRadius))
     }
 
-    /** Puts the failure on screen and its stack trace on the clipboard, since there is no logcat on the phone. */
-    private fun reportOverlayFailure(e: Exception) {
-        getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText("Juice error", Log.getStackTraceString(e)))
+    /** Puts the failure on screen as a toast. Nothing goes to the clipboard, which other apps and the keyboard can read. */
+    internal fun reportOverlayFailure(e: Exception) {
         Toast.makeText(this, getString(R.string.overlay_failed, e.javaClass.simpleName, e.message), Toast.LENGTH_LONG).show()
     }
 
@@ -447,8 +450,8 @@ class OverlayService : Service() {
         val intake = CaptureIntake(
             repository,
             onDeviceOnly = { settingsRepository.current().onDeviceOnly },
-            enqueue = { id, text -> IntakeWorker.enqueue(this, id, text) },
-            cloudAvailable = { IntakeWorker.cloudAvailable },
+            enqueue = { id -> IntakeWorker.enqueue(this, id) },
+            cloudAvailable = { groqKeyStore.hasKey.value },
         )
         val actions = OverlayActions(
             feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
@@ -468,7 +471,24 @@ class OverlayService : Service() {
             recapItems = repository::recapItems,
             shake = { reservoir.shake },
             onErupt = reservoir::erupt,
+            groqKeyMasked = groqKeyMasked,
+            onSaveGroqKey = { key, onChecked ->
+                scope.launch {
+                    val check = withContext(Dispatchers.IO) {
+                        groqKeyStore.save(key)
+                        runCatching { GroqClient(key.value).checkKey() }.getOrDefault(KeyCheck.Unreachable)
+                    }
+                    groqKeyMasked.value = key.masked
+                    if (!settings.reduceMotion) reservoir.emitParticles(10)
+                    onChecked(check)
+                }
+            },
+            onRemoveGroqKey = {
+                groqKeyStore.remove()
+                groqKeyMasked.value = null
+            },
         )
+        if (groqKeyStore.hasKey.value) scope.launch { groqKeyMasked.value = withContext(Dispatchers.IO) { groqKeyStore.load()?.masked } }
         // Built and drawn at once, so the overlay never shows a bare frame; observe() brings the items in.
         run {
             val state = OverlayShellState(
@@ -495,7 +515,7 @@ class OverlayService : Service() {
                         val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
                         val conversation = CoachConversation(
                             character,
-                            BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) },
+                            groqKeyStore.load()?.let { CoachClient(it.value) },
                             conversationStore,
                             memoryStore,
                             onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
@@ -520,6 +540,7 @@ class OverlayService : Service() {
                 OverlayShell(
                     state,
                     settings = current,
+                    groqKeySaved = groqKeyStore.hasKey.collectAsState().value,
                     hud = hud,
                     blurred = backdrop.value == Backdrop.BLUR,
                     onRevealProgress = ::rampBlur,

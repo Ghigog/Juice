@@ -30,6 +30,19 @@ class ExpressionTest {
         assertNull(Expression.named(null))
     }
 
+    @Test fun stripsTagsFromAnywhereAndTheLastOneWins() {
+        assertEquals(
+            Expression.STERN to "How many minutes could you set aside? What's driving you to get moving now?",
+            Expression.parse("How many minutes could you set aside?[neutral] What's driving you to get moving now?[stern]"),
+        )
+        assertEquals(Expression.SAD to "Well done. Hmm", Expression.parse("[HAPPY] Well done. [Sad]Hmm"))
+        assertEquals(Expression.STERN to "a b", Expression.parse("a [scared]  [angry] b"))
+    }
+
+    @Test fun unknownTagsStayWhileKnownOnesGo() {
+        assertEquals(Expression.HAPPY to "[bogus] hi there", Expression.parse("[bogus] hi [happy] there"))
+    }
+
     @Test fun tagListNamesEveryExpressionOnce() {
         assertEquals(Expression.entries.joinToString(", ") { "[${it.name.lowercase()}]" }, Expression.TAG_LIST)
     }

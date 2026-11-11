@@ -33,6 +33,11 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun onDeviceOnlyDefaultsToTrueWhenNothingIsStored() = runBlocking {
+        assertTrue(repository.current().onDeviceOnly)
+    }
+
+    @Test
     fun cardOrderDefaultsToNewestAndRoundTrips() = runBlocking {
         assertEquals(CardOrder.Newest, repository.current().cardOrder)
 

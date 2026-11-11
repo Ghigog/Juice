@@ -264,7 +264,7 @@ MVP testing is scoped to Pixel devices only.
 
 ### Phase 3: Intelligence and progression (Weeks 7 to 8)
 - [x] Groq intake with JSON mode, date injection, validation, offline fallback.
-- [ ] Groq key set as the `GROQ_API_KEY` repository secret, so CI-built APKs use cloud intake. Without it they run on the local rules only.
+- [x] No Groq key is built into any APK: each person pastes their own key in the overlay settings to unlock Groq mode. Intake is on device by default and uses Groq only with a saved key and On-device only turned off.
 - [x] Levels and flavor switching.
 - [x] Settings screen: tap alternative, haptics, reduce motion, blur, on-device only, strip position.
 
