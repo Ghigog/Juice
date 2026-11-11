@@ -17,7 +17,25 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Switch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.juice.core.intake.GroqKey
+import com.juice.intake.KeyCheck
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -54,6 +72,7 @@ internal fun SettingsSheet(
     settings: JuiceSettings,
     hud: Hud,
     actions: OverlayActions,
+    groqKeySaved: Boolean = false,
     onDone: () -> Unit,
     onSwipeDistance: () -> Unit = {},
     characters: CharacterSettings? = null,
@@ -86,7 +105,14 @@ internal fun SettingsSheet(
         Toggle(R.string.settings_reduce_motion, R.string.settings_reduce_motion_note, settings.reduceMotion, hud) { v -> change { it.copy(reduceMotion = v) } }
         Toggle(R.string.settings_blur, R.string.settings_blur_note, settings.blur, hud) { v -> change { it.copy(blur = v) } }
         Toggle(R.string.settings_tap_buttons, R.string.settings_tap_buttons_note, settings.tapButtons, hud) { v -> change { it.copy(tapButtons = v) } }
-        Toggle(R.string.settings_on_device_only, R.string.settings_on_device_only_note, settings.onDeviceOnly, hud) { v -> change { it.copy(onDeviceOnly = v) } }
+        Toggle(
+            R.string.settings_on_device_only,
+            if (groqKeySaved) R.string.settings_on_device_only_note else R.string.settings_on_device_only_locked,
+            settings.onDeviceOnly || !groqKeySaved,
+            hud,
+            enabled = groqKeySaved,
+        ) { v -> change { it.copy(onDeviceOnly = v) } }
+        GroqKeyRow(actions, settings.reduceMotion)
         SectionLabel(R.string.settings_swipe_distance)
         ChoiceRow(SwipeDistance.entries, settings.swipeDistance, hud, { stringResource(it.label()) }, { TAG_SWIPE_DISTANCE_PREFIX + it.name }) { distance ->
             change { it.copy(swipeDistance = distance) }
@@ -206,12 +232,13 @@ internal fun SwipeDistance.label(): Int = when (this) {
 }
 
 @Composable
-private fun Toggle(label: Int, note: Int, checked: Boolean, hud: Hud, onChange: (Boolean) -> Unit) {
+private fun Toggle(label: Int, note: Int, checked: Boolean, hud: Hud, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .alpha(if (enabled) 1f else 0.45f)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -222,6 +249,7 @@ private fun Toggle(label: Int, note: Int, checked: Boolean, hud: Hud, onChange: 
         Switch(
             checked = checked,
             onCheckedChange = null,
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = hud.accent,
                 checkedThumbColor = Color.White,
@@ -259,4 +287,112 @@ private fun FlavourTile(flavour: Flavour, selected: Boolean, unlocked: Boolean, 
             style = shadow,
         )
     }
+}
+
+const val TAG_GROQ_KEY_FIELD = "groqKeyField"
+const val TAG_GROQ_KEY_PASTE = "groqKeyPaste"
+const val TAG_GROQ_KEY_SAVE = "groqKeySave"
+const val TAG_GROQ_KEY_REMOVE = "groqKeyRemove"
+const val TAG_GROQ_KEY_MASKED = "groqKeyMasked"
+const val TAG_GROQ_KEY_NOTE = "groqKeyNote"
+
+/** Paste, save and remove the person's Groq key; once saved only the masked key shows. */
+@Composable
+private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
+    val masked by actions.groqKeyMasked.collectAsState()
+    var text by remember { mutableStateOf("") }
+    var check by remember { mutableStateOf<KeyCheck?>(null) }
+    val clipboard = LocalClipboardManager.current
+    val squeeze = remember { Animatable(1f) }
+    val parsed = GroqKey.parse(text)
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).scale(squeeze.value)) {
+        if (masked == null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(JuiceColors.white(0.1f))
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (text.isEmpty()) {
+                        Text(stringResource(R.string.settings_groq_key_hint), fontSize = 14.sp, fontFamily = SpaceGrotesk, color = JuiceColors.white(0.7f))
+                    }
+                    BasicTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp, fontFamily = SpaceGrotesk),
+                        cursorBrush = SolidColor(Color.White),
+                        modifier = Modifier.fillMaxWidth().testTag(TAG_GROQ_KEY_FIELD),
+                    )
+                }
+                Pill(R.string.settings_groq_key_paste, TAG_GROQ_KEY_PASTE, enabled = true) {
+                    clipboard.getText()?.text?.let { text = it; check = null }
+                }
+                Pill(R.string.settings_groq_key_save, TAG_GROQ_KEY_SAVE, enabled = parsed != null) {
+                    val key = parsed ?: return@Pill
+                    text = ""
+                    actions.feedback(FeedbackEvent.CAPTURE)
+                    actions.onSaveGroqKey(key) { check = it }
+                }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(JuiceColors.white(0.1f))
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) { Text(masked.orEmpty(), fontSize = 14.sp, fontFamily = SpaceGrotesk, modifier = Modifier.testTag(TAG_GROQ_KEY_MASKED)) }
+                Pill(R.string.settings_groq_key_remove, TAG_GROQ_KEY_REMOVE, enabled = true) {
+                    check = null
+                    actions.onRemoveGroqKey()
+                }
+            }
+        }
+        val note = when (check) {
+            KeyCheck.Works -> R.string.settings_groq_key_works
+            KeyCheck.Rejected -> R.string.settings_groq_key_rejected
+            KeyCheck.Unreachable -> R.string.settings_groq_key_unreachable
+            null -> null
+        }
+        if (note != null && masked != null) {
+            Text(
+                stringResource(note),
+                fontSize = 12.sp,
+                color = JuiceColors.white(0.7f),
+                modifier = Modifier.padding(top = 6.dp).testTag(TAG_GROQ_KEY_NOTE),
+            )
+        }
+    }
+    // A quick squeeze when a key lands; none with Reduce motion.
+    LaunchedEffect(masked) {
+        if (masked != null && !reduceMotion) {
+            squeeze.animateTo(0.96f, tween(90))
+            squeeze.animateTo(1f, tween(160))
+        }
+    }
+}
+
+@Composable
+private fun Pill(label: Int, tag: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .height(36.dp)
+            .alpha(if (enabled) 1f else 0.45f)
+            .clip(RoundedCornerShape(18.dp))
+            .background(JuiceColors.white(0.14f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp)
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) { Text(stringResource(label), fontSize = 13.sp, fontFamily = SpaceGrotesk) }
 }

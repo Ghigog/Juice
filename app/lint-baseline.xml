@@ -30,7 +30,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/juice/overlay/OverlayService.kt"
-            line="191"
+            line="195"
             column="13"/>
     </issue>
 
@@ -316,7 +316,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/juice/ui/overlay/OverlaySettingsSheet.kt"
-            line="60"
+            line="79"
             column="5"/>
     </issue>
 
