@@ -12,15 +12,18 @@ import java.util.UUID
 
 /**
  * Turns a hobby into a [Character] with the model's persona. [llm] returns the model's JSON for a hobby and throws [IOException] on failure,
- * which is an error and yields no character. Output that is invalid although the call succeeded falls back to [GeneratedPersona.fallbackPersona].
+ * which is an error and yields no character. It refuses without calling [llm] when [onDeviceOnly] is on or the cloud is not [cloudAvailable]. Output that is invalid although the call succeeded falls back to [GeneratedPersona.fallbackPersona].
  */
 class CharacterGenerator(
-    private val llm: (hobby: String) -> String,
+    private val llm: suspend (hobby: String) -> String,
     private val newId: () -> String = { "created-${UUID.randomUUID()}" },
+    private val onDeviceOnly: suspend () -> Boolean = { false },
+    private val cloudAvailable: () -> Boolean = { true },
 ) : PersonaGenerator {
-    override fun generate(hobby: String): GenerationResult {
+    override suspend fun generate(hobby: String): GenerationResult {
         val topic = hobby.trim()
         if (topic.isEmpty()) return GenerationResult.Failure("Hobby is empty")
+        if (!cloudAvailable() || onDeviceOnly()) return GenerationResult.Failure(NEEDS_CLOUD)
         val json = try {
             llm(topic)
         } catch (e: IOException) {
@@ -28,5 +31,9 @@ class CharacterGenerator(
         }
         val persona = (GeneratedPersona.parse(json) as? GeneratedPersonaResult.Valid)?.persona ?: GeneratedPersona.fallbackPersona(topic)
         return GenerationResult.Success(persona.toCharacter(newId(), topic))
+    }
+
+    companion object {
+        const val NEEDS_CLOUD = "Needs cloud access: turn off On-device only"
     }
 }

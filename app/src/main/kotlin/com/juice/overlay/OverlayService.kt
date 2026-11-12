@@ -35,10 +35,8 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.juice.JuiceApplication
 import com.juice.R
-import com.juice.coach.CoachConversation
 import com.juice.core.card.CardOrder
 import com.juice.core.economy.EconomyConfig
-import com.juice.core.intake.ItemType
 import com.juice.core.progression.Progression
 import com.juice.feedback.FeedbackEvent
 import com.juice.feedback.FeedbackPlayer
@@ -71,7 +69,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.juice.llm.KeyCheck
@@ -480,16 +477,10 @@ class OverlayService : Service() {
                 pendingCards = pendingCards,
                 coachChatFor = { characterId, onFailed, onConfirmed ->
                     characters.registry().byId(characterId)?.takeUnless { characterId in characterStore.disabledIds() }?.let { character ->
-                        val coachTasks = { runBlocking { repository.byCharacter(characterId).filter { it.type == ItemType.Routine } } }
-                        val conversation = CoachConversation(
-                            character,
-                            container.coachClient(),
-                            conversationStore,
-                            memoryStore,
-                            onDeviceOnly = { runBlocking { settingsRepository.current().onDeviceOnly } },
-                            coachTasks = coachTasks,
+                        CoachChatState(
+                            character, container.coachConversationFor(character), characters, scope,
+                            { container.coachTasks(characterId) }, onFailed, onConfirmed, feedback = feedback,
                         )
-                        CoachChatState(character, conversation, characters, scope, coachTasks, onFailed, onConfirmed, feedback = feedback)
                     }
                 },
             )

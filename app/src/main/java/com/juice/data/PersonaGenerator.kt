@@ -9,5 +9,5 @@ sealed interface GenerationResult {
 
 /** Port the data layer uses to create a persona from a hobby; intake implements it. */
 fun interface PersonaGenerator {
-    fun generate(hobby: String): GenerationResult
+    suspend fun generate(hobby: String): GenerationResult
 }

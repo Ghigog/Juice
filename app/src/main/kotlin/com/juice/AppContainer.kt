@@ -2,6 +2,10 @@ package com.juice
 
 import android.content.Context
 import com.juice.coach.CoachClient
+import com.juice.coach.CoachConversation
+import com.juice.core.character.Character
+import com.juice.core.intake.ItemType
+import com.juice.core.model.Item
 import com.juice.core.intake.GroqKey
 import com.juice.core.progression.Progression
 import com.juice.data.CharacterRepository
@@ -21,10 +25,8 @@ import com.juice.settings.CharacterSettings
 import com.juice.settings.GroqKeyStore
 import com.juice.settings.SettingsRepository
 import java.io.File
-import java.io.IOException
 import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.runBlocking
 
 /** Builds the app's stores, repositories and Groq clients once, lazily, for the service, activity, boot receiver and worker to share. */
 class AppContainer(context: Context) : IntakeDependencies {
@@ -59,15 +61,25 @@ class AppContainer(context: Context) : IntakeDependencies {
     val characters: CharacterRepository by lazy {
         CharacterRepository(
             characterStore, items, conversationStore, memoryStore, createdStore,
-            CharacterGenerator(llm = { hobby ->
-                val key = groqKeyStore.load()
-                if (key == null || runBlocking { settings.current().onDeviceOnly }) {
-                    throw IOException("Needs cloud access: save a Groq key and turn off On-device only")
-                }
-                groqFor(key).generatePersona(hobby)
-            }),
+            CharacterGenerator(
+                llm = { hobby -> groqFor(checkNotNull(groqKeyStore.load())).generatePersona(hobby) },
+                onDeviceOnly = { settings.current().onDeviceOnly },
+                cloudAvailable = { groqKeyStore.load() != null },
+            ),
         )
     }
+
+    /** The player's routine items for [characterId], which the coach names in its prompt and proposals. */
+    suspend fun coachTasks(characterId: String): List<Item> = items.byCharacter(characterId).filter { it.type == ItemType.Routine }
+
+    fun coachConversationFor(character: Character): CoachConversation = CoachConversation(
+        character,
+        coachClient(),
+        conversationStore,
+        memoryStore,
+        onDeviceOnly = { settings.current().onDeviceOnly },
+        coachTasks = { coachTasks(character.id) },
+    )
 
     fun characterSettings(scope: CoroutineScope): CharacterSettings =
         CharacterSettings(characters, scope, level = { Progression.levelFor(economyStore.load()?.state?.juice ?: 0L) })
