@@ -54,6 +54,14 @@ object RulesFallback {
     )
     private const val MAX_LIST_ITEM_WORDS = 4
     private const val MIN_PLAIN_LIST_ITEMS = 3
+    private const val MAX_COLON_TITLE_WORDS = 3
+    private const val MIN_BULLETS = 2
+    private val bulletMarker = Regex("""^[-\u2022*]\s*""")
+    /** Words that open a clause rather than name a thing: an item starting with one means the text is prose. */
+    private val clauseOpener = Regex(
+        """^(?:instead of|such as|to|so|but|then|maybe|with|that|which|because|and|or|if|when|while|like)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val intervalCadence = Regex(
         """\bevery\s+(?:(\d+|two|three|four)\s+weeks?|other(?:\s+week)?(?!\s+day)|second\s+week)\b""",
         RegexOption.IGNORE_CASE,
@@ -140,14 +148,17 @@ object RulesFallback {
 
     private fun weekdaySpans(matches: Sequence<MatchResult>) = matches.map { ChipSpan(ChipKind.Weekday, it.range) }.toList()
 
+    /** A list's title, its steps and the text that may name its date (after the colon, so "Sunday roast" is no date). */
+    private class ListParse(val title: String?, val steps: List<String>, val dateText: String)
+
     /** A list with a date or time is a Project with that deadline; with none it is a List. */
     private fun listRule(i: Input): ParsedItem? {
-        val (title, steps) = colonList(i.text) ?: plainList(i.text) ?: return null
+        val list = bulletList(i.text) ?: colonList(i.text) ?: plainList(i.text) ?: return null
         return ParsedItem(
-            if (dateOrTimePhrase.containsMatchIn(i.text)) ItemType.Project else ItemType.List,
-            title?.take(IntakeValidator.MAX_TITLE_LENGTH) ?: i.title,
-            deadline = deadlineOf(i),
-            subItems = steps.take(IntakeValidator.MAX_SUB_ITEMS),
+            if (dateOrTimePhrase.containsMatchIn(list.dateText)) ItemType.Project else ItemType.List,
+            list.title?.take(IntakeValidator.MAX_TITLE_LENGTH) ?: i.title,
+            deadline = i.now?.let { deadlineIn(list.dateText, it) }?.toInstant(),
+            subItems = list.steps.take(IntakeValidator.MAX_SUB_ITEMS),
         )
     }
 
@@ -221,32 +232,56 @@ object RulesFallback {
         return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
     }
 
+    /** A title line then 2 or more lines starting with '-', '•' or '*': a list by its marker, the bullets its steps. */
+    private fun bulletList(text: String): ListParse? {
+        val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val bullets = lines.drop(1)
+        if (bullets.size < MIN_BULLETS || bulletMarker.containsMatchIn(lines.first()) || bullets.any { !bulletMarker.containsMatchIn(it) }) {
+            return null
+        }
+        val steps = bullets.map { it.replace(bulletMarker, "").trim().replaceFirstChar { c -> c.uppercase() } }
+        return ListParse(lines.first(), steps, bullets.joinToString("\n"))
+    }
+
     /** "Launch: write copy, record demo and ship" is titled "Launch" with three steps. */
-    private fun colonList(text: String): Pair<String?, List<String>>? {
+    private fun colonList(text: String): ListParse? {
         val colon = text.indexOf(':')
         if (colon <= 0) return null
-        val steps = text.substring(colon + 1).split(listSplit).map { it.trim() }.filter { it.isNotEmpty() }
-        if (steps.size < 2) return null
-        return text.substring(0, colon).trim() to steps.map { s -> s.replaceFirstChar { it.uppercase() } }
+        val title = text.substring(0, colon).trim()
+        if (wordCount(title) > MAX_COLON_TITLE_WORDS) return null
+        val after = text.substring(colon + 1)
+        val steps = after.split(listSplit).map { it.trim() }.filter { it.isNotEmpty() }
+        if (steps.size < 2 || !areListItems(steps)) return null
+        return ListParse(title, steps.map { s -> s.replaceFirstChar { it.uppercase() } }, after)
     }
 
     /**
      * A list with no colon: "get tape, rope and boxes at the warehouse" gives "Get tape", "Get rope", "Get boxes";
      * "call mum, email Sam and book flights" keeps each step's own verb.
      */
-    private fun plainList(text: String): Pair<String?, List<String>>? {
+    private fun plainList(text: String): ListParse? {
         val verb = leadingVerb.find(text) ?: return null
         val rest = text.substring(verb.range.last + 1).replace(listEnd, "").trimEnd('.', '!', ' ')
         val items = rest.split(listSplit).map { it.trim() }.filter { it.isNotEmpty() }
-        if (items.any { it.split(Regex("""\s+""")).size > MAX_LIST_ITEM_WORDS }) return null
+        if (items.size < MIN_PLAIN_LIST_ITEMS || !areListItems(items)) return null
         val head = verb.groupValues[1].lowercase()
         // Each item after the first leading with its own verb: the list is already steps.
-        if (items.size >= 2 && items.drop(1).all { leadingVerb.containsMatchIn(it) }) {
-            return null to (listOf("$head ${items.first()}") + items.drop(1)).map { s -> s.replaceFirstChar { it.uppercase() } }
+        val steps = if (items.drop(1).all { leadingVerb.containsMatchIn(it) }) {
+            listOf("$head ${items.first()}") + items.drop(1)
+        } else {
+            items.map { "$head $it" }
         }
-        if (items.size < MIN_PLAIN_LIST_ITEMS) return null
-        return null to items.map { "$head $it".replaceFirstChar { c -> c.uppercase() } }
+        return ListParse(null, steps.map { s -> s.replaceFirstChar { it.uppercase() } }, text)
     }
+
+    /** Short noun-phrase-like items: at most 4 words each (a trailing date cut from the last) and none opening a clause. */
+    private fun areListItems(items: List<String>): Boolean =
+        items.withIndex().none { (n, item) ->
+            val counted = if (n == items.lastIndex) item.replace(listEnd, "") else item
+            wordCount(counted) > MAX_LIST_ITEM_WORDS || clauseOpener.containsMatchIn(item)
+        }
+
+    private fun wordCount(s: String) = s.trim().split(Regex("""\s+""")).count { it.isNotEmpty() }
 
     /** The day and clock time named in [text], or null when it names neither. Always in the future. */
     internal fun deadlineIn(text: String, now: ZonedDateTime): ZonedDateTime? {
