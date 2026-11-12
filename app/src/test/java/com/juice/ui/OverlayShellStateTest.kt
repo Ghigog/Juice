@@ -726,6 +726,18 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun theRoutinesViewFollowsACardOrderChosenAfterItWasBuilt() {
+        val older = routine.copy(id = "o", createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+        val newer = later.copy(id = "n", createdAt = Instant.parse("2026-01-02T00:00:00Z"))
+        val main = runBlocking { repository.save(older); repository.save(newer); state() }
+        main.routines.observe()
+        main.setCardOrder(CardOrder.Newest)
+        assertEquals(listOf("n", "o"), main.routines.items.map { it.id })
+        main.setCardOrder(CardOrder.Oldest)
+        assertEquals(listOf("o", "n"), main.routines.items.map { it.id })
+    }
+
+    @Test
     fun completingARoutineInTheRoutinesViewEndsItWithoutAdvancing() {
         val routines = routinesState()
         routines.complete(later)

@@ -63,7 +63,7 @@ class ItemRepository(
             val earlier = before?.steps?.firstOrNull { it.id == step.id }
             step.copy(doneAt = if (step.done) earlier?.doneAt?.takeIf { earlier.done } ?: step.doneAt ?: now else null)
         }
-        val position = stored?.position ?: ((dao.maxPosition() ?: 0) + 1)
+        val position = stored?.position ?: ((dao.minPosition() ?: 0) - 1)
         val createdAt = before?.createdAt ?: item.createdAt ?: now.takeIf { stored == null }
         val saved = item.copy(steps = steps, createdAt = createdAt, completedAt = completedAt, starredAt = before?.starredAt ?: item.starredAt)
         dao.upsert(saved.toEntity(position))

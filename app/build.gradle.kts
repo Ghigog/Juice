@@ -14,6 +14,8 @@ android {
         warningsAsErrors = true
         abortOnError = true
         baseline = file("lint-baseline.xml")
+        // Needs the network and fails CI whenever a dependency releases; versions are bumped deliberately.
+        disable += "NewerVersionAvailable"
     }
 
     defaultConfig {
@@ -126,7 +128,7 @@ dependencies {
     testImplementation("androidx.test:core:1.6.1")
     testImplementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.mockwebserver)
+    testImplementation(libs.okhttp.mockwebserver)
 }
 
 kover {
