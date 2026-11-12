@@ -78,7 +78,6 @@ internal fun SettingsSheet(
     characters: CharacterSettings? = null,
     modifier: Modifier = Modifier,
 ) {
-    val change = actions.onSettingsChange
     Column(
         modifier
             .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
@@ -100,6 +99,22 @@ internal fun SettingsSheet(
                 contentAlignment = Alignment.Center,
             ) { Text(stringResource(R.string.overlay_done), fontSize = 13.sp) }
         }
+        SettingsContent(settings, hud, actions, groqKeySaved, onSwipeDistance, characters)
+    }
+}
+
+/** The settings rows shared by the overlay's sheet and the app's settings screen. */
+@Composable
+internal fun SettingsContent(
+    settings: JuiceSettings,
+    hud: Hud,
+    actions: OverlayActions,
+    groqKeySaved: Boolean,
+    onSwipeDistance: () -> Unit = {},
+    characters: CharacterSettings? = null,
+) {
+    val change = actions.onSettingsChange
+    Column(Modifier.fillMaxWidth()) {
         Toggle(R.string.settings_sound, R.string.settings_sound_note, settings.sound, hud) { v -> change { it.copy(sound = v) } }
         Toggle(R.string.settings_haptics, R.string.settings_haptics_note, settings.haptics, hud) { v -> change { it.copy(haptics = v) } }
         Toggle(R.string.settings_reduce_motion, R.string.settings_reduce_motion_note, settings.reduceMotion, hud) { v -> change { it.copy(reduceMotion = v) } }
