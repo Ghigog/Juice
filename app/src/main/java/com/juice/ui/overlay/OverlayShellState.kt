@@ -100,6 +100,7 @@ class OverlayShellState(
         if (order == cardOrder) return
         currentOrder = order
         items = items.sortedFor(order)
+        if (routinesState.isInitialized()) routines.setCardOrder(order)
     }
     var undo by mutableStateOf<Undo?>(null)
         private set
@@ -201,12 +202,13 @@ class OverlayShellState(
     }
 
     /** The Routines view's list, over the same repository; the carousel's own list is not touched by it. */
-    val routines: OverlayShellState by lazy {
+    private val routinesState = lazy {
         OverlayShellState(
             repository, scope, onCompleted = onCompleted, onCompletionUndone = onCompletionUndone,
             today = today, io = io, listsRoutines = true, cardOrder = cardOrder,
         )
     }
+    val routines: OverlayShellState by routinesState
 
     private var observingRoutines = false
 
@@ -411,7 +413,7 @@ class OverlayShellState(
             when (result) {
                 is CreateResult.Created -> {
                     repo.consumeCreatorCard()
-                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = items + card }
+                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = if (cardOrder == CardOrder.Oldest) items + card else listOf(card) + items }
                     creator = null
                 }
                 is CreateResult.Failed -> flow.error = result.message
