@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -122,24 +125,44 @@ class OverlayCloseTest {
         assertEquals(1, closed)
     }
 
-    @Test
-    fun everyPopBurstsOverACardOrTheCaptureFieldNotInEmptySpace() {
+    private fun assertPopsOverTheirCards(items: List<Item>, scrollTo: Int?) {
         var froth = emptyList<Offset>()
         var cards = emptyList<Offset>()
-        val items = (1..3).map { Item("t$it", ItemType.Task, "Task $it") }
         show(reduceMotion = false, items = items, onPopsPlanned = { f, c -> froth = f; cards = c })
         compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
+        if (scrollTo != null) {
+            compose.onNode(hasScrollAction()).performScrollToIndex(scrollTo)
+            compose.mainClock.advanceTimeBy(500)
+        }
         closing.value = true
         compose.mainClock.advanceTimeBy(100)
         fun bounds(tag: String): Rect = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
         val carousel = bounds(TAG_CAROUSEL)
-        val onCards = listOf(carousel, bounds(TAG_JUICE_BOX), bounds(TAG_CAPTURE_FIELD))
-        assertEquals(items.size, cards.size)
-        assertTrue(froth.isNotEmpty())
-        (froth + cards).forEach { origin ->
-            assertTrue("$origin is off every card in $onCards", onCards.any { it.contains(origin) })
-            assertTrue("$origin starts in the empty top", origin.y > carousel.top)
+        val shown = items.indices.filter { n ->
+            val nodes = compose.onAllNodesWithText("Task ${n + 1}")
+            nodes.fetchSemanticsNodes().isNotEmpty() &&
+                carousel.contains(nodes[0].fetchSemanticsNode().boundsInRoot.center)
         }
+        assertTrue(shown.isNotEmpty())
+        assertEquals(shown.size, cards.size)
+        if (scrollTo != null) assertTrue(shown.size < items.size && shown.first() > 0)
+        shown.forEachIndexed { rank, n ->
+            val title = compose.onAllNodesWithText("Task ${n + 1}")[0].fetchSemanticsNode().boundsInRoot
+            val card = Rect(title.left - 200f, title.top - TOLERANCE, title.right + 200f, title.bottom + TOLERANCE)
+            assertTrue("splash ${cards[rank]} is off Task ${n + 1} at $title", card.contains(cards[rank]))
+        }
+        assertTrue(froth.isNotEmpty())
         assertTrue(cards.all { carousel.contains(it) })
+    }
+
+    @Test
+    fun everyCardSplashBurstsFromItsOwnCard() = assertPopsOverTheirCards((1..3).map { Item("t$it", ItemType.Task, "Task $it") }, null)
+
+    @Test
+    fun onlyTheCardsOnScreenPopWhenTheListIsScrolled() =
+        assertPopsOverTheirCards((1..20).map { Item("t$it", ItemType.Task, "Task $it") }, 10)
+
+    private companion object {
+        const val TOLERANCE = 40f
     }
 }
