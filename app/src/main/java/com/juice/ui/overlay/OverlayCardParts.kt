@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -58,7 +60,6 @@ import com.juice.core.intake.ChipSpan
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.RulesFallback
 import com.juice.core.model.Item
-import com.juice.core.model.Step
 
 /** A chip in the title: [span] with its text offsets [start] until [end] (end exclusive). */
 internal class TitleChip(val span: ChipSpan, val start: Int, val end: Int)
@@ -88,22 +89,34 @@ internal val WIDE_CARD_MIN_WIDTH = 480.dp
 /** The width of the wide card's right column: the worth, the buttons and the hint. */
 internal val WIDE_CARD_SIDE = 240.dp
 
-/** One step of a Project; a done step stays listed, struck through. */
+/** A List or Project's own text keeps its line breaks: the first line is the card's title, the rest is its body. */
+private fun Item.listLines(): List<String> = title.lines()
+
+internal fun listTitleLine(item: Item): String = if (item.type.hasSteps) item.listLines().first() else item.title
+
+/** The lines under a List or Project's title, then the titles of any steps saved before steps were retired. */
+internal fun listBodyLines(item: Item): List<String> =
+    if (!item.type.hasSteps) emptyList() else item.listLines().drop(1) + item.steps.map { it.title }
+
+/** The body of a List or Project: plain read-only lines, clipped with an ellipsis where they do not fit. */
 @Composable
-internal fun StepRow(step: Step, modifier: Modifier = Modifier) {
-    Text(
-        (if (step.done) "✓ " else "○ ") + step.title,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        color = JuiceColors.white(if (step.done) 0.5f else 0.92f),
-        textDecoration = if (step.done) TextDecoration.LineThrough else null,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.fillMaxWidth().height(36.dp).wrapContentHeight(Alignment.CenterVertically).testTag(stepTag(step.id)),
-    )
+internal fun ListBody(lines: List<String>, modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier.clip(RectangleShape)) {
+        if (lines.isNotEmpty()) {
+            Text(
+                lines.joinToString("\n"),
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+                color = JuiceColors.white(0.92f),
+                maxLines = (maxHeight / 22.dp).toInt().coerceAtLeast(1),
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_CARD_BODY),
+            )
+        }
+    }
 }
 
-internal fun stepTag(id: String) = "step_$id"
+internal const val TAG_CARD_BODY = "cardBody"
 
 @Composable
 internal fun ParsingChip(onDeviceOnly: Boolean) {
@@ -168,12 +181,8 @@ internal fun PillButton(label: String, background: Color, content: Color, modifi
 }
 
 internal fun metaOf(state: OverlayShellState, item: Item): String = when {
-    item.type == ItemType.List -> state.stepsOf(item).size.let { left ->
-        "No deadline. $left ${if (left == 1) "task" else "tasks"} left."
-    }
-    item.type.hasSteps -> state.stepsOf(item).size.let { left ->
-        if (left == 0) "All steps done. Tick it off." else "$left ${if (left == 1) "step" else "steps"} to go"
-    }
+    item.type == ItemType.List -> "No deadline."
+    item.type == ItemType.Project -> item.deadline?.let { "Due ${deadlineLabel(it)}" } ?: "No deadline."
     item.type == ItemType.Routine && item.cadence != null -> item.cadence!!.label() +
         (item.deadline?.let { " · Due ${deadlineLabel(it)}" } ?: "")
     item.deadline != null -> "Due ${deadlineLabel(item.deadline!!)}"
@@ -183,8 +192,7 @@ internal fun metaOf(state: OverlayShellState, item: Item): String = when {
 
 internal fun worthOf(item: Item, hud: Hud): String {
     val m = hud.multiplierLabel
-    return if (item.type.hasSteps) "${hud.baseXp(item.type)} x $m on finish"
-    else "${hud.baseXp(item.type)} x $m = ${hud.worth(item.type)} Juice"
+    return "${hud.baseXp(item.type)} x $m = ${hud.worth(item.type)} Juice"
 }
 
 /** One row of the type pill's drop-down: type colour dot, small-caps name, and a check on the current type. */

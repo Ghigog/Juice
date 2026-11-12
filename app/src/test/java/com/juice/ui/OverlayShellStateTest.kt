@@ -173,7 +173,7 @@ class OverlayShellStateTest {
     private val project = Item("p", ItemType.Project, "Move house", steps = steps)
 
     @Test
-    fun aLandedProjectShowsAsOneCardWithItsSteps() = runBlocking {
+    fun aLandedProjectShowsAsOneCardWithNoSteps() = runBlocking {
         val ids = ArrayDeque(listOf("x", "y", "z"))
         val state = OverlayShellState(
             repository, CoroutineScope(Dispatchers.Unconfined), listOf(Item("n", ItemType.Note, "raw")),
@@ -181,56 +181,20 @@ class OverlayShellStateTest {
         )
         state.land("n", ParsedItem(ItemType.Project, "Move house", subItems = listOf("1", "2", "3")))
         assertEquals(listOf("n"), state.items.map { it.id })
-        assertEquals(listOf("1", "2", "3"), state.items.single().steps.map { it.title })
-        assertEquals(3, repository.get("n")?.steps?.size)
+        assertEquals(emptyList(), state.items.single().steps)
+        assertEquals(emptyList(), repository.get("n")?.steps)
     }
 
     @Test
-    fun tickingAStepKeepsTheProjectAndTheLastOneCompletesItOnce() = runBlocking {
-        repository.save(project)
-        val state = state(project)
-        state.completeStep(project, "sa")
-        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
-        assertEquals(emptyList(), completed)
-        state.completeStep(state.items.single(), "sb")
-        assertEquals(listOf(project.id), completed.map { it.id })
-        assertEquals(emptyList(), state.items)
-        assertEquals(ItemStatus.Completed, repository.get("p")?.status)
-        state.undoLast()
-        assertEquals(1, undone)
-        assertEquals(listOf(false), state.items.single().steps.filter { it.id == "sb" }.map { it.done })
-        assertEquals(ItemStatus.Active, repository.get("p")?.status)
-    }
-
-    @Test
-    fun tickingWithAStaleCopyKeepsEarlierTicks() = runBlocking {
-        val list = project.copy(steps = listOf(Step("sa", "a"), Step("sb", "b"), Step("sc", "c")))
+    fun completingAListWithOpenLegacyStepsCompletesIt() = runBlocking {
+        val list = Item("l", ItemType.List, "Chores", steps = listOf(Step("a", "a", done = true), Step("b", "b")))
         repository.save(list)
         val state = state(list)
-        // The card's gesture handler still holds the copy from before any tick.
-        state.completeStep(list, "sa")
-        state.completeStep(list, "sb")
-        assertEquals(listOf(true, true, false), state.items.single().steps.map { it.done })
-        assertEquals(listOf(true, true, false), repository.get("p")?.steps?.map { it.done })
-        state.removeStep(list, "sc")
-        assertEquals(listOf("sa", "sb"), state.items.single().steps.map { it.id })
-    }
-
-    @Test
-    fun crossingAStepRemovesItFromTheProject() = runBlocking {
-        repository.save(project)
-        val state = state(project)
-        state.removeStep(project, "sa")
-        assertEquals(listOf("b"), state.items.single().steps.map { it.title })
-        assertEquals(listOf("b"), repository.get("p")?.steps?.map { it.title })
-    }
-
-    @Test
-    fun stepsOfListsOnlyOpenStepsAndGatesCompletion() {
-        val state = state(project.copy(steps = listOf(Step("a", "a", done = true), Step("b", "b"))))
-        assertEquals(listOf("b"), state.stepsOf(state.items.single()).map { it.id })
-        assertEquals(false, state.canComplete(state.items.single()))
-        assertEquals(true, state.canComplete(project.copy(steps = listOf(Step("a", "a", done = true)))))
+        assertEquals(true, state.complete(list))
+        assertEquals(listOf("l"), completed.map { it.id })
+        assertEquals(emptyList(), state.items)
+        assertEquals(ItemStatus.Completed, repository.get("l")?.status)
+        assertEquals(listOf(true, false), repository.get("l")?.steps?.map { it.done })
     }
 
     @Test
@@ -324,24 +288,6 @@ class OverlayShellStateTest {
     }
 
     @Test
-    fun aProjectWithOpenStepsCannotBeTickedDirectly() {
-        val state = state(project)
-        assertEquals(false, state.complete(project))
-        assertEquals(emptyList(), completed)
-        assertEquals(1, state.items.size)
-    }
-
-    @Test
-    fun tickingTheLastStepOfAListCompletesIt() = runBlocking {
-        val list = Item("l", ItemType.List, "Chores", steps = listOf(Step("a", "a", done = true), Step("b", "b")))
-        repository.save(list)
-        val state = state(list)
-        state.completeStep(list, "b")
-        assertEquals(listOf("l"), completed.map { it.id })
-        assertEquals(ItemStatus.Completed, repository.get("l")?.status)
-    }
-
-    @Test
     fun pickingListClearsDeadlineAndCadence() = runBlocking {
         repository.save(routine)
         val state = state(routine)
@@ -351,15 +297,6 @@ class OverlayShellStateTest {
         assertNull(card.cadence)
         assertNull(card.nextDueOn)
         assertNull(card.deadline)
-    }
-
-    @Test
-    fun onlyAListOrProjectWithOpenStepsCannotBeCompletedDirectly() {
-        val steps = listOf(Step("a", "a"))
-        val state = state()
-        assertEquals(false, state.canComplete(Item("l", ItemType.List, "L", steps = steps)))
-        assertEquals(true, state.canComplete(Item("l", ItemType.List, "L")))
-        assertEquals(true, state.canComplete(Item("p", ItemType.Project, "P")))
     }
 
     @Test
