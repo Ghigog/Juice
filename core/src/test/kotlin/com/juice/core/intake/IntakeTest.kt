@@ -509,4 +509,38 @@ class IntakeTest {
         val model = goal(at(13, 15))
         assertEquals(at(13, 15).toInstant(), model.improvingOn(RulesFallback.classify(text, wed), wed, text).deadline)
     }
+
+    // Explicit dates: today is Sunday 2026-11-01 in Berlin.
+    private val nov1 = java.time.ZonedDateTime.of(2026, 11, 1, 9, 0, 0, 0, berlin)
+    private fun deadlineOf(text: String, now: java.time.ZonedDateTime = nov1) = RulesFallback.deadlineIn(text, now)
+
+    @Test fun aDayAndMonthInEveryFormatResolvesToTheDayWithNoTimeAtEndOfDay() {
+        val due = java.time.ZonedDateTime.of(2026, 11, 14, 23, 59, 0, 0, berlin)
+        listOf("Send it by 14 Nov", "send it 14th November", "send it Nov 14", "send it NOVEMBER 14th", "send it 14 nov")
+            .forEach { assertEquals(due, deadlineOf(it), it) }
+    }
+
+    @Test fun aDatePassedThisYearRollsIntoNextYear() {
+        val nov20 = java.time.ZonedDateTime.of(2026, 11, 20, 9, 0, 0, 0, berlin)
+        assertEquals(java.time.ZonedDateTime.of(2027, 11, 14, 23, 59, 0, 0, berlin), deadlineOf("Renew passport 14 Nov", nov20))
+    }
+
+    @Test fun aDateWithAClockTimeKeepsTheTime() {
+        assertEquals(at(14, 15), deadlineOf("November 14th at 3pm"))
+        assertEquals(at(14, 15), deadlineOf("14 Nov at 3pm"))
+    }
+
+    @Test fun anInvalidOrNumericDateGivesNoDeadline() {
+        assertNull(deadlineOf("pay rent 31 Feb"))
+        assertNull(deadlineOf("pay rent 14/11"))
+        assertNull(RulesFallback.namedDayDeadline("pay rent 14/11", nov1))
+    }
+
+    @Test fun theMergeCorrectsAModelDateToTheWrittenDateAndRetimesTheReminder() {
+        val text = "Send the invoice by 14 Nov"
+        val model = ParsedItem(ItemType.Task, "Send the invoice", deadline = at(13, 17).toInstant(), notifyAt = at(12, 9).toInstant(), notifyText = "Invoice")
+        val merged = model.improvingOn(RulesFallback.classify(text, nov1), nov1, text)
+        assertEquals(at(14, 17).toInstant(), merged.deadline)
+        assertEquals(reminderFor(at(14, 17), nov1, hasTime = true)?.toInstant(), merged.notifyAt)
+    }
 }

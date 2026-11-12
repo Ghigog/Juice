@@ -90,12 +90,31 @@ object RulesFallback {
     private val period = Regex("""\b($PERIOD)\b""", RegexOption.IGNORE_CASE)
     private val within = Regex("""\b$WITHIN\b""", RegexOption.IGNORE_CASE)
 
+    private const val MONTH = """(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"""
+    /** Groups: 1 day then 2 month ("14th of Nov"), or 3 month then 4 day ("Nov 14"). Never a numeric date like 14/11. */
+    private val monthDate = Regex(
+        """\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?$MONTH\b|\b$MONTH\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private const val LEAP_SEARCH_YEARS = 8
+
     /**
-     * The deadline [text] names by a day word (today, tonight, tomorrow, a weekday), or null when it names none or a span
-     * ("end of the week", "in 3 days") instead. The deadline a model's must agree with the day of.
+     * The deadline [text] names by an explicit day and month ("14 Nov", "November 14th") or a day word (today, tonight,
+     * tomorrow, a weekday), or null when it names none or a span ("end of the week", "in 3 days") instead. The deadline a
+     * model's must agree with the day of.
      */
     fun namedDayDeadline(text: String, now: ZonedDateTime): ZonedDateTime? =
-        if (periodEnd(text, now) == null && dayWord.containsMatchIn(text)) deadlineIn(text, now) else null
+        if (periodEnd(text, now) == null && (monthDate.containsMatchIn(text) || dayWord.containsMatchIn(text))) deadlineIn(text, now) else null
+
+    /** The next date at or after today that [m] names, or null when it is not a real date ("31 Feb"). */
+    private fun dateOf(m: MatchResult, today: java.time.LocalDate): java.time.LocalDate? {
+        val g = m.groupValues
+        val day = (g[1].ifEmpty { g[4] }).toInt()
+        val month = java.time.Month.entries.first { it.name.startsWith((g[2].ifEmpty { g[3] }).take(3).uppercase()) }
+        return (today.year..today.year + LEAP_SEARCH_YEARS).firstNotNullOfOrNull { y ->
+            runCatching { java.time.LocalDate.of(y, month, day) }.getOrNull()?.takeIf { !it.isBefore(today) }
+        }
+    }
 
     private class Input(val text: String, val title: String, val now: ZonedDateTime?)
 
@@ -283,12 +302,19 @@ object RulesFallback {
 
     private fun wordCount(s: String) = s.trim().split(Regex("""\s+""")).count { it.isNotEmpty() }
 
-    /** The day and clock time named in [text], or null when it names neither. Always in the future. */
+    /**
+     * The day and clock time named in [text], or null when it names neither. The day is a day word or an explicit
+     * day and month with no year ("14 Nov", the next one at or after today; an invalid date gives null). Always in the future.
+     */
     internal fun deadlineIn(text: String, now: ZonedDateTime): ZonedDateTime? {
         periodEnd(text, now)?.let { return it }
-        val time = clockTime.find(text)
-        val day = dayWord.find(text)?.value?.lowercase()
-        if (time == null && day == null) return null
+        val explicit = monthDate.find(text)
+        // Cut the date out so "by 14 Nov" is not read as 14:00.
+        val rest = if (explicit == null) text else text.removeRange(explicit.range)
+        val explicitDate = explicit?.let { dateOf(it, now.toLocalDate()) ?: return null }
+        val time = clockTime.find(rest)
+        val day = if (explicitDate != null) null else dayWord.find(rest)?.value?.lowercase()
+        if (time == null && day == null && explicitDate == null) return null
         // A day with no time means by the end of that day.
         var hour = END_OF_DAY_HOUR
         var minute = END_OF_DAY_MINUTE
@@ -297,7 +323,7 @@ object RulesFallback {
             hour = clock.hour
             minute = clock.minute
         }
-        var date = now.toLocalDate()
+        var date = explicitDate ?: now.toLocalDate()
         when (day) {
             null, "today", "tonight" -> Unit
             "tomorrow" -> date = date.plusDays(1)
@@ -305,6 +331,7 @@ object RulesFallback {
         }
         var at = date.atTime(hour, minute).atZone(now.zone)
         if (!at.isAfter(now)) {
+            if (explicitDate != null) return null
             if (day != null && day != "today" && day != "tonight") return null
             at = at.plusDays(1)
         }

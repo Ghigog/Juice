@@ -22,7 +22,7 @@ fun IntakeCard.mergeParse(parsed: ParsedItem): IntakeCard {
  * deadline. Only a Project and a List have steps, a Routine, a Note and a List have no deadline or reminder, and a Project the model gave no
  * steps keeps the rules' own.
  *
- * When [rawText] names a day (today, tonight, tomorrow, a weekday) the rules' date wins over a model deadline on another
+ * When [rawText] names a day (today, tonight, tomorrow, a weekday) or a date (14 Nov, November 14th) the rules' date wins over a model deadline on another
  * local date; the model's time of day is kept when it gave one. A reminder from the model is kept only when the deadline was
  * not corrected and it is sensible; otherwise it comes from [reminderFor].
  */
