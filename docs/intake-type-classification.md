@@ -1,6 +1,6 @@
 # Intake type classification: why prose with a colon became a List
 
-Spike T-74. No production code changed. The evidence is `core/src/test/kotlin/com/juice/core/intake/TypeCorpusTest.kt`
+Spike T-74; the recommended rules below were applied in T-67-T4 (`RulesFallback`: `bulletList`, `colonList`, `plainList`, `areListItems`). The evidence is `core/src/test/kotlin/com/juice/core/intake/TypeCorpusTest.kt`
 (49 labelled captures, all six types, fixed `ZonedDateTime`, no clock or randomness).
 
 ## Root cause
@@ -99,3 +99,10 @@ Recommendation: **type stays fully deterministic and on-device**. Groq keeps sup
 - Given `write the quarterly report and send it to Priya` or `make a Factorio like factory, with artists, designers and modellers`, when classified, then it is a Task.
 - Given `TypeCorpusTest`, when it runs, then every row but "Book recommendation from Ana: Piranesi" and "weekly review on Friday" gets its expected type, and those two stay in `knownMisses`.
 - `./gradlew :core:test` and `./gradlew :core:koverVerify` pass, and the AGENTS.md determinism grep prints nothing.
+
+## Outcome (applied)
+
+The recommendation is in `RulesFallback`. `TypeCorpusTest` now has 64 rows, 15 of them held out (written after the thresholds were set); all
+but the two non-list misses ("Book recommendation from Ana: Piranesi", "weekly review on Friday") get their expected type. The held-out rows
+exposed one thing the list rules do not fix: a bare weekday or day word anywhere in a capture (e.g. "Monday standup: …", a book titled "…the Sun")
+is still a date, so those become a Goal or Project.
