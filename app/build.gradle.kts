@@ -14,6 +14,8 @@ android {
         warningsAsErrors = true
         abortOnError = true
         baseline = file("lint-baseline.xml")
+        // Needs the network and fails CI whenever a dependency releases; versions are bumped deliberately.
+        disable += "NewerVersionAvailable"
     }
 
     defaultConfig {

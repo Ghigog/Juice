@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -92,8 +93,9 @@ internal fun Carousel(
     SideEffect {
         cardPops.visibleCentres = {
             val info = listState.layoutInfo
+            // LazyList offsets start at the content padding's edge; viewportStartOffset is minus that padding.
             val x = carouselRoot.x + listStartPx + info.viewportSize.width / 2f
-            info.visibleItemsInfo.map { Offset(x, carouselRoot.y + it.offset + it.size / 2f) }
+            info.visibleItemsInfo.map { Offset(x, carouselRoot.y - info.viewportStartOffset + it.offset + it.size / 2f) }
         }
     }
     val scope = rememberCoroutineScope()
@@ -150,7 +152,10 @@ internal fun Carousel(
     // The list's scrolling takes every touch over its column, so empty space in it closes here; cards consume their own taps.
     BoxWithConstraints(
         modifier
-            .onGloballyPositioned { carouselRoot = it.positionInRoot() }
+            .onGloballyPositioned {
+                carouselRoot = it.positionInRoot()
+                cardPops.carouselBounds = it.boundsInRoot()
+            }
             .pointerInput(spin) {
                 // Initial pass and never consumes: a touch stops the spin without disturbing taps or reordering.
                 awaitEachGesture {
@@ -254,6 +259,9 @@ internal class CardPops {
 
     /** The capture field's bounds in root coordinates, kept current by its layout. */
     var captureBounds: Rect? = null
+
+    /** The carousel's bounds in root coordinates, kept current by its layout; only cards centred inside it pop. */
+    var carouselBounds: Rect? = null
 
     /** Where the froth bursts, in the shell's drawing coordinates, taken when closing started. */
     var frothAt by mutableStateOf<List<Offset>>(emptyList())
