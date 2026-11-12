@@ -13,7 +13,7 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
-        baseline = file("lint-baseline.xml")
+        baseline = file("lint-baseline.xml"); disable += "NewerVersionAvailable" // needs the network, breaks on any upstream release
     }
 
     defaultConfig {
@@ -126,7 +126,7 @@ dependencies {
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.okhttp.mockwebserver)
 }
 
 kover {

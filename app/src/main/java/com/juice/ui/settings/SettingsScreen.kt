@@ -34,9 +34,9 @@ fun SettingsScreen(
     settings: JuiceSettings,
     hud: Hud,
     actions: OverlayActions,
+    modifier: Modifier = Modifier,
     characters: CharacterSettings? = null,
     groqKeySaved: Boolean = false,
-    modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
 ) {
     CompositionLocalProvider(LocalTextStyle provides TextStyle(fontFamily = SpaceGrotesk, color = Color.White)) {
