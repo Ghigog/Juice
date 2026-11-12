@@ -10,8 +10,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.juice.BuildConfig
 import com.juice.data.ItemRepository
+import com.juice.core.intake.GroqKey
 import com.juice.llm.GroqClient
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
@@ -25,7 +25,9 @@ class IntakeWorker(
     context: Context,
     params: WorkerParameters,
     private val settings: SettingsRepository,
-    private val groq: GroqClient,
+    /** The saved Groq key, read at run time; null when there is none. */
+    private val key: () -> GroqKey?,
+    private val groqFor: (GroqKey) -> GroqClient,
     private val items: ItemRepository,
     private val clock: () -> java.time.ZonedDateTime = { java.time.ZonedDateTime.now() },
 ) : CoroutineWorker(context, params) {
@@ -34,7 +36,8 @@ class IntakeWorker(
         context,
         params,
         deps.settings,
-        deps.groq ?: GroqClient(BuildConfig.GROQ_API_KEY),
+        deps.key,
+        deps.groqFor,
         deps.items,
     )
 
@@ -45,10 +48,13 @@ class IntakeWorker(
     )
 
     override suspend fun doWork(): Result {
-        val text = inputData.getString(KEY_TEXT) ?: return Result.failure()
         val itemId = inputData.getString(KEY_ITEM_ID) ?: return Result.failure()
-        val onDeviceOnly = settings.current().onDeviceOnly
-        val result = IntakeParser(groq, onDeviceOnly = { onDeviceOnly }, clock = clock).parse(text)
+        // The note text stays in Room; WorkManager's own database only ever holds the id.
+        val text = items.get(itemId)?.title ?: return Result.success()
+        val groqKey = key()
+        // No saved key, or on-device only: the parser never reaches Groq, so the client is a placeholder.
+        val onDeviceOnly = groqKey == null || settings.current().onDeviceOnly
+        val result = IntakeParser(if (groqKey == null) GroqClient("") else groqFor(groqKey), onDeviceOnly = { onDeviceOnly }, clock = clock).parse(text)
         // A failed request still lands the local rules, so the card is not stuck as a Note meanwhile.
         items.land(itemId, result.item)
         return if (result.retryLater && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
@@ -58,16 +64,12 @@ class IntakeWorker(
         /** Attempts allowed before a transient failure stops retrying and the card keeps the rules parse. */
         const val MAX_ATTEMPTS = 5
 
-        private const val KEY_TEXT = "text"
         private const val KEY_ITEM_ID = "itemId"
 
-        /** True when a Groq key was built in; without one, intake stays on device. */
-        val cloudAvailable: Boolean get() = BuildConfig.GROQ_API_KEY.isNotBlank()
-
         /** Queues a Groq parse for [itemId]. */
-        fun enqueue(context: Context, itemId: String, text: String) {
+        fun enqueue(context: Context, itemId: String) {
             val request = OneTimeWorkRequestBuilder<IntakeWorker>()
-                .setInputData(workDataOf(KEY_TEXT to text, KEY_ITEM_ID to itemId))
+                .setInputData(workDataOf(KEY_ITEM_ID to itemId))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()

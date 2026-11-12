@@ -30,6 +30,26 @@ class GroqClient(
     /** Returns the model's JSON persona (`name`, `personality`, `personaPrompt`) for a coach about [hobby]. */
     fun generatePersona(hobby: String): String = complete(PERSONA_PROMPT, hobby)
 
+    /** One GET to /models (no tokens spent) to learn whether [apiKey] works. Never logs the key or the body. */
+    fun checkKey(): KeyCheck {
+        val conn = URL("$baseUrl/models").openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "GET"
+            conn.connectTimeout = TIMEOUT_MS
+            conn.readTimeout = TIMEOUT_MS
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            when (conn.responseCode) {
+                in 200..299 -> KeyCheck.Works
+                401, 403 -> KeyCheck.Rejected
+                else -> KeyCheck.Unreachable
+            }
+        } catch (e: IOException) {
+            KeyCheck.Unreachable
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     private fun complete(system: String, user: String): String {
         val body = buildJsonObject {
             put("model", model)
@@ -142,6 +162,9 @@ class GroqClient(
         """.trimIndent()
     }
 }
+
+/** What [GroqClient.checkKey] learned: the key works, Groq refused it, or Groq could not be asked. */
+enum class KeyCheck { Works, Rejected, Unreachable }
 
 /** Groq answered with a non-2xx [status]; [code] and [detail] are Groq's own, [retryAfterMs] its Retry-After. */
 class GroqHttpException(

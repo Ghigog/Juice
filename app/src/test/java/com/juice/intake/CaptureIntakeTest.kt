@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 class CaptureIntakeTest {
     private lateinit var db: JuiceDatabase
     private lateinit var repository: ItemRepository
-    private val enqueued = mutableListOf<Pair<String, String>>()
+    private val enqueued = mutableListOf<String>()
     private val deadline = Instant.ofEpochMilli(1_800_000_000_000)
 
     @Before
@@ -37,14 +37,14 @@ class CaptureIntakeTest {
     fun tearDown() = db.close()
 
     private fun intake(onDeviceOnly: Boolean, cloud: Boolean = true) =
-        CaptureIntake(repository, { onDeviceOnly }, { id, text -> enqueued += id to text }, cloudAvailable = { cloud })
+        CaptureIntake(repository, { onDeviceOnly }, { id -> enqueued += id }, cloudAvailable = { cloud })
 
     @Test
     fun onlineCaptureIsQueuedAndTheLateParseUpdatesTheCard() = runBlocking {
         val note = Item("a", ItemType.Note, "do laundry by 6pm")
         repository.save(note)
         assertEquals(true, intake(onDeviceOnly = false).submit(note))
-        assertEquals(listOf("a" to "do laundry by 6pm"), enqueued)
+        assertEquals(listOf("a"), enqueued)
         assertEquals(ItemType.Goal, repository.get("a")?.type)
 
         repository.applyParse("a", ParsedItem(ItemType.Task, "Laundry", deadline = deadline))
@@ -68,7 +68,7 @@ class CaptureIntakeTest {
         val note = Item("a", ItemType.Note, "call mum tomorrow")
         repository.save(note)
         assertEquals(false, intake(onDeviceOnly = true).submit(note))
-        assertEquals(emptyList<Pair<String, String>>(), enqueued)
+        assertEquals(emptyList<String>(), enqueued)
         assertEquals(ItemType.Goal, repository.get("a")?.type)
     }
 
@@ -77,7 +77,7 @@ class CaptureIntakeTest {
         val note = Item("a", ItemType.Note, "Launch: write copy, record demo and ship")
         repository.save(note)
         intake(onDeviceOnly = false, cloud = false).submit(note)
-        assertEquals(emptyList<Pair<String, String>>(), enqueued)
+        assertEquals(emptyList<String>(), enqueued)
         val active = repository.active()
         assertEquals(ItemType.List, active.first { it.id == "a" }.type)
         assertEquals(listOf("Write copy", "Record demo", "Ship"), active.single().steps.map { it.title })

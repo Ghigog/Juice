@@ -24,6 +24,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -75,7 +76,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.character.CoachTask
@@ -106,6 +109,15 @@ private val FACE_SIZE = 168.dp
 /** How far the face sinks into the box's top-right corner. */
 private val FACE_OVERLAP = 44.dp
 
+/** The face and the box's minimum height when the chat is as short as it gets (keyboard up on a phone). */
+private val COMPACT_FACE_SIZE = 96.dp
+private val COMPACT_FACE_OVERLAP = 30.dp
+private val COMPACT_BOX_MIN = 72.dp
+
+/** Below this height the History button hides; between it and [SHRINK_FROM] the face and box shrink smoothly. */
+private val FULL_HEIGHT = 440.dp
+private val SHRINK_FROM = 300.dp
+
 /**
  * The chat with a coach, as a visual novel: one dialogue box shows the latest line, the coach's face hovers over its
  * top-right corner and acts out each reply's expression, and History opens the whole conversation. The player's
@@ -130,15 +142,23 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
     val shadow = FaceColors.of(chat.character)
     val proposal = chat.proposal
 
-    Box(modifier.testTag(TAG_COACH_CHAT)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                HistoryButton { historyOpen = true }
+    BoxWithConstraints(modifier.testTag(TAG_COACH_CHAT)) {
+        // Short chats (the keyboard is up) keep the input in full and shrink the face and box, as the Capture field does.
+        val roomy = maxHeight >= FULL_HEIGHT
+        val fit = ((maxHeight - SHRINK_FROM) / (FULL_HEIGHT - SHRINK_FROM)).coerceIn(0f, 1f)
+        val faceSize = lerp(COMPACT_FACE_SIZE, FACE_SIZE, fit)
+        val overlap = lerp(COMPACT_FACE_OVERLAP, FACE_OVERLAP, fit)
+        val boxMin = lerp(COMPACT_BOX_MIN, 170.dp, fit)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Bottom) {
+            if (roomy) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    HistoryButton { historyOpen = true }
+                }
+                Spacer(Modifier.weight(1f))
             }
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.fillMaxWidth()) {
-                Box(Modifier.padding(top = FACE_SIZE - FACE_OVERLAP).fillMaxWidth()) {
-                    DialogueBox(chat, hud, face, showingYou, thinking && chat.busy, Modifier.padding(top = 15.dp))
+            Box(Modifier.fillMaxWidth().then(if (roomy) Modifier else Modifier.weight(1f, fill = false))) {
+                Box(Modifier.padding(top = faceSize - overlap).fillMaxWidth()) {
+                    DialogueBox(chat, hud, face, showingYou, thinking && chat.busy, boxMin, Modifier.padding(top = 15.dp))
                     NameTag(
                         name = if (showingYou) stringResource(R.string.coach_you) else chat.character.name,
                         background = if (showingYou) Color.White else hud.accent,
@@ -149,7 +169,7 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
                 val description = stringResource(R.string.coach_face_description, chat.character.name, expression.name.lowercase())
                 AnimatedCharacterFace(
                     face, shadow,
-                    Modifier.align(Alignment.TopEnd).offset(x = 10.dp).size(FACE_SIZE).testTag(TAG_COACH_FACE),
+                    Modifier.align(Alignment.TopEnd).offset(x = 10.dp).size(faceSize).testTag(TAG_COACH_FACE),
                     description,
                 )
             }
@@ -175,7 +195,7 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
 
 /** The latest line: the coach's newest reply (typing out if it is new), the player's words while sent, or thinking dots. */
 @Composable
-private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, showingYou: Boolean, thinking: Boolean, modifier: Modifier) {
+private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, showingYou: Boolean, thinking: Boolean, minHeight: Dp, modifier: Modifier) {
     val shape = RoundedCornerShape(30.dp)
     val lineIndex = chat.messages.indexOfLast { it.role == "assistant" }
     val line = if (lineIndex >= 0) chat.messages[lineIndex].content else chat.character.openingLine
@@ -183,7 +203,7 @@ private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, show
     Column(
         modifier
             .fillMaxWidth()
-            .heightIn(min = 170.dp, max = 340.dp)
+            .heightIn(min = minHeight, max = 340.dp)
             .clip(shape)
             .background(JuiceColors.white(0.14f))
             .border(1.dp, JuiceColors.white(0.28f), shape)

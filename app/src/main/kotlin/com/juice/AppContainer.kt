@@ -4,8 +4,9 @@ import android.content.Context
 import com.juice.coach.CoachClient
 import com.juice.coach.CoachConversation
 import com.juice.core.character.Character
-import com.juice.core.model.Item
 import com.juice.core.intake.ItemType
+import com.juice.core.model.Item
+import com.juice.core.intake.GroqKey
 import com.juice.core.progression.Progression
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
@@ -21,6 +22,7 @@ import com.juice.intake.IntakeDependencies
 import com.juice.llm.GroqClient
 import com.juice.notify.ReminderScheduler
 import com.juice.settings.CharacterSettings
+import com.juice.settings.GroqKeyStore
 import com.juice.settings.SettingsRepository
 import java.io.File
 import java.time.Clock
@@ -48,19 +50,21 @@ class AppContainer(context: Context) : IntakeDependencies {
         )
     }
 
-    /** Null without a built-in Groq key. */
-    override val groq: GroqClient? by lazy { BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let(::GroqClient) }
+    val groqKeyStore: GroqKeyStore by lazy { GroqKeyStore(context) }
 
-    /** Makes a coach client, or null without a built-in Groq key. */
-    val coachClient: () -> CoachClient? = { BuildConfig.GROQ_API_KEY.takeIf { it.isNotBlank() }?.let { CoachClient(it) } }
+    override val key: () -> GroqKey? = { groqKeyStore.load() }
+    override val groqFor: (GroqKey) -> GroqClient = { GroqClient(it.value) }
+
+    /** Makes a coach client from the saved Groq key, or null when there is none. */
+    val coachClient: () -> CoachClient? = { groqKeyStore.load()?.let { CoachClient(it.value) } }
 
     val characters: CharacterRepository by lazy {
         CharacterRepository(
             characterStore, items, conversationStore, memoryStore, createdStore,
             CharacterGenerator(
-                llm = { hobby -> groq!!.generatePersona(hobby) },
+                llm = { hobby -> groqFor(checkNotNull(groqKeyStore.load())).generatePersona(hobby) },
                 onDeviceOnly = { settings.current().onDeviceOnly },
-                cloudAvailable = groq != null,
+                cloudAvailable = { groqKeyStore.load() != null },
             ),
         )
     }

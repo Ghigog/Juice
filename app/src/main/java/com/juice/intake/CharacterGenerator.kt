@@ -18,12 +18,12 @@ class CharacterGenerator(
     private val llm: suspend (hobby: String) -> String,
     private val newId: () -> String = { "created-${UUID.randomUUID()}" },
     private val onDeviceOnly: suspend () -> Boolean = { false },
-    private val cloudAvailable: Boolean = true,
+    private val cloudAvailable: () -> Boolean = { true },
 ) : PersonaGenerator {
     override suspend fun generate(hobby: String): GenerationResult {
         val topic = hobby.trim()
         if (topic.isEmpty()) return GenerationResult.Failure("Hobby is empty")
-        if (!cloudAvailable || onDeviceOnly()) return GenerationResult.Failure(NEEDS_CLOUD)
+        if (!cloudAvailable() || onDeviceOnly()) return GenerationResult.Failure(NEEDS_CLOUD)
         val json = try {
             llm(topic)
         } catch (e: IOException) {

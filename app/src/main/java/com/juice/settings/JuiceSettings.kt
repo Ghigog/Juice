@@ -15,7 +15,7 @@ data class JuiceSettings(
     val haptics: Boolean = true,
     val reduceMotion: Boolean = false,
     val blur: Boolean = true,
-    val onDeviceOnly: Boolean = false,
+    val onDeviceOnly: Boolean = true,
     /** The slice handle's centre, as fractions of the screen's width and height. */
     val handleX: Float = DEFAULT_HANDLE_X,
     val handleY: Float = DEFAULT_HANDLE_Y,

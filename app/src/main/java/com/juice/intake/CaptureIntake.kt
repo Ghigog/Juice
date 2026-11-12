@@ -12,7 +12,7 @@ import java.time.ZonedDateTime
 class CaptureIntake(
     private val repository: ItemRepository,
     private val onDeviceOnly: suspend () -> Boolean,
-    private val enqueue: (itemId: String, text: String) -> Unit,
+    private val enqueue: (itemId: String) -> Unit,
     private val cloudAvailable: () -> Boolean = { true },
     private val clock: () -> ZonedDateTime = { ZonedDateTime.now() },
 ) {
@@ -21,7 +21,7 @@ class CaptureIntake(
         // The rules result lands at once; a cloud parse then refines it without overwriting user edits.
         repository.land(item.id, RulesFallback.classify(item.title, clock()))
         if (onDeviceOnly() || !cloudAvailable()) return false
-        enqueue(item.id, item.title)
+        enqueue(item.id)
         return true
     }
 }

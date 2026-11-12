@@ -27,7 +27,8 @@ class IntakeParser(
         return try {
             val json = groq.parse(rawText, now)
             val parsed = IntakeValidator.validate(json, rawText, now.toInstant()) { reason ->
-                log.info("Groq reply rejected ($reason): $json")
+                // A JSON decoding error's later lines quote the reply ("JSON input: ..."), so keep the first line only.
+                log.info("Groq reply rejected (${reason.lineSequence().first()})")
             }
             IntakeResult(parsed.improvingOn(RulesFallback.classify(rawText, now)), retryLater = false)
         } catch (e: IOException) {

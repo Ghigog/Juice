@@ -40,7 +40,7 @@ class CharacterGeneratorTest {
     @Test
     fun noCloudKeyRefusesWithoutCallingTheModel() = runTest {
         var called = false
-        val generator = CharacterGenerator({ called = true; "{}" }, cloudAvailable = false)
+        val generator = CharacterGenerator({ called = true; "{}" }, cloudAvailable = { false })
         assertEquals(GenerationResult.Failure("Needs cloud access: turn off On-device only"), generator.generate("plumbing"))
         assertEquals(false, called)
     }

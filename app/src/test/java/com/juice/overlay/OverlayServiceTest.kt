@@ -134,6 +134,15 @@ class OverlayServiceTest {
     }
 
     @Test
+    fun overlayFailureShowsAToastAndLeavesTheClipboardAlone() {
+        val service = Robolectric.buildService(OverlayService::class.java).create().get()
+        val clipboard = service.getSystemService(android.content.ClipboardManager::class.java)
+        service.reportOverlayFailure(IllegalStateException("boom"))
+        assertEquals(null, clipboard.primaryClip)
+        assertTrue(org.robolectric.shadows.ShadowToast.getTextOfLatestToast().contains("IllegalStateException: boom"))
+    }
+
+    @Test
     fun successLeavesStripHidden() {
         val calls = mutableListOf<String>()
         guardedShowOverlay({ calls += "show" }, { calls += "cleanup" }, { calls += "strip" })
