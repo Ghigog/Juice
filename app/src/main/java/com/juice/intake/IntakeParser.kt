@@ -30,7 +30,7 @@ class IntakeParser(
                 // A JSON decoding error's later lines quote the reply ("JSON input: ..."), so keep the first line only.
                 log.info("Groq reply rejected (${reason.lineSequence().first()})")
             }
-            IntakeResult(parsed.improvingOn(RulesFallback.classify(rawText, now)), retryLater = false)
+            IntakeResult(parsed.improvingOn(RulesFallback.classify(rawText, now), now, rawText), retryLater = false)
         } catch (e: IOException) {
             IntakeResult(RulesFallback.classify(rawText, now), retryLater = !e.isPermanent())
         }

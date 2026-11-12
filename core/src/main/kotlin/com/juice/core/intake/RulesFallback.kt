@@ -25,7 +25,7 @@ object RulesFallback {
             """(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?|""" +
             """($monthNames)[a-z]*\.? \d{1,2}|\d{1,2}(st|nd|rd|th)? ($monthNames)[a-z]*|""" +
             """\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?|\d{4}-\d{2}-\d{2}|""" +
-            """\d{1,2}(:\d{2})? ?(am|pm)|\d{1,2}:\d{2}|noon|midnight|""" +
+            """\d{1,2}(:\d{2})? ?(am|pm)|\d{1,2}:\d{2}|\d{1,2} ?o['\u2019]?clock|noon|midnight|""" +
             """in \d+ (minutes?|hours?|days?|weeks?|months?)|(by|before|at) \d{1,2}|""" +
             """$PERIOD|$WITHIN)\b""",
         RegexOption.IGNORE_CASE,
@@ -62,7 +62,13 @@ object RulesFallback {
         """\bevery\s+(?:(\d+|two|three|four|five|six)\s+days?|other\s+day)\b""",
         RegexOption.IGNORE_CASE,
     )
-    private val clockTime = Regex("""\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b""", RegexOption.IGNORE_CASE)
+    /** Groups: 1-3 "6pm", 4 "12 o'clock", 5-6 "by 6", 7 "noon" or "midnight". */
+    private val clockTime = Regex(
+        """\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|""" +
+            """\b(?:(?:by|at|before)\s+)?(\d{1,2})\s*o['\u2019]?clock\b|""" +
+            """\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b|\b(noon|midnight)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val dayWord = Regex("""\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b""", RegexOption.IGNORE_CASE)
     private const val WEEKDAY = """(?:mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b"""
     private val dailyPhrase = Regex("""\b(?:every ?day|daily)\b""", RegexOption.IGNORE_CASE)
@@ -75,6 +81,13 @@ object RulesFallback {
     private val listSplit = Regex(""",|\band\b""", RegexOption.IGNORE_CASE)
     private val period = Regex("""\b($PERIOD)\b""", RegexOption.IGNORE_CASE)
     private val within = Regex("""\b$WITHIN\b""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The deadline [text] names by a day word (today, tonight, tomorrow, a weekday), or null when it names none or a span
+     * ("end of the week", "in 3 days") instead. The deadline a model's must agree with the day of.
+     */
+    fun namedDayDeadline(text: String, now: ZonedDateTime): ZonedDateTime? =
+        if (periodEnd(text, now) == null && dayWord.containsMatchIn(text)) deadlineIn(text, now) else null
 
     private class Input(val text: String, val title: String, val now: ZonedDateTime?)
 
@@ -190,13 +203,20 @@ object RulesFallback {
     private fun dayOfWeek(name: String): DayOfWeek =
         DayOfWeek.entries.first { it.name.startsWith(name.take(3).uppercase()) }
 
-    private fun clockTimeIn(text: String): LocalTime? {
-        val g = clockTime.find(text)?.groupValues ?: return null
-        var hour = (g[1].ifEmpty { g[4] }).toInt()
-        val minute = (g[2].ifEmpty { g[5] }).ifEmpty { "0" }.toInt()
+    private fun clockTimeIn(text: String): LocalTime? = clockTime.find(text)?.let { clockOf(it.groupValues, null) }
+
+    /**
+     * The time a [clockTime] match names. With [nowHour], "by 6" or "6 o'clock" with no am/pm means the next
+     * such hour on the clock face; "noon" and "midnight" are 12:00 and 00:00.
+     */
+    private fun clockOf(g: List<String>, nowHour: Int?): LocalTime? {
+        if (g[7].isNotEmpty()) return if (g[7].equals("noon", ignoreCase = true)) LocalTime.NOON else LocalTime.MIDNIGHT
+        var hour = (g[1].ifEmpty { g[4] }.ifEmpty { g[5] }).toInt()
+        val minute = (g[2].ifEmpty { g[6] }).ifEmpty { "0" }.toInt()
         when (g[3].lowercase()) {
             "pm" -> if (hour < 12) hour += 12
             "am" -> if (hour == 12) hour = 0
+            else -> if (nowHour != null && hour in 1..11 && hour < nowHour && hour + 12 > nowHour) hour += 12
         }
         return if (hour in 0..23 && minute in 0..59) LocalTime.of(hour, minute) else null
     }
@@ -238,16 +258,9 @@ object RulesFallback {
         var hour = END_OF_DAY_HOUR
         var minute = END_OF_DAY_MINUTE
         if (time != null) {
-            val g = time.groupValues
-            hour = (g[1].ifEmpty { g[4] }).toInt()
-            minute = (g[2].ifEmpty { g[5] }).ifEmpty { "0" }.toInt()
-            when (g[3].lowercase()) {
-                "pm" -> if (hour < 12) hour += 12
-                "am" -> if (hour == 12) hour = 0
-                // "by 6" with no am/pm means the next 6 o'clock on the clock face.
-                else -> if (hour in 1..11 && hour < now.hour && hour + 12 > now.hour) hour += 12
-            }
-            if (hour !in 0..23 || minute !in 0..59) return null
+            val clock = clockOf(time.groupValues, now.hour) ?: return null
+            hour = clock.hour
+            minute = clock.minute
         }
         var date = now.toLocalDate()
         when (day) {
