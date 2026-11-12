@@ -311,22 +311,22 @@ class IntakeTest {
     @Test fun rulesAlwaysDecideTheTypeAndTheModelSuppliesTitleStepsAndDeadline() {
         val note = routine("I'd like to make a game where you play as a little pig")
         val invented = ParsedItem(ItemType.Project, "Pig game", deadline = now.plusSeconds(60), subItems = listOf("Design", "Code"))
-        assertEquals(ParsedItem(ItemType.Note, "Pig game"), invented.improvingOn(note))
+        assertEquals(ParsedItem(ItemType.Note, "Pig game"), invented.improvingOn(note, tuesday, "I'd like to make a game"))
 
         val rules = RulesFallback.classify("get tape, rope and boxes at the warehouse tomorrow", tuesday)
-        val merged = ParsedItem(ItemType.Task, "Warehouse run").improvingOn(rules)
+        val merged = ParsedItem(ItemType.Task, "Warehouse run").improvingOn(rules, tuesday, "get tape, rope and boxes at the warehouse tomorrow")
         assertEquals(ItemType.Project, merged.type)
         assertEquals("Warehouse run", merged.title)
         assertEquals(listOf("Get tape", "Get rope", "Get boxes"), merged.subItems)
         assertEquals(rules.deadline, merged.deadline)
 
         val sunday = routine("go to the library every Sunday")
-        val routineMerged = ParsedItem(ItemType.Goal, "Library", deadline = now).improvingOn(sunday)
+        val routineMerged = ParsedItem(ItemType.Goal, "Library", deadline = now).improvingOn(sunday, tuesday, "go to the library every Sunday")
         assertEquals(ItemType.Routine, routineMerged.type)
         assertEquals(sunday.cadence, routineMerged.cadence)
         assertNull(routineMerged.deadline)
 
-        val task = ParsedItem(ItemType.Goal, "Dentist", deadline = now).improvingOn(routine("call the dentist"))
+        val task = ParsedItem(ItemType.Goal, "Dentist", deadline = now).improvingOn(routine("call the dentist"), tuesday, "call the dentist")
         assertEquals(ParsedItem(ItemType.Task, "Dentist", deadline = now), task)
     }
 
@@ -432,5 +432,81 @@ class IntakeTest {
         assertEquals("bins every Thu", withWeekday(short, spanOf(short, ItemType.Routine, ChipKind.Weekday), java.time.DayOfWeek.THURSDAY))
         val full = "bins every Monday"
         assertEquals("bins every Thursday", withWeekday(full, spanOf(full, ItemType.Routine, ChipKind.Weekday), java.time.DayOfWeek.THURSDAY))
+    }
+
+    // Wednesday 2026-11-11 18:09 in Berlin, the capture of the "see Luis" screenshot.
+    private val berlin = java.time.ZoneId.of("Europe/Berlin")
+    private val wed = java.time.ZonedDateTime.of(2026, 11, 11, 18, 9, 0, 0, berlin)
+    private fun at(day: Int, hour: Int, minute: Int = 0) = java.time.ZonedDateTime.of(2026, 11, day, hour, minute, 0, 0, berlin)
+    private fun goal(deadline: java.time.ZonedDateTime, notify: java.time.ZonedDateTime? = null, text: String? = null) =
+        ParsedItem(ItemType.Goal, "Go see Luis", deadline = deadline.toInstant(), notifyAt = notify?.toInstant(), notifyText = text)
+    private val luis = "go see Luis 12 o'clock on Saturday"
+
+    @Test fun reminderIsTheEveningBeforeAnEarlyDeadline() =
+        assertEquals(at(12, 20), reminderFor(at(13, 8), wed, hasTime = true))
+
+    @Test fun reminderIsTheMorningOfAMiddayDeadline() =
+        assertEquals(at(14, 9), reminderFor(at(14, 12), wed, hasTime = true))
+
+    @Test fun reminderIsTwoHoursBeforeALateDeadline() =
+        assertEquals(at(13, 17, 30), reminderFor(at(13, 19, 30), wed, hasTime = true))
+
+    @Test fun reminderForADateOnlyDeadlineIsNineThatDay() =
+        assertEquals(at(14, 9), reminderFor(at(14, 23, 59), wed, hasTime = false))
+
+    @Test fun passedReminderFallsBackToAnHourBeforeThenNothing() {
+        assertEquals(at(11, 19), reminderFor(at(11, 20), wed, hasTime = true))
+        assertNull(reminderFor(at(11, 19), wed, hasTime = true))
+    }
+
+    @Test fun clockTimeReadsOClockNoonAndMidnight() {
+        assertEquals(at(14, 12), RulesFallback.deadlineIn(luis, wed))
+        assertEquals(at(14, 12), RulesFallback.deadlineIn("lunch Saturday at noon", wed))
+        assertEquals(at(12, 0), RulesFallback.deadlineIn("party tomorrow midnight", wed))
+        assertEquals(at(11, 20), RulesFallback.deadlineIn("call today 8 o'clock", wed))
+    }
+
+    @Test fun aModelDeadlineOnTheWrongDayMovesToTheNamedWeekdayAndGetsADaytimeReminder() {
+        val model = goal(at(12, 12), notify = at(11, 20), text = "See Luis")
+        val merged = model.improvingOn(RulesFallback.classify(luis, wed), wed, luis)
+        assertEquals(at(14, 12).toInstant(), merged.deadline)
+        assertEquals(at(14, 9).toInstant(), merged.notifyAt)
+        assertEquals("See Luis", merged.notifyText)
+    }
+
+    @Test fun aCorrectedDeadlineKeepsTheModelsTimeOfDayElseTheRules() {
+        val text = "dentist Saturday"
+        val rules = RulesFallback.classify(text, wed)
+        assertEquals(at(14, 23, 59).toInstant(), goal(at(12, 23, 59)).improvingOn(rules, wed, text).deadline)
+        assertEquals(at(14, 8).toInstant(), goal(at(12, 8)).improvingOn(rules, wed, text).deadline)
+    }
+
+    @Test fun aCorrectModelDeadlineAndReminderAreKept() {
+        val text = "dentist Friday 3pm"
+        val model = goal(at(13, 15), notify = at(13, 9), text = "Dentist at 3")
+        assertEquals(model, model.improvingOn(RulesFallback.classify(text, wed), wed, text))
+    }
+
+    @Test fun aReminderTwoDaysBeforeTheDeadlineIsReplaced() {
+        val text = "dentist Friday 3pm"
+        val model = goal(at(13, 15), notify = at(11, 20), text = "Dentist")
+        val merged = model.improvingOn(RulesFallback.classify(text, wed), wed, text)
+        assertEquals(at(13, 9).toInstant(), merged.notifyAt)
+        assertEquals("Dentist", merged.notifyText)
+    }
+
+    @Test fun noReminderPossibleClearsNotifyFields() {
+        val text = "dentist today at 7pm"
+        val model = goal(at(11, 19), notify = at(11, 18, 5), text = "Dentist")
+        val merged = model.improvingOn(RulesFallback.classify(text, wed), wed, text)
+        assertEquals(at(11, 19).toInstant(), merged.deadline)
+        assertNull(merged.notifyAt)
+        assertNull(merged.notifyText)
+    }
+
+    @Test fun aModelDeadlineStandsWhenTheRulesNameNoDay() {
+        val text = "finish report in 3 days"
+        val model = goal(at(13, 15))
+        assertEquals(at(13, 15).toInstant(), model.improvingOn(RulesFallback.classify(text, wed), wed, text).deadline)
     }
 }

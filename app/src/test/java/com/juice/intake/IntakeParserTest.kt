@@ -55,6 +55,25 @@ class IntakeParserTest {
         assertTrue("\"notify_at\" and \"notify_text\" null when no reminder is useful, for every Routine and for plain Notes" in prompt)
     }
 
+    @Test fun systemPromptNamesTheWeekdayAndTheReminderTiming() {
+        val prompt = GroqClient.systemPrompt(ZonedDateTime.of(2026, 11, 11, 18, 9, 0, 0, ZoneId.of("Europe/Berlin")))
+        assertTrue("Today is Wednesday 2026-11-11" in prompt)
+        assertTrue("weekday name" in prompt && "next occurrence after today" in prompt)
+        assertTrue("20:00 the evening before" in prompt && "09:00 that morning" in prompt && "2 hours before" in prompt)
+    }
+
+    @Test fun aModelThatPicksTheWrongDayIsCorrectedToTheNamedWeekday() {
+        val wednesday = ZonedDateTime.of(2026, 11, 11, 18, 9, 0, 0, ZoneId.of("Europe/Berlin"))
+        reply(
+            """{"type":"Goal","title":"Go see Luis","deadline":"2026-11-12T12:00:00+01:00",""" +
+                """"notify_at":"2026-11-11T20:00:00+01:00","notify_text":"See Luis"}""",
+        )
+        val item = IntakeParser(GroqClient("key-1", server.url("/").toString().trimEnd('/')), { false }, { wednesday })
+            .parse("go see Luis 12 o'clock on Saturday").item
+        assertEquals(Instant.parse("2026-11-14T11:00:00Z"), item.deadline)
+        assertEquals(Instant.parse("2026-11-14T08:00:00Z"), item.notifyAt)
+    }
+
     @Test fun rejectedReplyLogsTheReasonButNeitherTheNoteNorTheReply() {
         val records = mutableListOf<java.util.logging.LogRecord>()
         val handler = object : java.util.logging.Handler() {

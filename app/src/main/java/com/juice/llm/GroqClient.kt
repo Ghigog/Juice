@@ -8,6 +8,8 @@ import java.net.URL
 import java.net.UnknownHostException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -130,7 +132,7 @@ class GroqClient(
 
         /** The design doc §7.4 prompt, with date, time and timezone injected. */
         fun systemPrompt(now: ZonedDateTime): String = """
-            Today is ${now.format(DateTimeFormatter.ISO_LOCAL_DATE)}, current time ${now.format(DateTimeFormatter.ofPattern("HH:mm"))}, timezone ${now.zone.id} (UTC offset ${now.offset.id}).
+            Today is ${now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} ${now.format(DateTimeFormatter.ISO_LOCAL_DATE)}, current time ${now.format(DateTimeFormatter.ofPattern("HH:mm"))}, timezone ${now.zone.id} (UTC offset ${now.offset.id}).
             You are the Juice Intake Parser. Output only JSON matching the schema.
 
             Types:
@@ -157,7 +159,8 @@ class GroqClient(
             - The app decides the type from the wording, so concentrate on "title", "sub_items" and "deadline".
             - Never invent steps: "sub_items" holds only steps the person actually wrote, otherwise null.
             - "cadence" is only for Routine; use null for every other type. A Routine has a null deadline.
-            - "notify_at" and "notify_text" are only for items with a deadline or a time. Choose the moment by usefulness: the evening before for an early appointment, the same morning for a chore. "notify_at" is never after the deadline. "notify_text" is a short reminder message.
+            - A weekday name ("Saturday") means its next occurrence after today, never an earlier day; "tomorrow" is the day after today.
+            - "notify_at" and "notify_text" are only for items with a deadline or a time. Choose "notify_at" by the deadline's time of day: before 10:00, 20:00 the evening before; 10:00 to before 17:00, 09:00 that morning; 17:00 or later, 2 hours before; a date with no time, 09:00 that day. It must be after now and never after the deadline. "notify_text" is a short reminder message.
             - Leave "notify_at" and "notify_text" null when no reminder is useful, for every Routine and for plain Notes.
         """.trimIndent()
     }
