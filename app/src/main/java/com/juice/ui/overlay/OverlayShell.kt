@@ -255,7 +255,9 @@ fun OverlayShell(
                 // the froth (the shared pop) starts with the centre card.
                 val bounds = Rect(Offset.Zero, Size(contentSize.width.toFloat(), contentSize.height.toFloat()))
                 val onScreen = cardPops.visibleIndices().zip(cardPops.visibleCentres().map { it - canvasOrigin })
-                    .filter { (_, centre) -> bounds.contains(centre) }
+                    .filter { (_, centre) ->
+                        bounds.contains(centre) && cardPops.carouselBounds?.translate(-canvasOrigin)?.contains(centre) != false
+                    }
                 val visible = onScreen.map { it.first }
                 cardPops.centres = onScreen.map { it.second }
                 cardPops.popping = visible

@@ -17,6 +17,9 @@ interface ItemDao {
     @Query("SELECT MAX(position) FROM items")
     suspend fun maxPosition(): Int?
 
+    @Query("SELECT MIN(position) FROM items")
+    suspend fun minPosition(): Int?
+
     @Query("UPDATE items SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 

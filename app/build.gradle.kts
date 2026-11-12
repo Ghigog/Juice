@@ -13,7 +13,9 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
-        baseline = file("lint-baseline.xml"); disable += "NewerVersionAvailable" // needs the network, breaks on any upstream release
+        baseline = file("lint-baseline.xml")
+        // Needs the network and fails CI whenever a dependency releases; versions are bumped deliberately.
+        disable += "NewerVersionAvailable"
     }
 
     defaultConfig {
@@ -124,8 +126,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core:1.6.1")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
 }
 
