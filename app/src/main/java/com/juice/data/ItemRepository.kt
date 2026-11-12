@@ -3,7 +3,6 @@ package com.juice.data
 import com.juice.core.card.toCard
 import com.juice.core.intake.IntakeCard
 import com.juice.core.intake.IntakeField
-import com.juice.core.intake.IntakeValidator
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.RulesFallback
@@ -15,7 +14,6 @@ import com.juice.core.routine.Cadence
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
@@ -143,20 +141,15 @@ class ItemRepository(
     }
 
     /**
-     * Applies a landed parse to [id]'s card; a Project also gets its sub-items as steps. A card that
-     * already has steps (from an earlier parse) keeps just those.
+     * Applies a landed parse to [id]'s card. Sub-items are not stored as steps: the card's own text is the list.
      */
     suspend fun land(
         id: String,
         parsed: ParsedItem,
         today: LocalDate = LocalDate.now(),
-        newId: () -> String = { UUID.randomUUID().toString() },
     ): Item? {
         applyParse(id, parsed, today)
-        val item = get(id) ?: return null
-        if (item.steps.isNotEmpty()) return item
-        val steps = if (item.type.hasSteps) parsed.toItems(id, newId).first().steps else emptyList()
-        return item.copy(steps = steps).also { if (steps.isNotEmpty()) save(it) }
+        return get(id)
     }
 
     /** Completing or skipping a Routine's occurrence: it moves on to its next due day and stays Active. */
@@ -185,10 +178,10 @@ class ItemRepository(
     }
 }
 
-/** The item a landed parse produces; a Project keeps at most [IntakeValidator.MAX_SUB_ITEMS] sub-items as steps. */
-fun ParsedItem.toItems(id: String, newId: () -> String, today: LocalDate = LocalDate.now()): List<Item> {
-    val card = copy(subItems = subItems.take(IntakeValidator.MAX_SUB_ITEMS)).toCard(id, newId)
-    val item = Item(card.id, card.type, card.title, deadline = deadline.takeIf { card.type != ItemType.List }, completionCondition = completionCondition, steps = card.steps, notifyAt = notifyAt, notifyText = notifyText)
+/** The item a landed parse produces, with no steps: sub-items only decided its type. */
+fun ParsedItem.toItems(id: String, today: LocalDate = LocalDate.now()): List<Item> {
+    val card = toCard(id)
+    val item = Item(card.id, card.type, card.title, deadline = deadline.takeIf { card.type != ItemType.List }, completionCondition = completionCondition, notifyAt = notifyAt, notifyText = notifyText)
     return listOf(if (card.type == ItemType.Routine && cadence != null) item.asRoutine(cadence!!, today) else item)
 }
 

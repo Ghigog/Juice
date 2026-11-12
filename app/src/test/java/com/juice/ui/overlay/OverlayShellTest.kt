@@ -579,66 +579,35 @@ class OverlayShellTest {
         assertEquals(ItemStatus.Completed, statusOf("a"))
     }
 
-    private fun drawOnStep(id: String, check: Boolean) {
-        compose.onNodeWithTag(stepTag(id), useUnmergedTree = true).performTouchInput {
-            if (check) {
-                down(Offset(width * 0.1f, height * 0.5f))
-                moveTo(Offset(width * 0.2f, height * 0.9f))
-                moveTo(Offset(width * 0.4f, height * 0.1f))
-                up()
-            } else {
-                down(Offset(width * 0.1f, height * 0.1f))
-                moveTo(Offset(width * 0.3f, height * 0.9f))
-                up()
-                down(Offset(width * 0.3f, height * 0.1f))
-                moveTo(Offset(width * 0.1f, height * 0.9f))
-                up()
-            }
-        }
-        settle()
-    }
-
-    private val project = Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack"), Step("b", "Book van")))
+    private val list = Item("l", ItemType.List, "Deploy:\n- copy setup.sh\n- run it\n- add secrets")
 
     @Test
-    fun checkOnAStepMarksItDoneAndKeepsTheProject() {
-        show(project)
-        drawOnStep("a", check = true)
-        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
-        assertEquals(ItemStatus.Active, statusOf("p"))
+    fun aListShowsItsLinesAsTypedAndNoTaskCount() {
+        show(list)
+        compose.onNodeWithTag(TAG_CARD_TITLE).assertTextEquals("Deploy:")
+        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).assertTextEquals("- copy setup.sh\n- run it\n- add secrets")
+        compose.onAllNodesWithText("No deadline.").onFirst().assertIsDisplayed()
     }
 
     @Test
-    fun tapOnAStepTicksOnlyThatStep() {
-        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack"), Step("b", "Book"), Step("c", "Drive"))))
-        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
-        settle()
-        assertEquals(listOf(false, true, false), state.items.single().steps.map { it.done })
-    }
-
-    @Test
-    fun tapOnTheLastOpenStepCompletesTheProject() {
-        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack", done = true), Step("b", "Book"))))
-        compose.onNodeWithTag(stepTag("b"), useUnmergedTree = true).performTouchInput { click() }
+    fun checkOverTheBodyOfAListCompletesTheCard() {
+        runBlocking { repository.save(list) }
+        show(list)
+        // The check starts over the list lines, in the card's lower-left.
+        drawCheckmark()
         idle()
-        assertEquals(ItemStatus.Completed, statusOf("p"))
+        assertEquals(ItemStatus.Completed, statusOf("l"))
     }
 
     @Test
-    fun tapOnADoneStepChangesNothing() {
-        show(Item("p", ItemType.Project, "Move", steps = listOf(Step("a", "Pack", done = true), Step("b", "Book"))))
-        compose.onNodeWithTag(stepTag("a"), useUnmergedTree = true).performTouchInput { click() }
+    fun oldStepsShowAsPlainLinesAndTapOnThemEditsTheTitle() {
+        val old = Item("p", ItemType.List, "Chores", steps = listOf(Step("a", "Pack"), Step("b", "Book van")))
+        runBlocking { repository.save(old) }
+        show(old)
+        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).assertTextEquals("Pack\nBook van")
+        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).performTouchInput { click() }
         settle()
-        assertEquals(listOf(true, false), state.items.single().steps.map { it.done })
-        // Nothing was saved, so the repository never saw the Project.
-        assertEquals(null, statusOf("p"))
-    }
-
-    @Test
-    fun crossOnAStepRemovesIt() {
-        show(project)
-        drawOnStep("a", check = false)
-        assertEquals(listOf("Book van"), state.items.single().steps.map { it.title })
+        compose.onNodeWithTag(TAG_TITLE_FIELD).assertExists()
     }
 
     @Test

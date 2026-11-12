@@ -142,27 +142,29 @@ class ItemRepositoryTest {
     }
 
     @Test
-    fun aLandedProjectKeepsAtMostMaxSubItemsAsStepsAndNoExtraCards() = runBlocking {
+    fun aLandedProjectIsStoredWithNoStepsAndNoExtraCards() = runBlocking {
         repository.save(Item("p", ItemType.Note, "Move"))
-        var n = 0
         val subItems = (1..IntakeValidator.MAX_SUB_ITEMS + 2).map { "step $it" }
-        repository.land("p", ParsedItem(ItemType.Project, "Move", subItems = subItems)) { "s${n++}" }
+        repository.land("p", ParsedItem(ItemType.Project, "Move", subItems = subItems))
         val active = repository.active()
         assertEquals(listOf("p"), active.map { it.id })
-        assertEquals(subItems.take(IntakeValidator.MAX_SUB_ITEMS), active.single().steps.map { it.title })
-        assertEquals(false, active.single().steps.any { it.done })
+        assertEquals(emptyList(), active.single().steps)
     }
 
     @Test
-    fun aLandedListIsStoredWithThreeOpenStepsAndNoDeadline() = runBlocking {
+    fun aLandedListIsStoredWithNoStepsAndNoDeadline() = runBlocking {
         repository.save(Item("l", ItemType.Note, "Chores"))
-        var n = 0
-        repository.land("l", ParsedItem(ItemType.List, "Chores", deadline = Instant.parse("2026-10-28T12:00:00Z"), subItems = listOf("a", "b", "c"))) { "s${n++}" }
+        repository.land("l", ParsedItem(ItemType.List, "Chores", deadline = Instant.parse("2026-10-28T12:00:00Z"), subItems = listOf("a", "b", "c")))
         val list = repository.get("l")!!
         assertEquals(ItemType.List, list.type)
         assertEquals(null, list.deadline)
-        assertEquals(listOf("a", "b", "c"), list.steps.map { it.title })
-        assertEquals(false, list.steps.any { it.done })
+        assertEquals(emptyList(), list.steps)
+    }
+
+    @Test
+    fun toItemsBuildsAListWithNoSteps() {
+        val item = ParsedItem(ItemType.List, "Chores", subItems = listOf("a", "b")).toItems("l").single()
+        assertEquals(emptyList(), item.steps)
     }
 
     @Test

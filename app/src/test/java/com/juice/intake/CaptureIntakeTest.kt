@@ -73,17 +73,16 @@ class CaptureIntakeTest {
     }
 
     @Test
-    fun withoutACloudParserARulesListLandsWithItsSteps() = runBlocking {
+    fun withoutACloudParserARulesListLandsWithNoSteps() = runBlocking {
         val note = Item("a", ItemType.Note, "Launch: write copy, record demo and ship")
         repository.save(note)
         intake(onDeviceOnly = false, cloud = false).submit(note)
         assertEquals(emptyList<String>(), enqueued)
         val active = repository.active()
         assertEquals(ItemType.List, active.first { it.id == "a" }.type)
-        assertEquals(listOf("Write copy", "Record demo", "Ship"), active.single().steps.map { it.title })
-        // A second parse of the same card does not add the steps twice.
+        assertEquals(emptyList(), active.single().steps)
         repository.land("a", com.juice.core.intake.RulesFallback.classify(note.title))
-        assertEquals(3, repository.get("a")!!.steps.size)
+        assertEquals(emptyList(), repository.get("a")!!.steps)
     }
 
     @Test

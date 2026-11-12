@@ -3,12 +3,8 @@ package com.juice.ui.overlay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.juice.core.card.Card
 import com.juice.core.card.CardOrder
 import com.juice.core.card.sortedFor
-import com.juice.core.card.completeStep
-import com.juice.core.card.open
-import com.juice.core.card.removeStep
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ChipSpan
@@ -22,7 +18,6 @@ import com.juice.core.intake.withIntervalDays
 import com.juice.core.intake.withWeekday
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
-import com.juice.core.model.Step
 import com.juice.core.routine.Cadence
 import com.juice.core.character.CharacterRegistry
 import com.juice.data.CharacterRepository
@@ -289,12 +284,6 @@ class OverlayShellState(
         }
     }
 
-    /** The steps of [project] still to do. */
-    fun stepsOf(project: Item): List<Step> = project.steps.open()
-
-    /** A Project completes through its steps, so ticking it while steps are open does nothing. */
-    fun canComplete(item: Item): Boolean = !item.type.hasSteps || stepsOf(item).isEmpty()
-
     private fun now() = clock().atZone(ZoneId.systemDefault())
 
     /** The user rewrites a title; it is saved as typed, the card is sorted again by what it now says, and a late parse never changes it. */
@@ -353,12 +342,12 @@ class OverlayShellState(
         scope.launch { repository.save(edited) }
     }
 
-    /** Swaps the captured card [id] for what its parse produced: the card, with a Project's sub-items as steps. */
+    /** Swaps the captured card [id] for what its parse produced: the card as the parse built it. */
     fun land(id: String, parsed: ParsedItem) {
         val at = items.indexOfFirst { it.id == id }
         if (at < 0) return
         val old = items[at]
-        val built = parsed.toItems(id, newId, today).first()
+        val built = parsed.toItems(id, today).first()
         val landed = when {
             IntakeField.Title in old.editedFields -> built.copy(title = old.title)
             built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))
@@ -378,9 +367,8 @@ class OverlayShellState(
         scope.launch { repository.star(item.id) }
     }
 
-    /** Completing a Project's card. False when [canComplete] is not met. */
+    /** Completes a card; always does. */
     fun complete(item: Item): Boolean {
-        if (!canComplete(item)) return false
         if (item.id == CREATOR_CARD_ID) {
             items = items.filterNot { it.id == item.id }
             creator = CreatorState()
@@ -428,33 +416,6 @@ class OverlayShellState(
         creator = null
         scope.launch { repository.get(CREATOR_CARD_ID)?.let { putBack(it, completed = false) } }
     }
-
-    /** Ticks a step of [project]; ticking the last open one completes the Project. */
-    fun completeStep(stale: Item, stepId: String) {
-        // The card's gesture handler can hold an older copy; tick against the live one so earlier ticks stay.
-        val project = live(stale)
-        val card = project.toCard().completeStep(stepId)
-        if (!card.completed) return updateSteps(project, card.steps)
-        // Undo takes the Project back with its last step still open.
-        finish(project.copy(steps = card.steps), ItemStatus.Completed, dismissed = false, restore = project)
-        onCompleted(project)
-    }
-
-    /** Crosses off a step of [project]: it is removed from the card. */
-    fun removeStep(stale: Item, stepId: String) {
-        val project = live(stale)
-        updateSteps(project, project.toCard().removeStep(stepId).steps)
-    }
-
-    private fun live(item: Item): Item = items.firstOrNull { it.id == item.id } ?: item
-
-    private fun updateSteps(project: Item, steps: List<Step>) {
-        val changed = project.copy(steps = steps)
-        items = items.map { if (it.id == project.id) changed else it }
-        scope.launch { repository.save(changed) }
-    }
-
-    private fun Item.toCard() = Card(id, type, title, steps)
 
     private fun coachCard(item: Item): Pair<String, CoachCardKind>? {
         val id = item.characterId ?: return null

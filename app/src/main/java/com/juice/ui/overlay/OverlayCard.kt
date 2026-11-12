@@ -69,7 +69,6 @@ import com.juice.core.gesture.GestureResult
 import com.juice.core.intake.ChipKind
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
-import com.juice.core.model.Step
 import java.time.Clock
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.Job
@@ -127,9 +126,7 @@ internal fun CentreCard(
         item?.let { titleChips(it) }.orEmpty()
     }
     var chipBounds by remember(chips) { mutableStateOf<List<Rect>>(emptyList()) }
-    val stepBounds = remember { mutableStateMapOf<String, Rect>() }
-    // The gesture below outlives recompositions, so it reads the card's latest steps through this.
-    val liveItem by rememberUpdatedState(item)
+    var bodyBounds by remember { mutableStateOf(Rect.Zero) }
     val shake = remember { Animatable(0f) }
     val flyX = remember(item?.id) { Animatable(0f) }
     val flyY = remember(item?.id) { Animatable(0f) }
@@ -137,7 +134,6 @@ internal fun CentreCard(
     var busy by remember(item?.id) { mutableStateOf(false) }
     var readJob by remember { mutableStateOf<Job?>(null) }
     val notRecognised = stringResource(R.string.overlay_not_recognised)
-    val finishSteps = stringResource(R.string.overlay_finish_steps)
     val archived = stringResource(R.string.overlay_archived)
     val starredText = stringResource(R.string.overlay_starred)
 
@@ -160,7 +156,6 @@ internal fun CentreCard(
     fun act(complete: Boolean) {
         val target = item ?: return
         if (busy) return
-        if (complete && !state.canComplete(target)) return reject(finishSteps)
         busy = true
         scope.launch {
             if (!reduceMotion) {
@@ -182,18 +177,6 @@ internal fun CentreCard(
         }
     }
 
-    fun actOnStep(project: Item, step: Step, complete: Boolean) {
-        if (busy) return
-        if (complete) {
-            if (step.done) return
-            actions.feedback(FeedbackEvent.CHECKMARK)
-            state.completeStep(project, step.id)
-        } else {
-            actions.feedback(FeedbackEvent.DISMISS)
-            state.removeStep(project, step.id)
-        }
-    }
-
     fun read() {
         val drawn = strokes.toList()
         strokes.clear()
@@ -205,21 +188,14 @@ internal fun CentreCard(
             GestureResult.NotRecognised -> Tint.BAD
         }
         strokes.addAll(drawn)
-        val points = drawn.flatten()
-        // A gesture drawn over a step acts on that step; anywhere else it acts on the card.
-        val centre = if (points.isEmpty()) Offset.Zero else Offset(
-            (points.minOf { it.x } + points.maxOf { it.x }) / 2, (points.minOf { it.y } + points.maxOf { it.y }) / 2,
-        )
-        val step = liveItem?.steps?.firstOrNull { stepBounds[it.id]?.contains(centre) == true }
         scope.launch {
             delay(380)
             strokes.clear()
             tint = null
         }
         when (result) {
-            is GestureResult.Checkmark -> if (step != null && item != null) actOnStep(item, step, complete = true) else act(complete = true)
-            is GestureResult.Dismiss -> if (step != null && item != null) actOnStep(item, step, complete = false) else act(complete = false)
-            // Steps have nothing to star, so a star over one acts on the card.
+            is GestureResult.Checkmark -> act(complete = true)
+            is GestureResult.Dismiss -> act(complete = false)
             is GestureResult.Star -> if (item != null) {
                 actions.feedback(FeedbackEvent.CHECKMARK)
                 state.star(item)
@@ -258,9 +234,9 @@ internal fun CentreCard(
                 }
                 lifted
             }
-            if (outcome != false && titleBounds.contains(down.position)) {
+            if (outcome != false && (titleBounds.contains(down.position) || bodyBounds.contains(down.position))) {
                 current.clear()
-                val tappedChip = if (outcome == true && !stillLifted) {
+                val tappedChip = if (outcome == true && !stillLifted && titleBounds.contains(down.position)) {
                     chips.zip(chipBounds).firstOrNull { (_, bounds) -> bounds.translate(titleBounds.topLeft).contains(down.position) }?.first
                 } else null
                 if (item != null) {
@@ -269,15 +245,6 @@ internal fun CentreCard(
                 }
                 if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
                 return@awaitEachGesture
-            }
-            // A quick tap on a step ticks it, like a check drawn over it.
-            if (outcome == true && !stillLifted && strokes.isEmpty()) {
-                val tapped = liveItem?.steps?.firstOrNull { stepBounds[it.id]?.contains(down.position) == true }
-                if (tapped != null) {
-                    current.clear()
-                    actOnStep(item, tapped, complete = true)
-                    return@awaitEachGesture
-                }
             }
             var lifted = outcome == true
             while (!lifted) {
@@ -363,7 +330,7 @@ internal fun CentreCard(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
             )
         } else {
-            // A short, wide card (a phone on its side) puts the title and steps beside the worth and buttons.
+            // A short, wide card (a phone on its side) puts the title and list beside the worth and buttons.
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
@@ -421,6 +388,7 @@ internal fun CentreCard(
                         if (item.id in state.parsing) ParsingChip(onDeviceOnly)
                     }
                 }
+                val titleLine = listTitleLine(item)
                 val title = @Composable {
                     if (editing) {
                         TitleField(item.title, onChange = state::changeTitleEdit) {
@@ -428,7 +396,7 @@ internal fun CentreCard(
                         }
                     } else {
                         Text(
-                            titleText(item.title, chips),
+                            titleText(titleLine, chips.filter { it.end <= titleLine.length }),
                             fontSize = 25.sp,
                             lineHeight = 30.sp,
                             fontWeight = FontWeight.Medium,
@@ -444,12 +412,11 @@ internal fun CentreCard(
                         )
                     }
                 }
-                val steps = @Composable { stepsModifier: Modifier ->
-                    Column(stepsModifier.clip(RectangleShape)) {
-                        item.steps.forEach { step ->
-                            StepRow(step, Modifier.onGloballyPositioned { stepBounds[step.id] = it.boundsInRoot().translate(-cardOrigin) })
-                        }
-                    }
+                val body = @Composable { bodyModifier: Modifier ->
+                    ListBody(
+                        listBodyLines(item),
+                        bodyModifier.onGloballyPositioned { bodyBounds = it.boundsInRoot().translate(-cardOrigin) },
+                    )
                 }
                 val footer = @Composable {
                     item.completionCondition?.let { done ->
@@ -525,7 +492,7 @@ internal fun CentreCard(
                             Spacer(Modifier.height(10.dp))
                             title()
                             Spacer(Modifier.height(6.dp))
-                            steps(Modifier.weight(1f))
+                            body(Modifier.weight(1f))
                         }
                         Column(Modifier.width(WIDE_CARD_SIDE).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
                             footer()
@@ -537,7 +504,7 @@ internal fun CentreCard(
                         Spacer(Modifier.height(24.dp))
                         title()
                         Spacer(Modifier.height(12.dp))
-                        steps(Modifier.weight(1f))
+                        body(Modifier.weight(1f))
                         footer()
                     }
                 }
