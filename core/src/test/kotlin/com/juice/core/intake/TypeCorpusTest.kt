@@ -76,28 +76,32 @@ class TypeCorpusTest {
         row("Shopping\n- milk\n- eggs\n- bread", ItemType.List),
         row("Notes from the call\n- pricing is too high\n- they want a demo", ItemType.List),
         row("Sunday roast: lamb, potatoes, carrots and gravy", ItemType.List),
+        // Held out: written after the thresholds were set, not used to tune them.
+        row("Camping: tent, stove, torch and sleeping bags", ItemType.List),
+        row("Party shopping: balloons, candles and paper plates", ItemType.List),
+        row("buy oat milk, bananas and coffee", ItemType.List),
+        row("Reading list\n* Piranesi\n* Beloved\n* Circe", ItemType.List),
+        row("Garden: dig the beds, plant beans and build a trellis by 30 April", ItemType.Project),
+        row("Idea: first sort the budget, then decide on the venue and invite everyone", ItemType.Note),
+        row("Observation: the app feels slow because the animations run twice, and the list jumps", ItemType.Note),
+        row("Todo: ask Mia whether she can come, since the table seats six", ItemType.Note),
+        row("Standup notes: I fixed the login bug and I will write the docs", ItemType.Note),
+        row("The meeting went well, the team liked the demo and the budget is approved", ItemType.Note),
+        row("send the invoice to Tom and chase the payment", ItemType.Task),
+        row("book a table for four, near the window, for Saturday", ItemType.Goal),
+        row("Sunday lunch at Gran's", ItemType.Goal),
+        row("clear the shed every two weeks on Saturday", ItemType.Routine),
+        row("Weekend trip\n- pack the car\n- book the ferry by Friday", ItemType.Project),
     )
 
     /** Rows the current rules misclassify, with the type they wrongly get. Each must stay wrong until a rule change flips it. */
     private val knownMisses = mapOf(
-        "formic factories: instead" to ItemType.List,
-        "Idea: a widget" to ItemType.List,
-        "Note to self:" to ItemType.List,
-        "Thought: maybe" to ItemType.List,
-        "Reminder: Sam" to ItemType.List,
-        "Recipe idea:" to ItemType.List,
-        "Why the build failed:" to ItemType.List,
-        "Book recommendation" to ItemType.Task,
-        "write the quarterly report" to ItemType.List,
-        "weekly review on Friday" to ItemType.Goal,
-        "make a Factorio like factory, with" to ItemType.List,
-        "Sunday roast:" to ItemType.Project,
-        "Shopping\n" to ItemType.Note,
-        "Notes from the call" to ItemType.Note,
+        "Book recommendation" to ItemType.Task, // "book" is a noun here
+        "weekly review on Friday" to ItemType.Goal, // "weekly" alone is not a cadence
     ).mapKeys { (prefix, _) -> corpus.single { it.text.startsWith(prefix) }.text }
 
     @Test fun corpusCoversEveryTypeAndHasEnoughRows() {
-        assertTrue(corpus.size >= 40, "rows: ${corpus.size}")
+        assertTrue(corpus.size >= 60, "rows: ${corpus.size}")
         assertEquals(ItemType.entries.toSet(), corpus.map { it.expected }.toSet())
         assertEquals(corpus.size, corpus.map { it.text }.toSet().size, "duplicate rows")
     }
@@ -108,21 +112,28 @@ class TypeCorpusTest {
         for (r in wrong) assertEquals(knownMisses.getValue(r.text), RulesFallback.classify(r.text, now).type, r.text)
     }
 
-    @Test fun theScreenshotCaptureIsAListFromTheColonRule() {
+    @Test fun theScreenshotCaptureIsANote() {
         val text = corpus.first { it.text.startsWith("formic factories") }.text
-        val item = RulesFallback.classify(text, now)
+        assertEquals(ItemType.Note, RulesFallback.classify(text, now).type)
+    }
+
+    @Test fun bulletsBecomeTheStepsOfTheTitleLine() {
+        val item = RulesFallback.classify("Notes from the call\n- pricing is too high\n\u2022 they want a demo", now)
         assertEquals(ItemType.List, item.type)
-        assertEquals("formic factories", item.title)
-        // The split on ',' and 'and' alone leaves "such as artists" glued to the make clause; the card's own
-        // "Such as artists" step therefore came from Groq's sub_items.
+        assertEquals("Notes from the call", item.title)
+        assertEquals(listOf("Pricing is too high", "They want a demo"), item.subItems)
+    }
+
+    @Test fun launchIsAProjectWithItsSteps() {
+        val item = RulesFallback.classify("Launch: write copy, record demo and ship by Friday", now)
+        assertEquals(ItemType.Project, item.type)
+        assertEquals("Launch", item.title)
+    }
+
+    @Test fun getTapeRopeAndBoxesIsAList() {
         assertEquals(
-            listOf(
-                "Instead of a board",
-                "Make a Factorio like factory to have multiple steps such as artists",
-                "Designers",
-                "Modellers",
-            ),
-            item.subItems,
+            listOf("Get tape", "Get rope", "Get boxes"),
+            RulesFallback.classify("get tape, rope and boxes", now).subItems,
         )
     }
 
