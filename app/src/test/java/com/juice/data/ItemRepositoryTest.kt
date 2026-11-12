@@ -72,6 +72,18 @@ class ItemRepositoryTest {
     private fun withReminders() = FakeReminders().also { repository = ItemRepository(db.itemDao(), reminders = it, clock = { now }) }
 
     @Test
+    fun aNewCardGetsAPositionAboveEveryOtherCardAndAStoredCardKeepsItsOwn() = runBlocking {
+        repository.save(item("a"))
+        repository.save(item("b"))
+        repository.save(item("c"))
+        repository.reorder(listOf("c", "b", "a"))
+        repository.save(item("d"))
+        repository.save(item("b"))
+
+        assertEquals(listOf("d", "c", "b", "a"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
+    }
+
+    @Test
     fun savingSyncsTheReminderAndCompletingOrArchivingLeavesItNoActiveItem() = runBlocking {
         val reminders = withReminders()
         repository.save(item("a"))
@@ -235,7 +247,7 @@ class ItemRepositoryTest {
         repository.save(item("c"))
         repository.complete("b")
         repository.archive("c")
-        assertEquals(listOf("a"), repository.active().map { it.id })
+        assertEquals(listOf("a"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
         assertEquals(ItemStatus.Completed, repository.get("b")?.status)
         assertEquals(ItemStatus.Archived, repository.get("c")?.status)
     }
@@ -244,17 +256,17 @@ class ItemRepositoryTest {
     fun reorderedItemsComeBackInTheChosenOrderAndKeepItAfterAnEdit() = runBlocking {
         listOf("a", "b", "c").forEach { repository.save(item(it)) }
         repository.reorder(listOf("c", "a", "b"))
-        assertEquals(listOf("c", "a", "b"), repository.active().map { it.id })
+        assertEquals(listOf("c", "a", "b"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
         repository.save(item("c").copy(title = "Edited"))
-        assertEquals(listOf("c", "a", "b"), repository.active().map { it.id })
+        assertEquals(listOf("c", "a", "b"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
     }
 
     @Test
-    fun aNewItemGoesAfterTheReorderedOnes() = runBlocking {
+    fun aNewItemGoesBeforeTheReorderedOnes() = runBlocking {
         listOf("a", "b").forEach { repository.save(item(it)) }
         repository.reorder(listOf("b", "a"))
         repository.save(item("z"))
-        assertEquals(listOf("b", "a", "z"), repository.active().map { it.id })
+        assertEquals(listOf("z", "b", "a"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
     }
 
     @Test
@@ -389,7 +401,7 @@ class ItemRepositoryTest {
         now = Instant.ofEpochMilli(9_000)
         repository.complete("recent")
         repository.archive("gone")
-        assertEquals(listOf("active", "recent"), repository.recapItems(Instant.ofEpochMilli(8_000)).map { it.id })
+        assertEquals(listOf("recent", "active"), repository.recapItems(Instant.ofEpochMilli(8_000)).map { it.id })
     }
 
     @Test
@@ -397,7 +409,7 @@ class ItemRepositoryTest {
         repository.save(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday))
         repository.save(item("t"))
         assertEquals(listOf("t"), repository.active(wednesday).map { it.id })
-        assertEquals(listOf("r", "t"), repository.active(sunday).map { it.id })
+        assertEquals(listOf("t", "r"), repository.active(sunday).map { it.id })
         assertEquals(Item("r", ItemType.Routine, "Review", cadence = sundays, nextDueOn = sunday, createdAt = now), repository.get("r"))
     }
 
@@ -462,7 +474,7 @@ class ItemRepositoryTest {
         repository.star("a")
         now = Instant.ofEpochMilli(3_000)
         repository.star("b")
-        assertEquals(listOf("a", "b", "c"), repository.active().map { it.id })
+        assertEquals(listOf("a", "b", "c"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
         assertEquals(listOf("a", "b", "c"), repository.observeActive().first().map { it.id })
         assertEquals(listOf("a", "b", "c"), repository.recapItems(Instant.EPOCH).map { it.id })
     }
@@ -477,7 +489,7 @@ class ItemRepositoryTest {
         now = Instant.ofEpochMilli(4_000)
         repository.star("a")
         assertEquals(Instant.ofEpochMilli(2_000), repository.get("a")?.starredAt)
-        assertEquals(listOf("a", "b"), repository.active().map { it.id })
+        assertEquals(listOf("a", "b"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
     }
 
     @Test

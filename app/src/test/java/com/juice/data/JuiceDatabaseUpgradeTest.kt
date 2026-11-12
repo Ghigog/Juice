@@ -145,6 +145,6 @@ class JuiceDatabaseUpgradeTest {
         listOf("x", "y", "w").forEach { repository.save(Item(it, ItemType.Task, "Title $it")) }
         first.close()
         db = JuiceDatabase.build(context, name, clock)
-        assertEquals(listOf("x", "y", "w"), ItemRepository(db!!.itemDao()).active().map { it.id })
+        assertEquals(listOf("w", "y", "x"), ItemRepository(db!!.itemDao()).active().map { it.id })
     }
 }
