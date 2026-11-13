@@ -1,4 +1,4 @@
-package com.juice.llm
+package com.juice.intake
 
 import java.io.IOException
 import java.time.ZoneId

@@ -1,31 +1,25 @@
-package com.juice.llm
+package com.juice.intake
 
 import java.io.IOException
-import java.net.SocketException
-import java.net.HttpURLConnection
-import java.net.SocketTimeoutException
-import java.net.URL
-import java.net.UnknownHostException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /** Calls Groq chat completions in JSON mode. Throws [IOException] on any transport or HTTP failure. */
 class GroqClient(
     private val apiKey: String,
     private val baseUrl: String = "https://api.groq.com/openai/v1",
-    private val model: String = MODEL,
+    private val model: String = GroqTransport.MODEL,
 ) {
+    private val transport = GroqTransport(apiKey, baseUrl)
+
+
     /** Returns the model's JSON text for [rawText], with [now] injected into the system prompt. */
     fun parse(rawText: String, now: ZonedDateTime): String = complete(systemPrompt(now), rawText)
 
@@ -33,24 +27,7 @@ class GroqClient(
     fun generatePersona(hobby: String): String = complete(PERSONA_PROMPT, hobby)
 
     /** One GET to /models (no tokens spent) to learn whether [apiKey] works. Never logs the key or the body. */
-    fun checkKey(): KeyCheck {
-        val conn = URL("$baseUrl/models").openConnection() as HttpURLConnection
-        return try {
-            conn.requestMethod = "GET"
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-            conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            when (conn.responseCode) {
-                in 200..299 -> KeyCheck.Works
-                401, 403 -> KeyCheck.Rejected
-                else -> KeyCheck.Unreachable
-            }
-        } catch (e: IOException) {
-            KeyCheck.Unreachable
-        } finally {
-            conn.disconnect()
-        }
-    }
+    fun checkKey(): KeyCheck = transport.checkKey(TIMEOUT_MS)
 
     private fun complete(system: String, user: String): String {
         val body = buildJsonObject {
@@ -62,26 +39,7 @@ class GroqClient(
                 add(message("user", user))
             })
         }
-        val conn = URL("$baseUrl/chat/completions").openConnection() as HttpURLConnection
-        try {
-            conn.requestMethod = "POST"
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-            conn.doOutput = true
-            conn.setRequestProperty("Authorization", "Bearer $apiKey")
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.outputStream.use { it.write(body.toString().toByteArray()) }
-            if (conn.responseCode !in 200..299) throw httpError(conn)
-            val response = conn.inputStream.bufferedReader().use { it.readText() }
-            return try {
-                Json.parseToJsonElement(response).jsonObject["choices"]!!.jsonArray[0]
-                    .jsonObject["message"]!!.jsonObject["content"]!!.jsonPrimitive.content
-            } catch (e: RuntimeException) {
-                throw GroqEnvelopeException(e)
-            }
-        } finally {
-            conn.disconnect()
-        }
+        return transport.chat(body.toString(), TIMEOUT_MS, retry = false)
     }
 
     private fun message(role: String, content: String): JsonObject =
@@ -89,37 +47,6 @@ class GroqClient(
 
     companion object {
         private const val TIMEOUT_MS = 10_000
-
-        /** The Groq model every cloud call uses. Groq retires models (llama-3.3-70b-versatile went on 16 Aug 2026); change it here only. */
-        const val MODEL = "openai/gpt-oss-120b"
-
-        /** A [GroqHttpException] naming the HTTP status and Groq's own error, so a failure says why. */
-        fun httpError(conn: HttpURLConnection): GroqHttpException {
-            val body = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull().orEmpty()
-            val error = runCatching { Json.parseToJsonElement(body).jsonObject["error"]?.jsonObject }.getOrNull()
-            val code = error?.get("code")?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }
-            val detail = error?.get("message")?.let { runCatching { it.jsonPrimitive.content }.getOrNull() } ?: body
-            val retryAfter = conn.getHeaderField("retry-after")?.toDoubleOrNull()?.let { (it * 1000).toLong() }
-            return GroqHttpException(conn.responseCode, code, detail, retryAfter)
-        }
-
-        /** Why a Groq call failed, in a short sentence the player can read. */
-        fun reason(e: Throwable): String = when (e) {
-            is GroqHttpException -> when {
-                e.status == 429 -> "Groq's rate limit was hit (429). Wait a minute and try again."
-                e.status == 401 || e.status == 403 -> "Groq rejected the API key (${e.status})."
-                e.code == "json_validate_failed" -> "The coach's answer wasn't valid JSON (${e.status})."
-                e.status == 404 || e.code == "model_decommissioned" || e.code == "model_not_found" ->
-                    "Groq no longer offers the model (${e.status})."
-                e.status >= 500 -> "Groq is having trouble (${e.status}). Try again soon."
-                else -> "Groq error ${e.status}${if (e.detail.isBlank()) "" else ": ${e.detail.take(160)}"}"
-            }
-            is SocketTimeoutException -> "Groq took too long to answer."
-            // Neither means the phone is offline: a DNS hiccup, a VPN or Private DNS, or a dropped connection all land here.
-            is UnknownHostException -> "Couldn't look up Groq's server. A VPN, ad blocker or Private DNS setting can cause this."
-            is SocketException -> "The connection to Groq failed${e.message?.let { ": $it" }.orEmpty()}"
-            else -> e.message ?: e.javaClass.simpleName
-        }
 
         /** Asks for the persona of a coach about the hobby in the user message. */
         val PERSONA_PROMPT = """

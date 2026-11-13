@@ -12,7 +12,6 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.juice.data.ItemRepository
 import com.juice.core.intake.GroqKey
-import com.juice.llm.GroqClient
 import com.juice.settings.SettingsRepository
 import java.util.concurrent.TimeUnit
 

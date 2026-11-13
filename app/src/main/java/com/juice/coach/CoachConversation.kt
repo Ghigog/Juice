@@ -14,7 +14,7 @@ import com.juice.core.model.Item
 import com.juice.data.ChatMessage
 import com.juice.data.ConversationStore
 import com.juice.data.MemoryStore
-import com.juice.llm.GroqClient
+import com.juice.intake.GroqTransport
 import java.io.IOException
 
 sealed interface CoachReply {
@@ -81,7 +81,7 @@ class CoachConversation(
                 CoachFinish.CloudRequired -> CoachReply.CloudRequired
             }
         } catch (e: Exception) {
-            CoachReply.Error(GroqClient.reason(e))
+            CoachReply.Error(GroqTransport.reason(e))
         }
     }
 
@@ -102,7 +102,7 @@ class CoachConversation(
                 is CoachProposalResult.Rejected -> CoachFinish.Rejected(result.reason)
             }
         } catch (e: Exception) {
-            CoachFinish.Error(GroqClient.reason(e))
+            CoachFinish.Error(GroqTransport.reason(e))
         }
     }
 
