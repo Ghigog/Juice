@@ -4,6 +4,7 @@ import com.juice.core.memory.Memory
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class MemoryStoreTest {
     private val file = File.createTempFile("memory", ".json").also { it.deleteOnExit() }
@@ -41,5 +42,25 @@ class MemoryStoreTest {
         store.save(memory)
         store.clearAll()
         assertEquals(Memory(), store.load())
+    }
+
+    @Test
+    fun unversionedFileFromPreviousReleaseLoadsSameNotes() {
+        file.writeText("""{"shared":["likes tea"],"characters":{"a":["a-note"],"b":["b-note"]}}""")
+        assertEquals(memory, MemoryStore(file).load())
+    }
+
+    @Test
+    fun savedFileCarriesVersion1() {
+        MemoryStore(file).save(memory)
+        assertTrue(file.readText().contains(""""version":1"""))
+    }
+
+    @Test
+    fun futureVersionLoadsEmptyAndIsNotRewritten() {
+        val future = """{"version":99,"shared":["x"],"characters":{}}"""
+        file.writeText(future)
+        assertEquals(Memory(), MemoryStore(file).load())
+        assertEquals(future, file.readText())
     }
 }
