@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -28,7 +27,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.juice.R
 
 const val TAG_CREATOR = "creator"
@@ -42,16 +40,16 @@ const val TAG_CREATOR_ERROR = "creator_error"
 @Composable
 internal fun CreatorFlow(creator: CreatorState, hud: Hud, onConfirm: (String) -> Unit, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     var hobby by remember { mutableStateOf("") }
-    val shape = RoundedCornerShape(28.dp)
+    val shape = JuiceShapes.Input
     Column(modifier.testTag(TAG_CREATOR), verticalArrangement = Arrangement.Center) {
-        Text(stringResource(R.string.creator_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.creator_title), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         BasicTextField(
             value = hobby,
             onValueChange = { hobby = it },
             enabled = !creator.busy,
             singleLine = true,
-            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
+            textStyle = LocalTextStyle.current.copy(fontSize = JuiceType.Chat),
             cursorBrush = SolidColor(Color.White),
             modifier = Modifier.fillMaxWidth().testTag(TAG_CREATOR_INPUT),
             decorationBox = { field ->
@@ -65,15 +63,15 @@ internal fun CreatorFlow(creator: CreatorState, hud: Hud, onConfirm: (String) ->
                         .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (hobby.isEmpty()) Text(stringResource(R.string.creator_hint), fontSize = 15.sp, color = JuiceColors.white(0.6f))
+                    if (hobby.isEmpty()) Text(stringResource(R.string.creator_hint), fontSize = JuiceType.Chat, color = JuiceColors.white(0.6f))
                     field()
                 }
             },
         )
         Spacer(Modifier.height(12.dp))
-        if (creator.busy) Text(stringResource(R.string.creator_progress), Modifier.testTag(TAG_CREATOR_PROGRESS), fontSize = 15.sp)
+        if (creator.busy) Text(stringResource(R.string.creator_progress), Modifier.testTag(TAG_CREATOR_PROGRESS), fontSize = JuiceType.Chat)
         creator.error?.let {
-            Text(stringResource(R.string.creator_error, it), Modifier.testTag(TAG_CREATOR_ERROR), fontSize = 15.sp, color = JuiceColors.white(0.8f))
+            Text(stringResource(R.string.creator_error, it), Modifier.testTag(TAG_CREATOR_ERROR), fontSize = JuiceType.Chat, color = JuiceColors.white(0.8f))
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

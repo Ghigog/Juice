@@ -26,7 +26,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.JuiceSettings
@@ -63,7 +62,7 @@ internal fun RoutinesView(
     val closeLabel = stringResource(R.string.routines_close)
     Column(modifier.testTag(TAG_ROUTINES_SCREEN)) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.routines_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.routines_title), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(
                 Modifier
                     .size(44.dp)
@@ -74,7 +73,7 @@ internal fun RoutinesView(
                     .testTag(TAG_ROUTINES_CLOSE),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✕", fontSize = 18.sp)
+                Text("✕", fontSize = JuiceType.Dialogue)
             }
         }
         Spacer(Modifier.height(12.dp))

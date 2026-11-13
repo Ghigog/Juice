@@ -25,8 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.ui.overlay.JuiceType
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
 import com.juice.core.character.Expression
@@ -91,11 +91,11 @@ private fun MemoryView(settings: CharacterSettings) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.settings_memory))
         if (noteLists.isEmpty()) {
-            Text(stringResource(R.string.settings_memory_empty), fontSize = 12.sp, modifier = Modifier.testTag(TAG_MEMORY_EMPTY))
+            Text(stringResource(R.string.settings_memory_empty), fontSize = JuiceType.Caption, modifier = Modifier.testTag(TAG_MEMORY_EMPTY))
         } else {
             noteLists.forEach { (title, notes) ->
-                Text(title, fontSize = 12.sp)
-                notes.forEach { Text("• $it", fontSize = 12.sp) }
+                Text(title, fontSize = JuiceType.Caption)
+                notes.forEach { Text("• $it", fontSize = JuiceType.Caption) }
             }
             Button(onClick = { settings.clearMemory() }, modifier = Modifier.testTag(TAG_MEMORY_CLEAR)) {
                 Text(stringResource(R.string.settings_memory_clear))
@@ -124,7 +124,7 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
                         CharacterStatus.Active -> stringResource(R.string.settings_character_active)
                         CharacterStatus.Disabled -> stringResource(R.string.settings_character_disabled)
                     },
-                    fontSize = 12.sp,
+                    fontSize = JuiceType.Caption,
                 )
             }
             when (row.status) {
@@ -159,7 +159,7 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
             }
         }
         if (confirmingReset && canReset) {
-            Text(stringResource(R.string.settings_character_reset_confirm, row.character.name), fontSize = 12.sp)
+            Text(stringResource(R.string.settings_character_reset_confirm, row.character.name), fontSize = JuiceType.Caption)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { confirmingReset = false; settings.reset(row.character) },
@@ -169,7 +169,7 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
             }
         }
         if (confirmingDelete && created) {
-            Text(stringResource(R.string.settings_character_delete_confirm, row.character.name), fontSize = 12.sp)
+            Text(stringResource(R.string.settings_character_delete_confirm, row.character.name), fontSize = JuiceType.Caption)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { confirmingDelete = false; settings.delete(row.character) },
@@ -179,7 +179,7 @@ private fun CharacterRowView(row: CharacterRow, settings: CharacterSettings) {
             }
         }
         if (confirming && row.status == CharacterStatus.Active) {
-            Text(stringResource(R.string.settings_character_disable_confirm, row.character.name), fontSize = 12.sp)
+            Text(stringResource(R.string.settings_character_disable_confirm, row.character.name), fontSize = JuiceType.Caption)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { confirming = false; settings.disable(row.character) },

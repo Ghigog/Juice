@@ -18,12 +18,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
 import com.juice.ui.overlay.Hud
 import com.juice.ui.overlay.JuiceColors
+import com.juice.ui.overlay.JuiceType
 import com.juice.ui.overlay.OverlayActions
 import com.juice.ui.overlay.SettingsContent
 import com.juice.ui.overlay.SpaceGrotesk
@@ -51,7 +51,7 @@ fun SettingsScreen(
             header()
             Text(
                 stringResource(R.string.settings_title),
-                fontSize = 20.sp,
+                fontSize = JuiceType.SheetHeading,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
             )

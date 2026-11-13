@@ -43,7 +43,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -196,7 +195,7 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
 /** The latest line: the coach's newest reply (typing out if it is new), the player's words while sent, or thinking dots. */
 @Composable
 private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, showingYou: Boolean, thinking: Boolean, minHeight: Dp, modifier: Modifier) {
-    val shape = RoundedCornerShape(30.dp)
+    val shape = JuiceShapes.Card
     val lineIndex = chat.messages.indexOfLast { it.role == "assistant" }
     val line = if (lineIndex >= 0) chat.messages[lineIndex].content else chat.character.openingLine
     val proposal = chat.proposal
@@ -216,7 +215,7 @@ private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, show
             thinking -> ThinkingDots(stringResource(R.string.coach_thinking))
             showingYou -> Text(
                 chat.messages.lastOrNull { it.role == "user" }?.content.orEmpty(),
-                fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Medium, color = JuiceColors.white(0.82f),
+                fontSize = JuiceType.Dialogue, lineHeight = JuiceType.DialogueLine, fontWeight = FontWeight.Medium, color = JuiceColors.white(0.82f),
             )
             else -> {
                 if (lineIndex >= 0 && lineIndex == chat.typingIndex) {
@@ -227,14 +226,14 @@ private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, show
                             chat.feedback.mutter(chat.character.mutterPitch)
                         },
                         color = Color.White,
-                        fontSize = 18.sp,
-                        style = LocalTextStyle.current.copy(lineHeight = 26.sp, fontWeight = FontWeight.Medium),
+                        fontSize = JuiceType.Dialogue,
+                        style = LocalTextStyle.current.copy(lineHeight = JuiceType.DialogueLine, fontWeight = FontWeight.Medium),
                     )
                 } else {
-                    Text(line, fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                    Text(line, fontSize = JuiceType.Dialogue, lineHeight = JuiceType.DialogueLine, fontWeight = FontWeight.Medium, color = Color.White)
                 }
                 if (chat.proposalRejected) {
-                    Text(stringResource(R.string.coach_proposal_rejected), fontSize = 15.sp, lineHeight = 21.sp, color = JuiceColors.white(0.82f))
+                    Text(stringResource(R.string.coach_proposal_rejected), fontSize = JuiceType.Chat, lineHeight = JuiceType.ChatLine, color = JuiceColors.white(0.82f))
                 }
                 if (proposal != null) Proposal(chat, proposal, hud)
             }
@@ -257,12 +256,12 @@ private fun NameTag(name: String, background: Color, animate: Boolean, modifier:
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value; rotationZ = -2f }
             .height(30.dp)
             .widthIn(max = 240.dp)
-            .clip(RoundedCornerShape(15.dp))
+            .clip(JuiceShapes.Capsule)
             .background(background)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(name, color = JuiceColors.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(name, color = JuiceColors.Ink, fontSize = JuiceType.Label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -288,7 +287,7 @@ private fun ThinkingDots(description: String) {
 
 @Composable
 private fun HistoryButton(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
+    val shape = JuiceShapes.Pill
     Row(
         Modifier
             .height(44.dp)
@@ -307,7 +306,7 @@ private fun HistoryButton(onClick: () -> Unit) {
             drawCircle(Color.White, radius = 8.5f * u, center = Offset(12f * u, 12f * u), style = stroke)
             drawPath(Path().apply { moveTo(12f * u, 7.5f * u); lineTo(12f * u, 12f * u); lineTo(15f * u, 14f * u) }, Color.White, style = stroke)
         }
-        Text(stringResource(R.string.coach_history), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.coach_history), color = Color.White, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -336,15 +335,15 @@ private fun History(chat: CoachChatState, hud: Hud, animate: Boolean, onClose: (
                 Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.8f)
-                    .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                    .clip(JuiceShapes.SheetTop)
                     .background(JuiceColors.Sheet)
                     .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
                     .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 20.dp)
                     .testTag(TAG_COACH_HISTORY),
             ) {
-                Box(Modifier.align(Alignment.CenterHorizontally).width(44.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(JuiceColors.white(0.3f)))
+                Box(Modifier.align(Alignment.CenterHorizontally).width(44.dp).height(5.dp).clip(JuiceShapes.Capsule).background(JuiceColors.white(0.3f)))
                 Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.coach_history_title), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.coach_history_title), fontSize = JuiceType.Dialogue, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
                     val close = stringResource(R.string.coach_history_close)
                     Box(
                         Modifier
@@ -371,7 +370,7 @@ private fun HistoryBubble(message: ChatMessage, name: String, hud: Hud) {
         Column(
             Modifier
                 .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(JuiceShapes.Bubble)
                 .background(if (mine) hud.accent else JuiceColors.white(0.14f))
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -379,10 +378,10 @@ private fun HistoryBubble(message: ChatMessage, name: String, hud: Hud) {
             val color = if (mine) JuiceColors.Ink else Color.White
             Text(
                 if (mine) stringResource(R.string.coach_you) else "$name · ${message.expression.name.lowercase()}",
-                fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = color.copy(alpha = 0.75f),
+                fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = color.copy(alpha = 0.75f),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            Text(message.content, fontSize = 15.sp, lineHeight = 21.sp, color = color)
+            Text(message.content, fontSize = JuiceType.Chat, lineHeight = JuiceType.ChatLine, color = color)
         }
     }
 }
@@ -404,12 +403,12 @@ private fun Input(chat: CoachChatState, hud: Hud) {
         chat.send(draft)
         draft = ""
     }
-    val shape = RoundedCornerShape(28.dp)
+    val shape = JuiceShapes.Input
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         BasicTextField(
             value = draft,
             onValueChange = { draft = it },
-            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = Color.White),
+            textStyle = LocalTextStyle.current.copy(fontSize = JuiceType.Chat, color = Color.White),
             cursorBrush = SolidColor(Color.White),
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -426,7 +425,7 @@ private fun Input(chat: CoachChatState, hud: Hud) {
                         .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (draft.isEmpty()) Text(stringResource(R.string.coach_input_hint), fontSize = 15.sp, color = JuiceColors.white(0.6f))
+                    if (draft.isEmpty()) Text(stringResource(R.string.coach_input_hint), fontSize = JuiceType.Chat, color = JuiceColors.white(0.6f))
                     field()
                 }
             },
@@ -459,7 +458,7 @@ private fun Proposal(chat: CoachChatState, tasks: List<CoachTask>, hud: Hud) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(JuiceShapes.Bubble)
             .background(Color.Black.copy(alpha = 0.28f))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -471,7 +470,7 @@ private fun Proposal(chat: CoachChatState, tasks: List<CoachTask>, hud: Hud) {
                 is CoachTask.Change -> stringResource(R.string.coach_proposal_change, task.title, task.cadence.label())
                 is CoachTask.Remove -> stringResource(R.string.coach_proposal_remove, chat.titles[task.id] ?: task.id)
             }
-            Text(line, fontSize = 15.sp, color = Color.White)
+            Text(line, fontSize = JuiceType.Chat, color = Color.White)
         }
     }
 }
