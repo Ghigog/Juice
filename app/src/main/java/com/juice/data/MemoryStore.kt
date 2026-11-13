@@ -8,7 +8,9 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /** The characters' notes about the player, kept in one JSON file on the device (e.g. in the app's files dir). */
 class MemoryStore(private val file: File) {
@@ -19,10 +21,16 @@ class MemoryStore(private val file: File) {
                 Memory()
             } else {
                 val root = Json.parseToJsonElement(file.readText()).jsonObject
-                Memory(
-                    shared = notes(root.getValue("shared")),
-                    characters = root.getValue("characters").jsonObject.mapValues { notes(it.value) },
-                )
+                // No version is the previous release's format; a newer version than we know reads as empty.
+                val version = root["version"]?.jsonPrimitive?.int ?: 1
+                if (version != VERSION) {
+                    Memory()
+                } else {
+                    Memory(
+                        shared = notes(root.getValue("shared")),
+                        characters = root.getValue("characters").jsonObject.mapValues { notes(it.value) },
+                    )
+                }
             }
         } catch (e: RuntimeException) {
             Memory()
@@ -30,6 +38,7 @@ class MemoryStore(private val file: File) {
 
     fun save(memory: Memory) {
         val json = buildJsonObject {
+            put("version", VERSION)
             put("shared", buildJsonArray { memory.shared.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
             put("characters", buildJsonObject {
                 memory.characters.forEach { (id, notes) ->
@@ -49,6 +58,10 @@ class MemoryStore(private val file: File) {
     fun deleteCharacter(id: String) {
         val memory = load()
         if (id in memory.characters) save(memory.copy(characters = memory.characters - id))
+    }
+
+    private companion object {
+        const val VERSION = 1
     }
 
     private fun notes(element: kotlinx.serialization.json.JsonElement): List<String> =
