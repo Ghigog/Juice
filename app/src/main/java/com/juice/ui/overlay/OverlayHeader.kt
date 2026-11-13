@@ -58,11 +58,11 @@ internal fun Header(
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
-                Text(stringResource(R.string.overlay_level, hud.level), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(stringResource(R.string.overlay_level, hud.level), fontSize = JuiceType.Label, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     hud.flavour.displayName,
-                    fontSize = 13.sp,
+                    fontSize = JuiceType.Label,
                     color = JuiceColors.white(0.75f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -70,8 +70,8 @@ internal fun Header(
                     modifier = Modifier.weight(1f),
                 )
             }
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(JuiceColors.white(0.18f))) {
-                Box(Modifier.fillMaxWidth(hud.levelProgress).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(hud.accent))
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(JuiceShapes.Capsule).background(JuiceColors.white(0.18f))) {
+                Box(Modifier.fillMaxWidth(hud.levelProgress).fillMaxHeight().clip(JuiceShapes.Capsule).background(hud.accent))
             }
         }
         if (middle != null) {
@@ -81,8 +81,8 @@ internal fun Header(
         MultiplierBadge(hud)
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(String.format("%,d", hud.juice), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)
-            Text(stringResource(R.string.overlay_juice_label), fontSize = 11.sp, letterSpacing = 1.sp, color = JuiceColors.white(0.75f))
+            Text(String.format("%,d", hud.juice), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold, lineHeight = JuiceType.BodyLine)
+            Text(stringResource(R.string.overlay_juice_label), fontSize = JuiceType.Badge, letterSpacing = 1.sp, color = JuiceColors.white(0.75f))
         }
         Spacer(Modifier.width(8.dp))
         val recapLabel = stringResource(R.string.recap_open)
