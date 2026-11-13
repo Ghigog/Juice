@@ -163,6 +163,9 @@ object JuiceType {
     val DialogueLine = 26.sp
     val ChatLine = 21.sp
     val LabelLine = 13.sp
+    val SheetHeadingLine = 20.sp
+    val NameLine = 24.sp
+    val BodyLine = 20.sp
     val CaptionLine = 17.sp
 }
 

@@ -310,9 +310,9 @@ internal fun CentreCard(
             .graphicsLayer {
                 translationX = shake.value
             }
-            .roundedClip(RoundedCornerShape(30.dp))
+            .roundedClip(JuiceShapes.Card)
             .background(JuiceColors.white(0.14f))
-            .border(1.dp, JuiceColors.white(0.28f), RoundedCornerShape(30.dp))
+            .border(1.dp, JuiceColors.white(0.28f), JuiceShapes.Card)
             .testTag(TAG_CENTRE_CARD)
             .onGloballyPositioned { cardOrigin = it.positionInRoot() }
             .then(liquid)
@@ -323,8 +323,8 @@ internal fun CentreCard(
         if (item == null) {
             Text(
                 stringResource(R.string.overlay_empty),
-                fontSize = 18.sp,
-                lineHeight = 24.sp,
+                fontSize = JuiceType.Dialogue,
+                lineHeight = JuiceType.NameLine,
                 color = JuiceColors.white(0.85f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
@@ -349,22 +349,23 @@ internal fun CentreCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         var typeMenuOpen by remember { mutableStateOf(false) }
                         Box {
-                            Box(
-                                Modifier
-                                    .height(28.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(JuiceColors.of(item.type))
-                                    .clickable { typeMenuOpen = true }
-                                    .padding(horizontal = 12.dp)
-                                    .testTag(TAG_TYPE_PILL),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Box(Modifier.testTag(TAG_TYPE_PILL).touchTarget({ typeMenuOpen = true }), contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier
+                                        .height(28.dp)
+                                        .testTag(TAG_TYPE_PILL_VISIBLE)
+                                        .clip(JuiceShapes.Capsule)
+                                        .background(JuiceColors.of(item.type))
+                                        .padding(horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(item.type.name.uppercase(), color = JuiceColors.Ink, fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                }
                             }
                             DropdownMenu(
                                 expanded = typeMenuOpen,
                                 onDismissRequest = { typeMenuOpen = false },
-                                shape = RoundedCornerShape(14.dp),
+                                shape = JuiceShapes.Badge,
                                 containerColor = JuiceColors.Sheet,
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
                             ) {
@@ -383,7 +384,7 @@ internal fun CentreCard(
                             }
                         }
                         if (item.starredAt != null) {
-                            Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = 18.sp, modifier = Modifier.padding(start = 8.dp))
+                            Text(stringResource(R.string.overlay_starred_badge), color = hud.accent, fontSize = JuiceType.Dialogue, modifier = Modifier.padding(start = 8.dp))
                         }
                         if (item.id in state.parsing) ParsingChip(onDeviceOnly)
                     }
@@ -397,8 +398,8 @@ internal fun CentreCard(
                     } else {
                         Text(
                             titleText(titleLine, chips.filter { it.end <= titleLine.length }),
-                            fontSize = 25.sp,
-                            lineHeight = 30.sp,
+                            fontSize = JuiceType.Title,
+                            lineHeight = JuiceType.TitleLine,
                             fontWeight = FontWeight.Medium,
                             letterSpacing = (-0.5).sp,
                             maxLines = if (wide) 3 else 5,
@@ -422,8 +423,8 @@ internal fun CentreCard(
                     item.completionCondition?.let { done ->
                         Text(
                             stringResource(R.string.overlay_done_when, done),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
+                            fontSize = JuiceType.Body,
+                            lineHeight = JuiceType.BodyLine,
                             color = JuiceColors.white(0.82f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -432,8 +433,8 @@ internal fun CentreCard(
                     }
                     Text(
                         metaOf(state, item),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
+                        fontSize = JuiceType.Body,
+                        lineHeight = JuiceType.BodyLine,
                         color = JuiceColors.white(0.82f),
                         modifier = if (item.type == ItemType.Routine && item.cadence != null) {
                             Modifier.testTag("cadenceLine").clickable { state.openRepeatPicker(item) }
@@ -442,8 +443,8 @@ internal fun CentreCard(
                     reminderLabel(item, clock)?.let { at ->
                         Text(
                             stringResource(R.string.overlay_will_remind, at),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
+                            fontSize = JuiceType.Body,
+                            lineHeight = JuiceType.BodyLine,
                             color = JuiceColors.white(0.82f),
                             modifier = Modifier.testTag(TAG_REMINDER_LINE),
                         )
@@ -452,12 +453,12 @@ internal fun CentreCard(
                     Box(
                         Modifier
                             .height(30.dp)
-                            .clip(RoundedCornerShape(15.dp))
+                            .clip(JuiceShapes.Capsule)
                             .background(Color.Black.copy(alpha = 0.28f))
                             .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(worthOf(item, hud), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = hud.accent)
+                        Text(worthOf(item, hud), fontSize = JuiceType.Label, fontWeight = FontWeight.Bold, color = hud.accent)
                     }
                     Spacer(Modifier.height(16.dp))
                     if (tapButtons) {
@@ -475,8 +476,8 @@ internal fun CentreCard(
                     }
                     Text(
                         hint ?: stringResource(R.string.overlay_card_hint),
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
+                        fontSize = JuiceType.Caption,
+                        lineHeight = JuiceType.CaptionLine,
                         color = JuiceColors.white(0.72f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
@@ -524,3 +525,6 @@ internal fun CentreCard(
         }
     }
 }
+
+/** The visible type pill inside its 44 dp touch target. */
+internal const val TAG_TYPE_PILL_VISIBLE = "type_pill_visible"

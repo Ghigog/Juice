@@ -105,10 +105,10 @@ internal fun ListBody(lines: List<String>, modifier: Modifier = Modifier) {
         if (lines.isNotEmpty()) {
             Text(
                 lines.joinToString("\n"),
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
+                fontSize = JuiceType.Chat,
+                lineHeight = JuiceType.ChatLine,
                 color = JuiceColors.white(0.92f),
-                maxLines = (maxHeight / 22.dp).toInt().coerceAtLeast(1),
+                maxLines = (maxHeight / 21.dp).toInt().coerceAtLeast(1),
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().testTag(TAG_CARD_BODY),
             )
@@ -126,7 +126,7 @@ internal fun ParsingChip(onDeviceOnly: Boolean) {
     Box(
         Modifier
             .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(JuiceShapes.Badge)
             .background(
                 Brush.horizontalGradient(
                     0f to JuiceColors.white(0.1f), shimmer to JuiceColors.white(0.3f), 1f to JuiceColors.white(0.1f),
@@ -137,7 +137,7 @@ internal fun ParsingChip(onDeviceOnly: Boolean) {
     ) {
         Text(
             stringResource(if (onDeviceOnly) R.string.overlay_parsing_local else R.string.overlay_parsing_cloud),
-            fontSize = 11.sp,
+            fontSize = JuiceType.Badge,
             color = JuiceColors.white(0.9f),
         )
     }
@@ -152,13 +152,13 @@ internal fun TitleField(title: String, onChange: (String) -> Unit, onDone: () ->
         value = text,
         onValueChange = { text = it; onChange(it) },
         singleLine = false,
-        textStyle = TextStyle(fontFamily = SpaceGrotesk, fontSize = 25.sp, lineHeight = 30.sp, fontWeight = FontWeight.Medium, color = Color.White),
+        textStyle = TextStyle(fontFamily = SpaceGrotesk, fontSize = JuiceType.Title, lineHeight = JuiceType.TitleLine, fontWeight = FontWeight.Medium, color = Color.White),
         cursorBrush = SolidColor(Color.White),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(JuiceShapes.Field)
             .background(JuiceColors.white(0.1f))
             .padding(8.dp)
             .focusRequester(focus)
@@ -171,12 +171,12 @@ internal fun PillButton(label: String, background: Color, content: Color, modifi
     Box(
         modifier
             .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(JuiceShapes.Pill)
             .background(background)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = content, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = content, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -206,12 +206,12 @@ internal fun TypeMenuRow(type: ItemType, current: Boolean, onClick: () -> Unit, 
                     type.name.uppercase(),
                     color = Color.White,
                     fontFamily = SpaceGrotesk,
-                    fontSize = 12.sp,
+                    fontSize = JuiceType.Caption,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.weight(1f),
                 )
-                if (current) Text("✓", color = JuiceColors.of(type), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                if (current) Text("✓", color = JuiceColors.of(type), fontSize = JuiceType.Body, fontWeight = FontWeight.Bold)
             }
         },
         onClick = onClick,
