@@ -82,12 +82,11 @@ class LayeringTest {
         file.readLines().map { it.trim() }.filter { it.startsWith("import com.juice.") }
 
     private fun allSourceFiles(): List<File> =
-        listOf("src/main/java", "src/main/kotlin").map { File(it) }.filter { it.isDirectory }
+        listOf(File("src/main/java")).filter { it.isDirectory }
             .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }
 
     private fun sourceFiles(pkg: String): List<File> =
-        listOf("src/main/java", "src/main/kotlin")
-            .map { File("$it/com/juice/$pkg") }
+        listOf(File("src/main/java/com/juice/$pkg"))
             .filter { it.isDirectory }
             .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }
 

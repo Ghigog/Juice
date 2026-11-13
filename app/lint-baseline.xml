@@ -29,7 +29,7 @@
         errorLine1="            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/overlay/OverlayService.kt"
+            file="src/main/java/com/juice/overlay/OverlayService.kt"
             line="161"
             column="13"/>
     </issue>
@@ -425,7 +425,7 @@
         errorLine1="internal class SliceHandleView("
         errorLine2="               ~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/overlay/SliceHandle.kt"
+            file="src/main/java/com/juice/overlay/SliceHandle.kt"
             line="117"
             column="16"/>
     </issue>
@@ -480,7 +480,7 @@
         errorLine1="    private var accent = Color.parseColor(&quot;#FFB020&quot;)"
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="109"
             column="26"/>
     </issue>
@@ -491,7 +491,7 @@
         errorLine1="    private var deep = Color.parseColor(&quot;#E8590C&quot;)"
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="110"
             column="24"/>
     </issue>
@@ -502,7 +502,7 @@
         errorLine1="    private val cream = Color.parseColor(&quot;#FFF8EC&quot;)"
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="111"
             column="25"/>
     </issue>
@@ -513,7 +513,7 @@
         errorLine1="            canvas.save()"
         errorLine2="            ~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="414"
             column="13"/>
     </issue>
@@ -524,7 +524,7 @@
         errorLine1="        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)"
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="456"
             column="19"/>
     </issue>
@@ -535,7 +535,7 @@
         errorLine1="        c.save(); c.rotate(-40f, 22f, 21f); c.drawOval(15f, 16.5f, 29f, 25.5f, p); c.restore()"
         errorLine2="        ~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/ui/liquid/JuiceLiquidView.kt"
+            file="src/main/java/com/juice/ui/liquid/JuiceLiquidView.kt"
             line="465"
             column="9"/>
     </issue>
@@ -546,7 +546,7 @@
         errorLine1="        prefs.edit().putBoolean(&quot;battery_exemption_asked&quot;, true).apply()"
         errorLine2="        ~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/MainActivity.kt"
+            file="src/main/java/com/juice/MainActivity.kt"
             line="79"
             column="9"/>
     </issue>
@@ -557,7 +557,7 @@
         errorLine1="            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse(&quot;package:$packageName&quot;)),"
         errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/MainActivity.kt"
+            file="src/main/java/com/juice/MainActivity.kt"
             line="81"
             column="74"/>
     </issue>
@@ -568,7 +568,7 @@
         errorLine1="        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse(&quot;package:${context.packageName}&quot;))"
         errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/overlay/OverlayPermission.kt"
+            file="src/main/java/com/juice/overlay/OverlayPermission.kt"
             line="13"
             column="59"/>
     </issue>
@@ -579,7 +579,7 @@
         errorLine1="            Intent(context, ReminderReceiver::class.java).setData(Uri.parse(&quot;juice://reminder/&quot; + Uri.encode(id)))"
         errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/notify/ReminderReceiver.kt"
+            file="src/main/java/com/juice/notify/ReminderReceiver.kt"
             line="45"
             column="67"/>
     </issue>
@@ -590,7 +590,7 @@
         errorLine1="            canvas.save()"
         errorLine2="            ~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/juice/overlay/SliceHandle.kt"
+            file="src/main/java/com/juice/overlay/SliceHandle.kt"
             line="584"
             column="13"/>
     </issue>
