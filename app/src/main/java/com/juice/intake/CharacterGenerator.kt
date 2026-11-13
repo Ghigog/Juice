@@ -6,7 +6,6 @@ import com.juice.core.character.GeneratedPersonaResult
 import com.juice.core.character.toCharacter
 import com.juice.data.GenerationResult
 import com.juice.data.PersonaGenerator
-import com.juice.llm.GroqClient
 import java.io.IOException
 import java.util.UUID
 
@@ -27,7 +26,7 @@ class CharacterGenerator(
         val json = try {
             llm(topic)
         } catch (e: IOException) {
-            return GenerationResult.Failure(GroqClient.reason(e))
+            return GenerationResult.Failure(GroqTransport.reason(e))
         }
         val persona = (GeneratedPersona.parse(json) as? GeneratedPersonaResult.Valid)?.persona ?: GeneratedPersona.fallbackPersona(topic)
         return GenerationResult.Success(persona.toCharacter(newId(), topic))

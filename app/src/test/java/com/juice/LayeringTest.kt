@@ -11,12 +11,11 @@ class LayeringTest {
 
     private val rules = listOf(
         Rule("data", listOf("intake", "coach", "memory", "ui", "overlay", "settings", "feedback", "onboarding")),
-        Rule("coach", listOf("intake")),
         Rule("feedback", listOf("ui")),
         Rule("settings", listOf("ui")),
     )
 
-    private val layered = listOf("data", "llm", "intake", "coach", "ui", "settings", "feedback")
+    private val layered = listOf("data", "intake", "coach", "ui", "settings", "feedback")
 
     /** Package-level edges among [layered], read from import lines; `com.juice.ui.*` counts as ui. */
     private fun edges(): Map<String, Set<String>> = layered.associateWith { pkg ->
@@ -59,6 +58,17 @@ class LayeringTest {
             }
         }
         assertTrue(violations.isEmpty(), "Layering violations:\n" + violations.joinToString("\n"))
+    }
+
+    @Test
+    fun `coach imports only the Groq transport types from intake`() {
+        val allowed = listOf("GroqTransport", "GroqHttpException", "KeyCheck", "GroqEnvelopeException")
+            .map { "import com.juice.intake.$it" }
+        val violations = sourceFiles("coach").flatMap { file ->
+            importsOf(file).filter { it.startsWith("import com.juice.intake.") && it !in allowed }
+                .map { "${file.path}: $it" }
+        }
+        assertTrue(violations.isEmpty(), "coach may only use the Groq transport from intake:\n" + violations.joinToString("\n"))
     }
 
     @Test
