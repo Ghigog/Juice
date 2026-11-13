@@ -54,12 +54,12 @@ fun Item.toEntity(position: Int = 0) = ItemEntity(
 
 fun ItemEntity.toItem() = Item(
     id = id,
-    type = ItemType.valueOf(type),
+    type = enumOrNull<ItemType>(type) ?: ItemType.Note,
     title = title,
     deadline = deadlineMillis?.let(Instant::ofEpochMilli),
     completionCondition = completionCondition,
-    status = ItemStatus.valueOf(status),
-    editedFields = editedFields.split(",").filter { it.isNotEmpty() }.map(IntakeField::valueOf).toSet(),
+    status = enumOrNull<ItemStatus>(status) ?: ItemStatus.Active,
+    editedFields = editedFields.split(",").filter { it.isNotEmpty() }.mapNotNull { enumOrNull<IntakeField>(it) }.toSet(),
     steps = steps.decodeSteps(),
     cadence = cadence?.decodeCadence(),
     nextDueOn = nextDueOn?.let(LocalDate::ofEpochDay),
@@ -70,6 +70,8 @@ fun ItemEntity.toItem() = Item(
     notifyAt = notifyAtMillis?.let(Instant::ofEpochMilli),
     notifyText = notifyText,
 )
+
+private inline fun <reified E : Enum<E>> enumOrNull(name: String): E? = enumValues<E>().firstOrNull { it.name == name }
 
 internal fun List<Step>.encode(): String = JSONArray().also { array ->
     forEach { step ->
