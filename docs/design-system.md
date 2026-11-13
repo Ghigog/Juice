@@ -78,6 +78,19 @@ Every interactive component has these five states. Glass alphas are from the Tok
 | Input | white 14% glass, 1 dp border at 25 to 28% | `JuiceShapes` input (28); body 14, chat 15/21 | Focused shows the accent outline and the caret in the accent. Busy (coach thinking, intake reading) sloshes the field and keeps the typed text. |
 | Bubble | white 14% glass, 1 dp border | `JuiceShapes` bubble (16); chat 15/21 | Rises in with a sway and pops out. Busy is the coach's thinking bubble, a sloshing run of three dots. Not focusable unless it holds an action. |
 
+## Empty and error states
+
+Every state is one `Text` in the screen's own area, in Juice's warm voice (say what is happening, then what to do next). Strings are in `strings.xml`; each has a test tag and a test in `EmptyStatesTest` or the screen's own test.
+
+| Screen | State | Copy | Type | Colour | Where it sits |
+| --- | --- | --- | --- | --- | --- |
+| Carousel | empty (`overlay_empty`) | "All squeezed. Add a note below." | `JuiceType.Dialogue` 18/24, centred | white 85% | Centred in the empty card. No error state: intake failures show `overlay_not_recognised` in the banner. |
+| Recap | empty (`recap_empty`, tag `recap_empty_<section>`) | "Nothing completed yet. Your next win lands here." | `JuiceType.Label` | `JuiceColors.Muted` | Under each section heading. No error state: it reads local data. |
+| Routines | empty (`routines_empty`, tag `routines_empty`) | "Nothing on repeat yet. Squeeze a habit in and it will come back around." | `JuiceType.Caption` / `CaptionLine` | `JuiceColors.Muted` | Top-left of the area below the title. No error state. |
+| Coach chat | `CoachNotice.CloudRequired` (`coach_needs_cloud`) | "The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again." | Banner text | Banner glass, white | The overlay `Banner` under the top bar, not inside the chat. |
+| Coach chat | `CoachNotice.Unreachable` (`coach_unreachable`) | "%1$s could not be reached. %2$s" (name, reason) | Banner text | Banner glass, white | Same banner. No empty state: a new chat opens on the coach's greeting. |
+| Creator | error (`creator_error`, tag `creator_error`) | "Your coach slipped away: %1$s Give it another squeeze." | `JuiceType.Chat` | white 80% | Between the hobby input and the buttons. No empty state: the input hint (`creator_hint`) is its empty state. |
+
 ## Landscape
 
 - The overlay keeps clear of the status bar, navigation bar and cutout on every side, re-read whenever the screen turns.
