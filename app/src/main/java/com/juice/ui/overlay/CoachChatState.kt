@@ -7,10 +7,10 @@ import androidx.compose.runtime.setValue
 import com.juice.coach.CoachConversation
 import com.juice.coach.CoachReply
 import com.juice.core.character.Character
+import com.juice.core.character.Expression
 import com.juice.core.character.CoachTask
 import com.juice.core.model.Item
 import com.juice.data.CharacterRepository
-import com.juice.data.ChatMessage
 import com.juice.feedback.Feedback
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.CoroutineDispatcher
@@ -18,6 +18,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** One line of the chat as the screen draws it: the coach's ([fromCoach]) or the player's. */
+data class CoachChatLine(val fromCoach: Boolean, val text: String, val expression: Expression = Expression.NEUTRAL)
 
 /** Why a chat closed on its own: the coach needs cloud access, or could not be reached. */
 enum class CoachNotice { CloudRequired, Unreachable }
@@ -41,7 +44,7 @@ class CoachChatState(
     /** Plays the coach's mutter as a reply types out. */
     val feedback: Feedback = SilentFeedback,
 ) {
-    var messages by mutableStateOf(emptyList<ChatMessage>())
+    var messages by mutableStateOf(emptyList<CoachChatLine>())
         private set
 
     /** The coach's expression: the saved conversation's last one at first, then each reply's; it stays put across proposals and errors. */
@@ -84,24 +87,24 @@ class CoachChatState(
         if (said.isEmpty() || busy || !open) return
         busy = true
         proposalRejected = false
-        messages = messages + ChatMessage("user", said)
+        messages = messages + CoachChatLine(false, said)
         scope.launch {
             when (val reply = withContext(io) { conversation.send(said) }) {
                 is CoachReply.Reply -> {
                     expression = reply.expression
-                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
+                    messages = messages + CoachChatLine(true, reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                 }
                 is CoachReply.Proposal -> {
                     expression = reply.expression
-                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
+                    messages = messages + CoachChatLine(true, reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                     titles = coachTasks().associate { it.id to it.title }
                     proposal = reply.tasks
                 }
                 is CoachReply.Rejected -> {
                     expression = reply.expression
-                    messages = messages + ChatMessage("assistant", reply.text, reply.expression)
+                    messages = messages + CoachChatLine(true, reply.text, reply.expression)
                     typingIndex = messages.lastIndex
                     proposalRejected = true
                 }

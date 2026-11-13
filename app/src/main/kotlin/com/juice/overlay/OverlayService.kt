@@ -45,7 +45,7 @@ import com.juice.feedback.VibratorOutput
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
 import com.juice.settings.JuiceSettings
-import com.juice.llm.GroqClient
+import com.juice.intake.GroqClient
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
 import com.juice.ui.liquid.JuiceLiquidView
@@ -71,7 +71,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.juice.llm.KeyCheck
+import com.juice.intake.KeyCheck
 
 /** Foreground service owning the slice handle window and the full-screen overlay window. */
 class OverlayService : Service() {

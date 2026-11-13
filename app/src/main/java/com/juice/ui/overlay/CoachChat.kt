@@ -83,7 +83,6 @@ import com.juice.R
 import com.juice.core.character.CoachTask
 import com.juice.core.character.Expression
 import com.juice.core.character.face.FaceAnimator
-import com.juice.data.ChatMessage
 import com.juice.ui.face.AnimatedCharacterFace
 import com.juice.ui.face.FaceColors
 import com.juice.ui.face.rememberFaceAnimator
@@ -196,8 +195,8 @@ internal fun CoachChat(chat: CoachChatState, hud: Hud, modifier: Modifier = Modi
 @Composable
 private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, showingYou: Boolean, thinking: Boolean, minHeight: Dp, modifier: Modifier) {
     val shape = JuiceShapes.Card
-    val lineIndex = chat.messages.indexOfLast { it.role == "assistant" }
-    val line = if (lineIndex >= 0) chat.messages[lineIndex].content else chat.character.openingLine
+    val lineIndex = chat.messages.indexOfLast { it.fromCoach }
+    val line = if (lineIndex >= 0) chat.messages[lineIndex].text else chat.character.openingLine
     val proposal = chat.proposal
     Column(
         modifier
@@ -214,7 +213,7 @@ private fun DialogueBox(chat: CoachChatState, hud: Hud, face: FaceAnimator, show
         when {
             thinking -> ThinkingDots(stringResource(R.string.coach_thinking))
             showingYou -> Text(
-                chat.messages.lastOrNull { it.role == "user" }?.content.orEmpty(),
+                chat.messages.lastOrNull { !it.fromCoach }?.text.orEmpty(),
                 fontSize = JuiceType.Dialogue, lineHeight = JuiceType.DialogueLine, fontWeight = FontWeight.Medium, color = JuiceColors.white(0.82f),
             )
             else -> {
@@ -313,7 +312,7 @@ private fun HistoryButton(onClick: () -> Unit) {
 /** The whole conversation in a sheet over the chat; a tap outside it or the close button closes it. */
 @Composable
 private fun History(chat: CoachChatState, hud: Hud, animate: Boolean, onClose: () -> Unit) {
-    val shown = listOf(ChatMessage("assistant", chat.character.openingLine)) + chat.messages
+    val shown = listOf(CoachChatLine(true, chat.character.openingLine)) + chat.messages
     val list = rememberLazyListState()
     LaunchedEffect(Unit) { list.scrollToItem(shown.lastIndex.coerceAtLeast(0)) }
     var raised by remember { mutableStateOf(!animate) }
@@ -364,8 +363,8 @@ private fun History(chat: CoachChatState, hud: Hud, animate: Boolean, onClose: (
 }
 
 @Composable
-private fun HistoryBubble(message: ChatMessage, name: String, hud: Hud) {
-    val mine = message.role == "user"
+private fun HistoryBubble(message: CoachChatLine, name: String, hud: Hud) {
+    val mine = !message.fromCoach
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
         Column(
             Modifier
@@ -381,7 +380,7 @@ private fun HistoryBubble(message: ChatMessage, name: String, hud: Hud) {
                 fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = color.copy(alpha = 0.75f),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            Text(message.content, fontSize = JuiceType.Chat, lineHeight = JuiceType.ChatLine, color = color)
+            Text(message.text, fontSize = JuiceType.Chat, lineHeight = JuiceType.ChatLine, color = color)
         }
     }
 }

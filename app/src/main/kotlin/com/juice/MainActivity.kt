@@ -23,8 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import com.juice.core.progression.Progression
-import com.juice.llm.GroqClient
-import com.juice.llm.KeyCheck
+import com.juice.intake.GroqClient
+import com.juice.intake.KeyCheck
 import com.juice.ui.overlay.Hud
 import com.juice.ui.overlay.JuiceColors
 import com.juice.ui.overlay.JuiceShapes
