@@ -51,7 +51,7 @@ class GroqKeyRowTest {
     }
 
     private fun saveKey() {
-        compose.onNodeWithTag(TAG_GROQ_KEY_FIELD).performTextInput("gsk_secret1234")
+        compose.onNodeWithTag(TAG_GROQ_KEY_FIELD).performTextInput("abcd_secret1234")
         compose.onNodeWithTag(TAG_GROQ_KEY_SAVE).assertIsEnabled().performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
     }
@@ -69,7 +69,7 @@ class GroqKeyRowTest {
     fun savingShowsTheMaskedKeyAndUnlocksTheToggle() {
         compose.setContent { Sheet() }
         saveKey()
-        compose.onNodeWithTag(TAG_GROQ_KEY_MASKED).assertTextEquals("gsk_…1234")
+        compose.onNodeWithTag(TAG_GROQ_KEY_MASKED).assertTextEquals("abcd…1234")
         compose.onNodeWithTag(TAG_GROQ_KEY_NOTE).assertTextEquals("Key works")
         compose.onNodeWithText("On-device only").assertIsEnabled()
         assertEquals(listOf(FeedbackEvent.CAPTURE), events)

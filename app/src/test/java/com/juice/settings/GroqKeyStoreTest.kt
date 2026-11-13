@@ -28,15 +28,15 @@ class GroqKeyStoreTest {
     private val store = GroqKeyStore(context, FakeCipher())
     private val file get() = File(context.noBackupFilesDir, "groq_key.bin")
 
-    private fun pasted() = assertNotNull(GroqKey.parse("  gsk_abcdefgh1234 \n"))
+    private fun pasted() = assertNotNull(GroqKey.parse("  abcd_secret1234 \n"))
 
     @Test fun savedKeyLoadsBackAndFileHoldsNoPlaintext() {
         store.save(pasted())
         val loaded = assertNotNull(store.load())
-        assertEquals("gsk_abcdefgh1234", loaded.value)
-        assertEquals("gsk_…1234", loaded.masked)
+        assertEquals("abcd_secret1234", loaded.value)
+        assertEquals("abcd…1234", loaded.masked)
         assertTrue(store.hasKey.value)
-        assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains("gsk_abcdefgh1234"))
+        assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains("abcd_secret1234"))
     }
 
     @Test fun removeDeletesFileAndKey() {

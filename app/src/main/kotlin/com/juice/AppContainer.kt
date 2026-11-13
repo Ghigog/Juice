@@ -29,7 +29,11 @@ import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 
 /** Builds the app's stores, repositories and Groq clients once, lazily, for the service, activity, boot receiver and worker to share. */
-class AppContainer(context: Context) : IntakeDependencies {
+open class AppContainer(
+    context: Context,
+    /** Builds the Groq client for a key; the only way the app gets one, so a test can supply its own. */
+    override val groqFor: (GroqKey) -> GroqClient = { GroqClient(it.value) },
+) : IntakeDependencies {
     private val context: Context = context.applicationContext
 
     override val settings: SettingsRepository by lazy { SettingsRepository(context) }
@@ -53,10 +57,9 @@ class AppContainer(context: Context) : IntakeDependencies {
     val groqKeyStore: GroqKeyStore by lazy { GroqKeyStore(context) }
 
     override val key: () -> GroqKey? = { groqKeyStore.load() }
-    override val groqFor: (GroqKey) -> GroqClient = { GroqClient(it.value) }
 
     /** Makes a coach client from the saved Groq key, or null when there is none. */
-    val coachClient: () -> CoachClient? = { groqKeyStore.load()?.let { CoachClient(it.value) } }
+    val coachClient: () -> CoachClient? = { groqKeyStore.load()?.let { CoachClient(groqFor(it).transport) } }
 
     val characters: CharacterRepository by lazy {
         CharacterRepository(

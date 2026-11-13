@@ -23,7 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import com.juice.core.progression.Progression
-import com.juice.intake.GroqClient
+import com.juice.intake.saveAndCheckGroqKey
 import com.juice.intake.KeyCheck
 import com.juice.ui.overlay.Hud
 import com.juice.ui.overlay.JuiceColors
@@ -92,8 +92,7 @@ class MainActivity : ComponentActivity() {
                     onSaveGroqKey = { key, onChecked ->
                         scope.launch {
                             val check = withContext(Dispatchers.IO) {
-                                groqKeyStore.save(key)
-                                runCatching { GroqClient(key.value).checkKey() }.getOrDefault(KeyCheck.Unreachable)
+                                saveAndCheckGroqKey(key, groqKeyStore, container.groqFor)
                             }
                             groqKeyMasked.value = key.masked
                             onChecked(check)

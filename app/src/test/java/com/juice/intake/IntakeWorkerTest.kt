@@ -36,7 +36,7 @@ class IntakeWorkerTest {
     private val server = MockWebServer().apply { start() }
     private lateinit var db: JuiceDatabase
     private lateinit var items: ItemRepository
-    private var savedKey: GroqKey? = GroqKey.parse("gsk_test_key")
+    private var savedKey: GroqKey? = GroqKey.parse("abcd_test_key")
     private val settings = SettingsRepository(context)
 
     @Before

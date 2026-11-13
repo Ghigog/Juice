@@ -8,19 +8,24 @@ import kotlin.test.assertNull
 
 class GroqKeyTest {
     @Test fun trimsPastedText() {
-        assertEquals("gsk_abcdefgh1234", GroqKey.parse("  gsk_abcdefgh1234 \n")?.value)
+        assertEquals("abcd_secret1234", GroqKey.parse("  abcd_secret1234 \n")?.value)
     }
 
     @Test fun rejectsBlankAndInnerWhitespace() {
         assertNull(GroqKey.parse(""))
         assertNull(GroqKey.parse(" \n\t"))
-        assertNull(GroqKey.parse("gsk_abc def"))
+        assertNull(GroqKey.parse("abcd abc def"))
     }
 
-    @Test fun maskedAndToStringShowOnlyTheLastFour() {
-        val key = assertNotNull(GroqKey.parse("gsk_abcdefgh1234"))
-        assertEquals("gsk_…1234", key.masked)
-        assertEquals("gsk_…1234", key.toString())
-        assertFalse("$key".contains("abcdefgh"))
+    @Test fun maskedAndToStringShowTheFirstAndLastFour() {
+        val key = assertNotNull(GroqKey.parse("abcd_secret1234"))
+        assertEquals("abcd…1234", key.masked)
+        assertEquals("abcd…1234", key.toString())
+        assertFalse("$key".contains("secret"))
+    }
+
+    @Test fun shortKeysNeverMaskToTheWholeKey() {
+        assertEquals("ab…78", assertNotNull(GroqKey.parse("abcd5678")).masked)
+        assertEquals("…", assertNotNull(GroqKey.parse("abc")).masked)
     }
 }

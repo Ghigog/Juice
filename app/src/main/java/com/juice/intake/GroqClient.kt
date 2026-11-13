@@ -17,8 +17,8 @@ class GroqClient(
     private val baseUrl: String = "https://api.groq.com/openai/v1",
     private val model: String = GroqTransport.MODEL,
 ) {
-    private val transport = GroqTransport(apiKey, baseUrl)
-
+    /** The HTTP transport this client talks through; the coach shares it. */
+    val transport = GroqTransport(apiKey, baseUrl)
 
     /** Returns the model's JSON text for [rawText], with [now] injected into the system prompt. */
     fun parse(rawText: String, now: ZonedDateTime): String = complete(systemPrompt(now), rawText)
