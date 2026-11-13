@@ -1,5 +1,17 @@
 package com.juice.ui.overlay
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.runtime.getValue
@@ -132,6 +144,55 @@ class OverlayEffects {
     }
 }
 
+/** The documented type scale: every font size and line height in the overlay comes from here. */
+object JuiceType {
+    val Spurt = 64.sp
+    val Stat = 34.sp
+    val Title = 25.sp
+    val SheetHeading = 20.sp
+    val Dialogue = 18.sp
+    val Name = 18.sp
+    val Chat = 15.sp
+    val Body = 14.sp
+    val Button = 14.sp
+    val Label = 13.sp
+    val Caption = 12.sp
+    val Badge = 11.sp
+
+    val TitleLine = 30.sp
+    val DialogueLine = 26.sp
+    val ChatLine = 21.sp
+    val LabelLine = 13.sp
+}
+
+/** The documented corner radii. */
+object JuiceShapes {
+    val Card = RoundedCornerShape(30.dp)
+    val Input = RoundedCornerShape(28.dp)
+    val Pill = RoundedCornerShape(24.dp)
+    val Bubble = RoundedCornerShape(16.dp)
+    val Badge = RoundedCornerShape(14.dp)
+    val Field = RoundedCornerShape(12.dp)
+    val SheetTop = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+
+    /** For anything whose radius is half its height: thin bars, round-ended pills and badges. */
+    val Capsule = RoundedCornerShape(50)
+}
+
+/** The smallest height a person can reliably tap. */
+val MinTouchTarget = 44.dp
+
+/**
+ * Makes the element clickable over at least [MinTouchTarget] tall, while the visible element after it in the
+ * chain keeps its own height. No ripple, so it looks as it did before.
+ */
+fun Modifier.touchTarget(onClick: () -> Unit, enabled: Boolean = true): Modifier = composed {
+    val source = remember { MutableInteractionSource() }
+    clickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+        .heightIn(min = MinTouchTarget)
+        .wrapContentHeight(Alignment.CenterVertically)
+}
+
 object JuiceColors {
     val Ink = Color(0xFF0B1A22)
     val Sheet = Color(0xFF14161F)
@@ -139,6 +200,11 @@ object JuiceColors {
     val Ok = Color(0xFF4ADE80)
     val No = Color(0xFFF87171)
     val Muted = Color(0xFFCBD5E1)
+
+    /** The overlay ground's gradient stops, used by overlayTint. */
+    val GroundTeal = Color(0xFF0F2E35)
+    val GroundInk = Ink
+    val GroundIndigo = Color(0xFF1A1838)
 
     fun white(alpha: Float) = Color.White.copy(alpha = alpha)
 
