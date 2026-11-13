@@ -98,6 +98,17 @@ class LayeringTest {
     }
 
     @Test
+    fun `coach imports only the Groq transport types from intake`() {
+        val allowed = listOf("GroqTransport", "GroqHttpException", "KeyCheck", "GroqEnvelopeException")
+            .map { "import com.juice.intake.$it" }
+        val violations = sourceFiles("coach").flatMap { file ->
+            importsOf(file).filter { it.startsWith("import com.juice.intake.") && it !in allowed }
+                .map { "${file.path}: $it" }
+        }
+        assertTrue(violations.isEmpty(), "coach may only use the Groq transport from intake:\n" + violations.joinToString("\n"))
+    }
+
+    @Test
     fun `data importing a feature or ui is a violation`() {
         val v = layeringViolations(dataPath, "package com.juice.data\n\nimport com.juice.ui.overlay.X\n")
         assertEquals(1, v.size)
