@@ -19,7 +19,7 @@ import com.juice.data.MemoryStore
 import com.juice.data.PendingCoachCardStore
 import com.juice.intake.CharacterGenerator
 import com.juice.intake.IntakeDependencies
-import com.juice.llm.GroqClient
+import com.juice.intake.GroqClient
 import com.juice.notify.ReminderScheduler
 import com.juice.settings.CharacterSettings
 import com.juice.settings.GroqKeyStore
