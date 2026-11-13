@@ -241,8 +241,16 @@ class CoachChatTest {
         assertEquals(Expression.NEUTRAL, chat.expression)
         sendAndWait(chat, "[happy] Nice work")
         assertEquals(Expression.HAPPY, chat.expression)
-        assertEquals("Nice work", chat.messages.last().content)
+        assertEquals("Nice work", chat.messages.last().text)
         assertEquals(Expression.HAPPY, chat.messages.last().expression)
+    }
+
+    @Test
+    fun theChatKeepsPlayerAndCoachLinesInOrderWithTheirSides() {
+        val chat = chat {}
+        sendAndWait(chat, "[happy] Nice work")
+        assertEquals(listOf("hi", "Nice work"), chat.messages.map { it.text })
+        assertEquals(listOf(false, true), chat.messages.map { it.fromCoach })
     }
 
     @Test
@@ -251,7 +259,7 @@ class CoachChatTest {
         sendAndWait(chat, "[happy] Nice")
         sendAndWait(chat, "[confused] Huh")
         assertEquals(Expression.NEUTRAL, chat.expression)
-        assertEquals("[confused] Huh", chat.messages.last().content)
+        assertEquals("[confused] Huh", chat.messages.last().text)
     }
 
     @Test
