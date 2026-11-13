@@ -1,8 +1,8 @@
 package com.juice.coach
 
 import com.juice.data.ChatMessage
-import com.juice.llm.GroqClient
-import com.juice.llm.GroqHttpException
+import com.juice.intake.GroqTransport
+import com.juice.intake.GroqHttpException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -99,18 +99,18 @@ class CoachClientTest {
     }
 
     @Test fun reasonsAreShortAndPlain() {
-        assertEquals("Groq's rate limit was hit (429). Wait a minute and try again.", GroqClient.reason(GroqHttpException(429, null, "")))
-        assertEquals("Groq rejected the API key (401).", GroqClient.reason(GroqHttpException(401, "invalid_api_key", "")))
-        assertEquals("The coach's answer wasn't valid JSON (400).", GroqClient.reason(GroqHttpException(400, "json_validate_failed", "")))
-        assertEquals("Groq no longer offers the model (400).", GroqClient.reason(GroqHttpException(400, "model_decommissioned", "")))
-        assertEquals("Groq is having trouble (503). Try again soon.", GroqClient.reason(GroqHttpException(503, null, "")))
-        assertEquals("Groq error 413: Request too large", GroqClient.reason(GroqHttpException(413, null, "Request too large")))
-        assertEquals("Groq took too long to answer.", GroqClient.reason(SocketTimeoutException()))
+        assertEquals("Groq's rate limit was hit (429). Wait a minute and try again.", GroqTransport.reason(GroqHttpException(429, null, "")))
+        assertEquals("Groq rejected the API key (401).", GroqTransport.reason(GroqHttpException(401, "invalid_api_key", "")))
+        assertEquals("The coach's answer wasn't valid JSON (400).", GroqTransport.reason(GroqHttpException(400, "json_validate_failed", "")))
+        assertEquals("Groq no longer offers the model (400).", GroqTransport.reason(GroqHttpException(400, "model_decommissioned", "")))
+        assertEquals("Groq is having trouble (503). Try again soon.", GroqTransport.reason(GroqHttpException(503, null, "")))
+        assertEquals("Groq error 413: Request too large", GroqTransport.reason(GroqHttpException(413, null, "Request too large")))
+        assertEquals("Groq took too long to answer.", GroqTransport.reason(SocketTimeoutException()))
         assertEquals(
             "Couldn't look up Groq's server. A VPN, ad blocker or Private DNS setting can cause this.",
-            GroqClient.reason(UnknownHostException()),
+            GroqTransport.reason(UnknownHostException()),
         )
-        assertEquals("The connection to Groq failed: Connection reset", GroqClient.reason(ConnectException("Connection reset")))
-        assertEquals("offline", GroqClient.reason(IOException("offline")))
+        assertEquals("The connection to Groq failed: Connection reset", GroqTransport.reason(ConnectException("Connection reset")))
+        assertEquals("offline", GroqTransport.reason(IOException("offline")))
     }
 }
