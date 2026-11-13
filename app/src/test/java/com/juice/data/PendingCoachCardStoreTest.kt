@@ -25,4 +25,24 @@ class PendingCoachCardStoreTest {
         file.delete()
         assertEquals(emptySet(), PendingCoachCardStore(file).ids())
     }
+
+    @Test
+    fun unversionedFileFromPreviousReleaseLoadsSameIds() {
+        file.writeText("a\nb")
+        assertEquals(setOf("a", "b"), PendingCoachCardStore(file).ids())
+    }
+
+    @Test
+    fun savedFileStartsWithVersion1Header() {
+        PendingCoachCardStore(file).add("a")
+        assertEquals("#juice-pending-cards v1", file.readLines().first())
+    }
+
+    @Test
+    fun futureVersionIsEmptyAndIsNotRewritten() {
+        val future = "#juice-pending-cards v99\na"
+        file.writeText(future)
+        assertEquals(emptySet(), PendingCoachCardStore(file).ids())
+        assertEquals(future, file.readText())
+    }
 }
