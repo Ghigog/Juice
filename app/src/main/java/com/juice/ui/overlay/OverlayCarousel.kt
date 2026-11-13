@@ -224,7 +224,7 @@ internal fun Carousel(
                                 drawLine(lineColor, Offset(0f, y), Offset(size.width, y), 3.dp.toPx(), StrokeCap.Round)
                             }
                         }
-                        .roundedClip(RoundedCornerShape(16.dp))
+                        .roundedClip(JuiceShapes.Bubble)
                         .background(JuiceColors.white(if (isCentre) 0.24f else 0.12f))
                         .clickable {
                             scope.launch { listState.animateScrollToItem(index) }
@@ -235,9 +235,9 @@ internal fun Carousel(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(typeColor))
                         Spacer(Modifier.width(5.dp))
-                        Text(item.type.name.uppercase(), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = typeColor)
+                        Text(item.type.name.uppercase(), fontSize = JuiceType.Badge, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = typeColor)
                     }
-                    Text(item.title, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+                    Text(item.title, fontSize = JuiceType.Badge, lineHeight = JuiceType.LabelLine, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
                 }
             }
         }

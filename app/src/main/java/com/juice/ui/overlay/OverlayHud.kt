@@ -55,6 +55,9 @@ import com.juice.R
 import com.juice.ui.Tier
 import kotlinx.coroutines.delay
 
+/** The visible undo pill inside its 44 dp touch target. */
+internal const val TAG_UNDO_PILL = "undo_pill"
+
 @Composable
 internal fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
     val left = remember(undo) { Animatable(1f) }
@@ -62,29 +65,30 @@ internal fun UndoToast(undo: Undo, hud: Hud, onUndo: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(JuiceShapes.Bubble)
             .background(JuiceColors.Toast)
-            .border(1.dp, JuiceColors.white(0.18f), RoundedCornerShape(22.dp)),
+            .border(1.dp, JuiceColors.white(0.18f), JuiceShapes.Bubble),
     ) {
         Row(Modifier.fillMaxSize().padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(if (undo.dismissed) R.string.overlay_undo_archived else R.string.overlay_undo_completed, undo.item.title),
-                fontSize = 13.sp,
+                fontSize = JuiceType.Label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Box(
-                Modifier
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(hud.accent)
-                    .clickable(onClick = onUndo)
-                    .padding(horizontal = 16.dp)
-                    .testTag(TAG_UNDO),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(stringResource(R.string.overlay_undo), color = JuiceColors.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Box(Modifier.testTag(TAG_UNDO).touchTarget(onUndo), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .height(32.dp)
+                        .testTag(TAG_UNDO_PILL)
+                        .clip(JuiceShapes.Capsule)
+                        .background(hud.accent)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(stringResource(R.string.overlay_undo), color = JuiceColors.Ink, fontSize = JuiceType.Label, fontWeight = FontWeight.Bold)
+                }
             }
         }
         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(left.value).height(3.dp).background(hud.accent))
@@ -97,7 +101,7 @@ internal fun HydrationLabel(hud: Hud, modifier: Modifier = Modifier) {
     val label = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 1f), 6f))
     Text(
         stringResource(R.string.overlay_thirst, hud.tier.name, Math.round(hud.fill * 100)),
-        fontSize = 11.sp,
+        fontSize = JuiceType.Badge,
         letterSpacing = 1.5.sp,
         fontWeight = FontWeight.Bold,
         style = LocalTextStyle.current.merge(label),
@@ -117,14 +121,14 @@ internal fun MultiplierBadge(hud: Hud) {
             .graphicsLayer { scaleX = pulse; scaleY = pulse }
             .widthIn(min = 56.dp)
             .height(34.dp)
-            .clip(RoundedCornerShape(17.dp))
+            .clip(JuiceShapes.Capsule)
             .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
-            .border(if (satiated) 2.dp else 1.dp, hud.accent, RoundedCornerShape(17.dp))
+            .border(if (satiated) 2.dp else 1.dp, hud.accent, JuiceShapes.Capsule)
             .padding(horizontal = 12.dp)
             .testTag(TAG_MULTIPLIER),
         contentAlignment = Alignment.Center,
     ) {
-        Text(hud.multiplierLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(hud.multiplierLabel, fontSize = JuiceType.Dialogue, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -153,13 +157,13 @@ internal fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
             Modifier
                 .width(310.dp)
                 .heightIn(min = 40.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(JuiceShapes.Pill)
                 .background(hud.accent)
                 .padding(horizontal = 16.dp, vertical = 10.dp)
                 .testTag(TAG_BANNER),
             contentAlignment = Alignment.Center,
         ) {
-            Text(last, color = JuiceColors.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(last, color = JuiceColors.Ink, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         }
     }
 }
@@ -176,7 +180,7 @@ internal fun Floats(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
             }
             Text(
                 float.text,
-                fontSize = 34.sp,
+                fontSize = JuiceType.Stat,
                 fontWeight = FontWeight.Bold,
                 color = hud.accent,
                 textAlign = TextAlign.Center,
