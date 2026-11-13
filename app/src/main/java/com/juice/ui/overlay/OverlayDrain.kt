@@ -76,10 +76,10 @@ internal fun OverlayDrain(item: Item, from: Rect, to: Rect, onDone: () -> Unit, 
                     rotationZ = frame.rotation
                     alpha = frame.alpha
                 }
-                .background(JuiceColors.of(item.type).copy(alpha = 0.85f), RoundedCornerShape(24.dp))
+                .background(JuiceColors.of(item.type).copy(alpha = 0.85f), JuiceShapes.Pill)
                 .testTag(TAG_DRAIN_GHOST),
         ) {
-            Text(item.title, fontSize = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(16.dp))
+            Text(item.title, fontSize = JuiceType.Dialogue, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(16.dp))
         }
     }
 }

@@ -77,7 +77,7 @@ internal fun Capture(
         onDraftChange("")
         onLeave()
     }
-    val shape = RoundedCornerShape(if (writing) 24.dp else 28.dp)
+    val shape = if (writing) JuiceShapes.Pill else JuiceShapes.Input
     Row(
         modifier.fillMaxWidth().then(if (writing) Modifier else Modifier.height(56.dp)),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -86,7 +86,7 @@ internal fun Capture(
             value = draft,
             onValueChange = onDraftChange,
             singleLine = !writing,
-            textStyle = LocalTextStyle.current.copy(fontSize = if (writing) 20.sp else 15.sp),
+            textStyle = LocalTextStyle.current.copy(fontSize = if (writing) JuiceType.SheetHeading else JuiceType.Chat),
             cursorBrush = SolidColor(Color.White),
             keyboardOptions = KeyboardOptions(imeAction = if (writing) ImeAction.Default else ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -105,7 +105,7 @@ internal fun Capture(
                         .padding(horizontal = 20.dp, vertical = if (writing) 18.dp else 0.dp),
                     contentAlignment = if (writing) Alignment.TopStart else Alignment.CenterStart,
                 ) {
-                    if (draft.isEmpty()) Text(stringResource(R.string.overlay_capture_hint), fontSize = if (writing) 20.sp else 15.sp, color = JuiceColors.white(0.6f))
+                    if (draft.isEmpty()) Text(stringResource(R.string.overlay_capture_hint), fontSize = if (writing) JuiceType.SheetHeading else JuiceType.Chat, color = JuiceColors.white(0.6f))
                     field()
                 }
             },
