@@ -34,13 +34,13 @@ import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.liquid.Geyser
 import com.juice.feedback.FeedbackEvent
+import com.juice.ui.face.FaceColors
 import kotlin.math.min
 import kotlin.random.Random
 
 const val TAG_SHAKE_PROMPT = "shake_prompt"
 
 private const val STEP_MS = 1000f / 60f
-private val FOAM = Color(0xFFFFF8EC)
 
 /** True while the meter reads 100%, rounded the way the hydration label rounds it; 99% is not full. */
 internal fun shakeArmed(fill: Float): Boolean = Math.round(fill * 100) >= 100
@@ -92,7 +92,7 @@ internal fun ShakeReward(hud: Hud, reduceMotion: Boolean, actions: OverlayAction
                 val fade = 1f - d.age.toFloat() / d.life
                 val at = Offset(d.x * density, d.y * density)
                 drawCircle(accent.copy(alpha = 0.5f * fade), d.r * 1.4f * density, at)
-                drawCircle(FOAM.copy(alpha = 0.9f * fade), d.r * density, at)
+                drawCircle(FaceColors.Cream.copy(alpha = 0.9f * fade), d.r * density, at)
             }
         }
         if (prompting) ShakePrompt(accent, { pressure }, Modifier.align(Alignment.Center))
@@ -108,7 +108,7 @@ private fun ShakePrompt(accent: Color, pressure: () -> Float, modifier: Modifier
     Box(modifier) {
         Text(
             stringResource(R.string.overlay_shake),
-            fontSize = 64.sp,
+            fontSize = JuiceType.Spurt,
             fontWeight = FontWeight.Black,
             letterSpacing = 4.sp,
             color = Color.White,

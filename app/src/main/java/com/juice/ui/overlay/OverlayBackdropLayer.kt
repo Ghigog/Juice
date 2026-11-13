@@ -46,7 +46,7 @@ internal fun overlayGroundAlpha(blurred: Boolean): Float = if (blurred) 0.35f el
 internal fun overlayTint(blurred: Boolean): Brush {
     val alpha = overlayGroundAlpha(blurred)
     return Brush.linearGradient(
-        listOf(Color(0xFF0F2E35), Color(0xFF0B1A22), Color(0xFF1A1838)).map { it.copy(alpha = alpha) },
+        listOf(JuiceColors.GroundTeal, JuiceColors.GroundInk, JuiceColors.GroundIndigo).map { it.copy(alpha = alpha) },
     )
 }
 

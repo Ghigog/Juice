@@ -13,10 +13,10 @@ Everything is liquid. Every tap is a squeeze. The overlay is thin tinted glass w
 
 ## Tokens (source of truth in code)
 
-- Colour: `JuiceColors` (OverlayParts.kt), `FlavourTheme`, the ground in `overlayTint` (OverlayShell.kt), launcher colours in `res/values/colors.xml`.
+- Colour: `JuiceColors` (OverlayParts.kt), `FlavourTheme`, the ground gradient in `JuiceColors`' ground tokens (OverlayParts.kt: GroundTeal, GroundInk, GroundIndigo), used by `overlayTint` in OverlayBackdropLayer.kt, launcher colours in `res/values/colors.xml`.
 - Glass: white 10% (fields), 14% (cards, inputs, bubbles, 1 dp border at 25 to 28%), 24% (focused carousel), black 28% (wells).
-- Type: Space Grotesk 400/500/700. Card title 25/30 medium, dialogue 18/26 medium, name 18 bold, chat 15, body 14, button 14 bold, badge 11 bold +1 tracking.
-- Radius: card 30, input 28, pill 24 (48 high), bubble 16, badge 14, field 12. Touch targets at least 44 dp.
+- Type: Space Grotesk 400/500/700, as `JuiceType` (OverlayParts.kt). Spurt 64, stat 34, card title 25/30 medium, sheet heading 20, dialogue 18/26 medium, name 18 bold, chat 15/21, body 14, button 14 bold, label 13, caption 12, badge 11 bold +1 tracking. Line heights 30, 26, 21 and 13.
+- Radius: `JuiceShapes` (OverlayParts.kt). Card 30, input 28, pill 24 (48 high), bubble 16, badge 14, field 12, capsule 50% (anything whose radius is half its height). Touch targets at least 44 dp: clickable controls shorter than that use the `Modifier.touchTarget` helper, which grows the tappable area and leaves the visible pill its own height.
 - Motion: `OverlayMotion.kt` (reveal 320 ms, entrance 350 ms with 60 ms stagger, 1.5 sway cycles, pop swell 1.08, 14 froth bubbles).
 
 ## Landscape
