@@ -45,7 +45,7 @@ import com.juice.feedback.VibratorOutput
 import com.juice.intake.CaptureIntake
 import com.juice.intake.IntakeWorker
 import com.juice.settings.JuiceSettings
-import com.juice.intake.GroqClient
+import com.juice.intake.saveAndCheckGroqKey
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
 import com.juice.ui.liquid.JuiceLiquidView
@@ -440,8 +440,7 @@ class OverlayService : Service() {
             onSaveGroqKey = { key, onChecked ->
                 scope.launch {
                     val check = withContext(Dispatchers.IO) {
-                        groqKeyStore.save(key)
-                        runCatching { GroqClient(key.value).checkKey() }.getOrDefault(KeyCheck.Unreachable)
+                        saveAndCheckGroqKey(key, groqKeyStore, container.groqFor)
                     }
                     groqKeyMasked.value = key.masked
                     if (!settings.reduceMotion) reservoir.emitParticles(10)

@@ -12,13 +12,16 @@ import kotlinx.serialization.json.put
  * again, up to [MAX_ATTEMPTS] times in all; after that, or on any other failure, it throws [IOException].
  */
 class CoachClient(
-    apiKey: String,
-    baseUrl: String = "https://api.groq.com/openai/v1",
+    private val transport: GroqTransport,
     private val model: String = GroqTransport.MODEL,
-    /** Waits between attempts, in milliseconds. */
-    sleep: (Long) -> Unit = Thread::sleep,
 ) {
-    private val transport = GroqTransport(apiKey, baseUrl, sleep)
+    constructor(
+        apiKey: String,
+        baseUrl: String = "https://api.groq.com/openai/v1",
+        model: String = GroqTransport.MODEL,
+        /** Waits between attempts, in milliseconds. */
+        sleep: (Long) -> Unit = Thread::sleep,
+    ) : this(GroqTransport(apiKey, baseUrl, sleep), model)
 
     /**
      * Returns the model's reply to [messages] under [systemPrompt]; [jsonMode] forces a JSON object reply, at

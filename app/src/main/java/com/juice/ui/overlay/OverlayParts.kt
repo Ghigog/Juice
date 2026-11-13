@@ -109,7 +109,7 @@ class OverlayActions(
     val shake: () -> Float = { 0f },
     /** The full meter's juice was shaken until it burst; heaves the reservoir. */
     val onErupt: () -> Unit = {},
-    /** The saved Groq key in its masked form (`gsk_…1234`); null when none is saved. The full key is never exposed. */
+    /** The saved Groq key in its masked form (`abcd…1234`); null when none is saved. The full key is never exposed. */
     val groqKeyMasked: StateFlow<String?> = MutableStateFlow(null),
     /** Saves the pasted key and checks it off the main thread; [onChecked] gets the result on the main thread. */
     val onSaveGroqKey: (GroqKey, onChecked: (KeyCheck) -> Unit) -> Unit = { _, onChecked -> onChecked(KeyCheck.Works) },
