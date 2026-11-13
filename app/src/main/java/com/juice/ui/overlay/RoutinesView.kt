@@ -79,7 +79,7 @@ internal fun RoutinesView(
         Spacer(Modifier.height(12.dp))
         if (state.items.isEmpty()) {
             Text(
-                stringResource(R.string.routines_empty), color = JuiceColors.white(0.75f),
+                stringResource(R.string.routines_empty), fontSize = JuiceType.Caption, lineHeight = JuiceType.CaptionLine, color = JuiceColors.Muted,
                 modifier = Modifier.weight(1f).testTag(TAG_ROUTINES_EMPTY),
             )
         } else {

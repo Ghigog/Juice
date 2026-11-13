@@ -19,7 +19,7 @@
     <string name="routines_open">Open Routines</string>
     <string name="routines_close">Close Routines</string>
     <string name="routines_title">Routines</string>
-    <string name="routines_empty">No Routines yet.</string>
+    <string name="routines_empty">Nothing on repeat yet. Squeeze a habit in and it will come back around.</string>
     <string name="recap_open">Open Recap</string>
     <string name="recap_close">Close Recap</string>
     <string name="recap_title">Recap</string>
@@ -133,7 +133,7 @@
     <string name="creator_hint">e.g. plumbing</string>
     <string name="creator_confirm">Summon</string>
     <string name="creator_progress">Summoning your coach…</string>
-    <string name="creator_error">Could not summon a coach: %1$s</string>
+    <string name="creator_error">Your coach slipped away: %1$s Give it another squeeze.</string>
     <string name="coach_needs_cloud">The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again.</string>
     <string name="coach_unreachable">%1$s could not be reached. %2$s</string>
     <string name="chip_picker_deadline">Pick a day</string>
