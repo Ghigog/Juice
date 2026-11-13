@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -80,24 +79,24 @@ internal fun SettingsSheet(
 ) {
     Column(
         modifier
-            .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+            .clip(JuiceShapes.SheetTop)
             .background(JuiceColors.Sheet)
-            .border(1.dp, JuiceColors.white(0.2f), RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+            .border(1.dp, JuiceColors.white(0.2f), JuiceShapes.SheetTop)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 22.dp),
     ) {
         Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Box(
-                Modifier
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(JuiceColors.white(0.14f))
-                    .clickable(onClick = onDone)
-                    .padding(horizontal = 16.dp)
-                    .testTag(TAG_SETTINGS_DONE),
-                contentAlignment = Alignment.Center,
-            ) { Text(stringResource(R.string.overlay_done), fontSize = 13.sp) }
+            Text(stringResource(R.string.settings_title), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Box(Modifier.testTag(TAG_SETTINGS_DONE).touchTarget(onDone), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .height(36.dp)
+                        .clip(JuiceShapes.Capsule)
+                        .background(JuiceColors.white(0.14f))
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(stringResource(R.string.overlay_done), fontSize = JuiceType.Label) }
+            }
         }
         SettingsContent(settings, hud, actions, groqKeySaved, onSwipeDistance, characters)
     }
@@ -141,8 +140,8 @@ internal fun SettingsContent(
         }
         Text(
             stringResource(R.string.settings_card_order_note),
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            fontSize = JuiceType.Caption,
+            lineHeight = JuiceType.CaptionLine,
             color = JuiceColors.white(0.7f),
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -153,8 +152,8 @@ internal fun SettingsContent(
         }
         Text(
             stringResource(R.string.settings_liquid_quality_note),
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            fontSize = JuiceType.Caption,
+            lineHeight = JuiceType.CaptionLine,
             color = JuiceColors.white(0.7f),
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -171,8 +170,8 @@ internal fun SettingsContent(
         }
         Text(
             stringResource(R.string.settings_flavour_note),
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            fontSize = JuiceType.Caption,
+            lineHeight = JuiceType.CaptionLine,
             color = JuiceColors.white(0.7f),
             modifier = Modifier.padding(top = 6.dp),
         )
@@ -187,7 +186,7 @@ internal fun SettingsContent(
 private fun SectionLabel(text: Int) {
     Text(
         stringResource(text).uppercase(),
-        fontSize = 12.sp,
+        fontSize = JuiceType.Caption,
         letterSpacing = 1.5.sp,
         color = JuiceColors.white(0.7f),
         modifier = Modifier.padding(top = 20.dp, bottom = 10.dp),
@@ -211,7 +210,7 @@ private fun <T> ChoiceRow(
                 Modifier
                     .weight(1f)
                     .height(44.dp)
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(JuiceShapes.Pill)
                     .background(if (on) hud.accent else JuiceColors.white(0.14f))
                     .selectable(selected = on, role = Role.RadioButton) { onSelect(option) }
                     .testTag(tag(option)),
@@ -219,7 +218,7 @@ private fun <T> ChoiceRow(
             ) {
                 Text(
                     label(option),
-                    fontSize = 13.sp,
+                    fontSize = JuiceType.Label,
                     fontWeight = FontWeight.Bold,
                     color = if (on) JuiceColors.Ink else Color.White,
                 )
@@ -258,8 +257,8 @@ private fun Toggle(label: Int, note: Int, checked: Boolean, hud: Hud, enabled: B
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(stringResource(label), fontSize = 15.sp)
-            Text(stringResource(note), fontSize = 12.sp, color = JuiceColors.white(0.7f))
+            Text(stringResource(label), fontSize = JuiceType.Chat)
+            Text(stringResource(note), fontSize = JuiceType.Caption, color = JuiceColors.white(0.7f))
         }
         Switch(
             checked = checked,
@@ -285,20 +284,20 @@ private fun FlavourTile(flavour: Flavour, selected: Boolean, unlocked: Boolean, 
         modifier
             .height(76.dp)
             .alpha(if (unlocked) 1f else 0.45f)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(JuiceShapes.Bubble)
             .background(Brush.linearGradient(listOf(Color(theme.accent), Color(theme.deep))))
-            .border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(20.dp))
+            .border(2.dp, if (selected) Color.White else Color.Transparent, JuiceShapes.Bubble)
             .clickable(enabled = unlocked, onClick = onPick)
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .testTag(TAG_FLAVOUR_PREFIX + flavour.name),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(flavour.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold, style = shadow)
+        Text(flavour.displayName, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold, style = shadow)
         Spacer(Modifier.height(2.dp))
         Text(
             if (unlocked) stringResource(R.string.settings_flavour_level, flavour.unlockLevel)
             else stringResource(R.string.settings_flavour_locked, flavour.unlockLevel),
-            fontSize = 12.sp,
+            fontSize = JuiceType.Caption,
             style = shadow,
         )
     }
@@ -327,13 +326,13 @@ private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
                     Modifier
                         .weight(1f)
                         .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(JuiceShapes.Field)
                         .background(JuiceColors.white(0.1f))
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     if (text.isEmpty()) {
-                        Text(stringResource(R.string.settings_groq_key_hint), fontSize = 14.sp, fontFamily = SpaceGrotesk, color = JuiceColors.white(0.7f))
+                        Text(stringResource(R.string.settings_groq_key_hint), fontSize = JuiceType.Body, fontFamily = SpaceGrotesk, color = JuiceColors.white(0.7f))
                     }
                     BasicTextField(
                         value = text,
@@ -341,7 +340,7 @@ private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp, fontFamily = SpaceGrotesk),
+                        textStyle = TextStyle(color = Color.White, fontSize = JuiceType.Body, fontFamily = SpaceGrotesk),
                         cursorBrush = SolidColor(Color.White),
                         modifier = Modifier.fillMaxWidth().testTag(TAG_GROQ_KEY_FIELD),
                     )
@@ -362,11 +361,11 @@ private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
                     Modifier
                         .weight(1f)
                         .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(JuiceShapes.Field)
                         .background(JuiceColors.white(0.1f))
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart,
-                ) { Text(masked.orEmpty(), fontSize = 14.sp, fontFamily = SpaceGrotesk, modifier = Modifier.testTag(TAG_GROQ_KEY_MASKED)) }
+                ) { Text(masked.orEmpty(), fontSize = JuiceType.Body, fontFamily = SpaceGrotesk, modifier = Modifier.testTag(TAG_GROQ_KEY_MASKED)) }
                 Pill(R.string.settings_groq_key_remove, TAG_GROQ_KEY_REMOVE, enabled = true) {
                     check = null
                     actions.onRemoveGroqKey()
@@ -382,7 +381,7 @@ private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
         if (note != null && masked != null) {
             Text(
                 stringResource(note),
-                fontSize = 12.sp,
+                fontSize = JuiceType.Caption,
                 color = JuiceColors.white(0.7f),
                 modifier = Modifier.padding(top = 6.dp).testTag(TAG_GROQ_KEY_NOTE),
             )
@@ -401,13 +400,18 @@ private fun GroqKeyRow(actions: OverlayActions, reduceMotion: Boolean) {
 private fun Pill(label: Int, tag: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
-            .height(36.dp)
             .alpha(if (enabled) 1f else 0.45f)
-            .clip(RoundedCornerShape(18.dp))
-            .background(JuiceColors.white(0.14f))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp)
-            .testTag(tag),
+            .testTag(tag)
+            .touchTarget(onClick, enabled),
         contentAlignment = Alignment.Center,
-    ) { Text(stringResource(label), fontSize = 13.sp, fontFamily = SpaceGrotesk) }
+    ) {
+        Box(
+            Modifier
+                .height(36.dp)
+                .clip(JuiceShapes.Capsule)
+                .background(JuiceColors.white(0.14f))
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text(stringResource(label), fontSize = JuiceType.Label, fontFamily = SpaceGrotesk) }
+    }
 }

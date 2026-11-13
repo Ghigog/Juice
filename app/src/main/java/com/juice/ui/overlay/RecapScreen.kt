@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -114,7 +113,7 @@ fun RecapScreen(
             .testTag(TAG_RECAP_SCREEN),
     ) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.recap_title), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.recap_title), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(
                 Modifier
                     .size(44.dp)
@@ -124,7 +123,7 @@ fun RecapScreen(
                     .semantics { contentDescription = closeLabel }
                     .testTag(TAG_RECAP_CLOSE),
                 contentAlignment = Alignment.Center,
-            ) { Text("✕", fontSize = 18.sp) }
+            ) { Text("✕", fontSize = JuiceType.Dialogue) }
         }
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
@@ -174,46 +173,46 @@ private fun RecapSection(recap: Recap, hud: Hud, reduceMotion: Boolean, onReveal
                 alpha = entrance.value
                 translationY = (1f - entrance.value) * 24.dp.toPx()
             }
-            .clip(RoundedCornerShape(20.dp))
+            .clip(JuiceShapes.Bubble)
             .background(JuiceColors.white(0.08f))
             .padding(16.dp)
             .testTag(TAG_RECAP_SECTION_PREFIX + name),
     ) {
-        Text(stringResource(recap.period.title()), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = hud.accent)
+        Text(stringResource(recap.period.title()), fontSize = JuiceType.Dialogue, fontWeight = FontWeight.Bold, color = hud.accent)
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 6.dp)) {
             Text(
                 (recap.completedCount * counter.value).roundToInt().toString(),
-                fontSize = 34.sp,
+                fontSize = JuiceType.Stat,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag(TAG_RECAP_COUNT_PREFIX + name),
             )
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.recap_completed_label), fontSize = 13.sp, color = JuiceColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
+            Text(stringResource(R.string.recap_completed_label), fontSize = JuiceType.Label, color = JuiceColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
             Spacer(Modifier.weight(1f))
             Text(
                 stringResource(R.string.recap_juice_size, String.format("%,d", (recap.size * counter.value).toLong())),
-                fontSize = 14.sp,
+                fontSize = JuiceType.Body,
                 color = JuiceColors.Muted,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
         }
         if (recap.groups.isEmpty()) {
-            Text(stringResource(R.string.recap_empty), fontSize = 13.sp, color = JuiceColors.Muted, modifier = Modifier.padding(top = 8.dp).testTag(TAG_RECAP_EMPTY_PREFIX + name))
+            Text(stringResource(R.string.recap_empty), fontSize = JuiceType.Label, color = JuiceColors.Muted, modifier = Modifier.padding(top = 8.dp).testTag(TAG_RECAP_EMPTY_PREFIX + name))
         }
         recap.groups.forEach { group ->
             val color = JuiceColors.of(group.type)
-            Text(group.type.name.uppercase(), fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(top = 12.dp))
+            Text(group.type.name.uppercase(), fontSize = JuiceType.Badge, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(top = 12.dp))
             group.entries.forEach { entry ->
-                Text(entry.item.title, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                Text(entry.item.title, fontSize = JuiceType.Body, modifier = Modifier.padding(top = 4.dp))
                 entry.steps.forEach { step ->
-                    Text(stringResource(R.string.recap_step_done, step.title), fontSize = 12.sp, color = JuiceColors.Muted, modifier = Modifier.padding(start = 12.dp, top = 2.dp))
+                    Text(stringResource(R.string.recap_step_done, step.title), fontSize = JuiceType.Caption, color = JuiceColors.Muted, modifier = Modifier.padding(start = 12.dp, top = 2.dp))
                 }
             }
         }
-        Text(stringResource(R.string.recap_burndown), fontSize = 11.sp, letterSpacing = 1.sp, color = JuiceColors.Muted, modifier = Modifier.padding(top = 16.dp))
+        Text(stringResource(R.string.recap_burndown), fontSize = JuiceType.Badge, letterSpacing = 1.sp, color = JuiceColors.Muted, modifier = Modifier.padding(top = 16.dp))
         Text(
             stringResource(R.string.recap_open_at_start, recap.burndown.actual.first().open),
-            fontSize = 12.sp,
+            fontSize = JuiceType.Caption,
             color = JuiceColors.Muted,
         )
         BurndownChart(

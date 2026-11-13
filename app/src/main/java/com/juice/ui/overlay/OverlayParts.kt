@@ -166,7 +166,7 @@ object JuiceType {
     val SheetHeadingLine = 20.sp
     val NameLine = 24.sp
     val BodyLine = 20.sp
-    val CaptionLine = 16.sp
+    val CaptionLine = 17.sp
 }
 
 /** The documented corner radii. */

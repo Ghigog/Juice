@@ -15,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,12 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import com.juice.core.progression.Progression
 import com.juice.llm.GroqClient
 import com.juice.llm.KeyCheck
 import com.juice.ui.overlay.Hud
 import com.juice.ui.overlay.JuiceColors
+import com.juice.ui.overlay.JuiceShapes
+import com.juice.ui.overlay.JuiceType
 import com.juice.ui.overlay.OverlayActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,18 +116,18 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun PermissionPrompt(hud: Hud, onOpen: () -> Unit) {
         Column(Modifier.padding(bottom = 20.dp)) {
-            Text(stringResource(R.string.overlay_permission_title), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.overlay_permission_body), fontSize = 12.sp, color = JuiceColors.white(0.7f))
+            Text(stringResource(R.string.overlay_permission_title), fontSize = JuiceType.Chat, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.overlay_permission_body), fontSize = JuiceType.Caption, color = JuiceColors.white(0.7f))
             Box(
                 Modifier
                     .padding(top = 10.dp)
                     .heightIn(min = 44.dp)
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(JuiceShapes.Pill)
                     .background(JuiceColors.white(0.14f))
                     .clickable(role = Role.Button, onClick = onOpen)
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(stringResource(R.string.overlay_permission_open_settings), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(R.string.overlay_permission_open_settings), fontSize = JuiceType.Label, fontWeight = FontWeight.Bold) }
         }
     }
 
