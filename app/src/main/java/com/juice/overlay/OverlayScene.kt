@@ -136,6 +136,7 @@ internal class OverlayScene(
             onCaptured = intake::submit,
             cardOrder = settings().cardOrder,
             onCustomOrder = { scope.launch { settingsRepository.update { it.copy(cardOrder = CardOrder.Custom) } } },
+            categoryRepository = container.categories,
             characters = characters,
             registry = characters.registry(),
             pendingCards = container.pendingCards,

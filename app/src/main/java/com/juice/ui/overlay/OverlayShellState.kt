@@ -5,6 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.juice.core.card.CardOrder
 import com.juice.core.card.sortedFor
+import com.juice.core.category.Categories
+import com.juice.core.category.Category
+import com.juice.core.category.categoryName
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ChipSpan
@@ -20,6 +23,7 @@ import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.routine.Cadence
 import com.juice.core.character.CharacterRegistry
+import com.juice.data.CategoryRepository
 import com.juice.data.CharacterRepository
 import com.juice.data.CREATOR_CARD_ID
 import com.juice.data.CoachCardKind
@@ -40,7 +44,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -52,6 +59,9 @@ data class TitleEdit(val itemId: String, val text: String)
 
 /** The chip whose picker is open: which card, and the [span] of its title the pick will replace. */
 data class ChipPicker(val itemId: String, val span: ChipSpan)
+
+/** The name field being open: for a new category, or for renaming [renaming]. */
+data class CategoryNaming(val renaming: Category? = null)
 
 /** State of the overlay: the Active items shown in the carousel and the pending undo. */
 class OverlayShellState(
@@ -85,7 +95,89 @@ class OverlayShellState(
     cardOrder: CardOrder = CardOrder.Custom,
     /** Called when a drag switches the order to Custom, so the setting can be saved. */
     private val onCustomOrder: () -> Unit = {},
+    /** The person's categories; null keeps the overlay on Main alone. */
+    private val categoryRepository: CategoryRepository? = null,
 ) {
+    /** Every category, Main first. */
+    var categories by mutableStateOf(Categories(listOf(MAIN)))
+        private set
+
+    /** The category whose cards are shown; always Main when the overlay opens. */
+    var category by mutableStateOf(MAIN)
+        private set
+
+    private val categoryId = MutableStateFlow(Category.MAIN_ID)
+
+    /** The name field, when open. */
+    var categoryNaming by mutableStateOf<CategoryNaming?>(null)
+        private set
+
+    private fun show(target: Category) {
+        category = target
+        items = emptyList()
+        categoryId.value = target.id
+    }
+
+    /** Moves to the next category; false on the last. */
+    fun nextCategory(): Boolean {
+        val next = categories.next(category.id) ?: return false
+        show(next)
+        return true
+    }
+
+    /** Moves to the previous category; false on Main. */
+    fun previousCategory(): Boolean {
+        val previous = categories.previous(category.id) ?: return false
+        show(previous)
+        return true
+    }
+
+    fun beginNewCategory() {
+        categoryNaming = CategoryNaming()
+    }
+
+    /** Opens the name field on the current category; Main cannot be renamed. */
+    fun beginRename() {
+        if (category.id == Category.MAIN_ID) return
+        categoryNaming = CategoryNaming(category)
+    }
+
+    fun cancelNaming() {
+        categoryNaming = null
+    }
+
+    /** Creates or renames with [text]; a blank name closes the field and changes nothing. A new category is opened, empty. */
+    fun saveNaming(text: String) {
+        val naming = categoryNaming ?: return
+        categoryNaming = null
+        val name = categoryName(text) ?: return
+        val repo = categoryRepository ?: return
+        val renaming = naming.renaming
+        if (renaming != null) {
+            val renamed = renaming.copy(name = name)
+            categories = Categories(categories.list.map { if (it.id == renamed.id) renamed else it })
+            if (category.id == renamed.id) category = renamed
+            scope.launch { repo.rename(renamed.id, name) }
+        } else {
+            scope.launch {
+                val created = repo.create(name) ?: return@launch
+                if (categories.indexOf(created.id) < 0) categories = Categories(categories.list + created)
+                show(created)
+            }
+        }
+    }
+
+    /** Moves the held card to the top of the neighbouring category and goes there; false when nothing is held or there is no neighbour. */
+    fun carryHeld(forward: Boolean): Boolean {
+        val card = items.firstOrNull { it.id == held } ?: return false
+        val neighbour = (if (forward) categories.next(category.id) else categories.previous(category.id)) ?: return false
+        held = null
+        show(neighbour)
+        items = listOf(card.copy(categoryId = neighbour.id))
+        scope.launch { repository.moveToCategory(card.id, neighbour.id) }
+        return true
+    }
+
     private var currentOrder by mutableStateOf(cardOrder)
     val cardOrder: CardOrder get() = currentOrder
     var items by mutableStateOf(initial.sortedFor(cardOrder))
@@ -184,7 +276,7 @@ class OverlayShellState(
     fun capture(text: String): Item? {
         val title = text.trim()
         if (title.isEmpty()) return null
-        val note = Item(newId(), ItemType.Note, title)
+        val note = Item(newId(), ItemType.Note, title, categoryId = category.id)
         items = if (cardOrder == CardOrder.Oldest) items + note else listOf(note) + items
         scope.launch {
             repository.save(note)
@@ -209,14 +301,23 @@ class OverlayShellState(
     private var observingRoutines = false
 
     /** Keeps the cards in step with the repository, so a parse landing later updates an open card. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observe() {
         // The Routines view calls this each time it opens; one collector is enough.
         if (listsRoutines) {
             if (observingRoutines) return
             observingRoutines = true
         }
+        if (!listsRoutines) categoryRepository?.let { repo ->
+            scope.launch {
+                repo.observe().collect { list ->
+                    categories = Categories(list)
+                    list.firstOrNull { it.id == category.id }?.let { category = it }
+                }
+            }
+        }
         scope.launch {
-            (if (listsRoutines) repository.observeRoutines() else repository.observeActive(today)).collect { saved ->
+            (if (listsRoutines) repository.observeRoutines() else categoryId.flatMapLatest { repository.observeActive(today, it) }).collect { saved ->
                 val flowOpen = creator != null
                 val byId = saved.filterNot { flowOpen && it.id == CREATOR_CARD_ID }.associateBy { it.id }
                 val landed = parsing.filter { id ->
@@ -477,6 +578,8 @@ class OverlayShellState(
     }
 
     companion object {
+        private val MAIN = Category(Category.MAIN_ID, Category.MAIN_NAME)
+
         const val UNDO_WINDOW_MILLIS = 10_000L
 
         /** How long a card shows that a cloud parse is running before giving up on showing it. */
