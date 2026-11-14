@@ -72,7 +72,11 @@ class MainActivity : ComponentActivity() {
                 val onboardingSeen by repository.onboardingSeen.collectAsState(initial = null)
                 val settings by repository.settings.collectAsState(initial = JuiceSettings())
                 if (onboardingSeen == false) {
-                    OnboardingScreen(onContinue = { scope.launch { repository.markOnboardingSeen() } })
+                    OnboardingScreen(
+                        onContinue = { scope.launch { repository.markOnboardingSeen() } },
+                        accent = Hud(flavour = settings.flavour ?: Progression.flavourFor(1)).accent,
+                        reduceMotion = settings.reduceMotion,
+                    )
                     return@MaterialTheme
                 }
                 val groqKeyStore = container.groqKeyStore
