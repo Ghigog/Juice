@@ -396,6 +396,7 @@ class OverlayShellState(
         if (flow.busy || hobby.isBlank()) return
         flow.busy = true
         flow.error = null
+        flow.limitReached = false
         scope.launch {
             val result = withContext(io) { repo.createCharacter(hobby.trim()) }
             flow.busy = false
@@ -406,7 +407,7 @@ class OverlayShellState(
                     creator = null
                 }
                 is CreateResult.Failed -> flow.error = result.message
-                CreateResult.LimitReached -> flow.error = "You have as many coaches as you can keep"
+                CreateResult.LimitReached -> flow.limitReached = true
             }
         }
     }
@@ -501,4 +502,6 @@ fun swipeOf(stroke: List<GesturePoint>, minDistance: Double): Swipe? {
 class CreatorState {
     var busy by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
+    /** The person already keeps as many coaches as they can; the card shows the limit copy. */
+    var limitReached by mutableStateOf(false)
 }

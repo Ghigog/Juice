@@ -146,13 +146,13 @@ internal fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
     val banner = effects.banner
     LaunchedEffect(banner) {
         if (banner != null) {
-            delay(maxOf(BANNER_MILLIS, banner.second.length * BANNER_MILLIS_PER_CHAR))
-            effects.clearBanner(banner.first)
+            delay(maxOf(BANNER_MILLIS, banner.text.length * BANNER_MILLIS_PER_CHAR))
+            effects.clearBanner(banner.id)
         }
     }
     AnimatedVisibility(banner != null, modifier = modifier, enter = fadeIn(), exit = fadeOut()) {
-        var last by remember { mutableStateOf("") }
-        if (banner != null) last = banner.second
+        var last by remember { mutableStateOf(ShownBanner(0, "", TAG_BANNER)) }
+        if (banner != null) last = banner
         Box(
             Modifier
                 .width(310.dp)
@@ -160,10 +160,10 @@ internal fun Banner(effects: OverlayEffects, hud: Hud, modifier: Modifier) {
                 .clip(JuiceShapes.Pill)
                 .background(hud.accent)
                 .padding(horizontal = 16.dp, vertical = 10.dp)
-                .testTag(TAG_BANNER),
+                .testTag(last.tag),
             contentAlignment = Alignment.Center,
         ) {
-            Text(last, color = JuiceColors.Ink, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(last.text, color = JuiceColors.Ink, fontSize = JuiceType.Body, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         }
     }
 }

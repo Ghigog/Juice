@@ -15,7 +15,7 @@ Everything is liquid. Every tap is a squeeze. The overlay is thin tinted glass w
 
 - Colour: `JuiceColors` (OverlayParts.kt), `FlavourTheme`, the ground gradient in `JuiceColors`' ground tokens (OverlayParts.kt: GroundTeal, GroundInk, GroundIndigo), used by `overlayTint` in OverlayBackdropLayer.kt, launcher colours in `res/values/colors.xml`.
 - Glass: white 10% (fields), 14% (cards, inputs, bubbles, 1 dp border at 25 to 28%), 24% (focused carousel), black 28% (wells).
-- Type: Space Grotesk 400/500/700, as `JuiceType` (OverlayParts.kt). Spurt 64, stat 34, card title 25/30 medium, sheet heading 20, dialogue 18/26 medium, name 18 bold, chat 15/21, body 14, button 14 bold, label 13, caption 12, badge 11 bold +1 tracking. Line heights 30, 26, 21, 17 (caption) and 13.
+- Type: Space Grotesk 400/500/700, as `JuiceType` (OverlayParts.kt). Spurt 64, stat 34, card title 25/30 medium, sheet heading 20, dialogue 18/26 medium, name 18 bold, chat 15/21, body 14, button 14 bold, label 13, caption 12, badge 11 bold +1 tracking. Line heights 30 (title), 26 (dialogue), 24 (name), 21 (chat), 20 (body and sheet heading), 17 (caption) and 13 (label).
 - Radius: `JuiceShapes` (OverlayParts.kt). Card 30, input 28, pill 24 (48 high), bubble 16, badge 14, field 12, capsule 50% (anything whose radius is half its height). Touch targets at least 44 dp: clickable controls shorter than that use the `Modifier.touchTarget` helper, which grows the tappable area and leaves the visible pill its own height.
 - Motion: `OverlayMotion.kt` (reveal 320 ms, entrance 350 ms with 60 ms stagger, 1.5 sway cycles, pop swell 1.08, 14 froth bubbles).
 
@@ -84,12 +84,13 @@ Every state is one `Text` in the screen's own area, in Juice's warm voice (say w
 
 | Screen | State | Copy | Type | Colour | Where it sits |
 | --- | --- | --- | --- | --- | --- |
-| Carousel | empty (`overlay_empty`) | "All squeezed. Add a note below." | `JuiceType.Dialogue` 18/24, centred | white 85% | Centred in the empty card. No error state: intake failures show `overlay_not_recognised` in the banner. |
+| Carousel | empty (`overlay_empty`) | "All squeezed. Add a note below." | `JuiceType.Dialogue` 18/26 (`DialogueLine`), centred | white 85% | Centred in the empty card. No error state: intake failures show `overlay_not_recognised` in the banner. |
 | Recap | empty (`recap_empty`, tag `recap_empty_<section>`) | "Nothing completed yet. Your next win lands here." | `JuiceType.Label` | `JuiceColors.Muted` | Under each section heading. No error state: it reads local data. |
 | Routines | empty (`routines_empty`, tag `routines_empty`) | "Nothing on repeat yet. Squeeze a habit in and it will come back around." | `JuiceType.Caption` / `CaptionLine` | `JuiceColors.Muted` | Top-left of the area below the title. No error state. |
-| Coach chat | `CoachNotice.CloudRequired` (`coach_needs_cloud`) | "The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again." | Banner text | Banner glass, white | The overlay `Banner` under the top bar, not inside the chat. |
-| Coach chat | `CoachNotice.Unreachable` (`coach_unreachable`) | "%1$s could not be reached. %2$s" (name, reason) | Banner text | Banner glass, white | Same banner. No empty state: a new chat opens on the coach's greeting. |
+| Coach chat | `CoachNotice.CloudRequired` (`coach_needs_cloud`, tag `coach_needs_cloud`) | "The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again." | Banner text | Banner glass, white | The overlay `Banner` under the top bar, not inside the chat. |
+| Coach chat | `CoachNotice.Unreachable` (`coach_unreachable`, tag `coach_unreachable`) | "%1$s could not be reached. %2$s" (name, reason) | Banner text | Banner glass, white | Same banner. No empty state: a new chat opens on the coach's greeting. |
 | Creator | error (`creator_error`, tag `creator_error`) | "Your coach slipped away: %1$s Give it another squeeze." | `JuiceType.Chat` | white 80% | Between the hobby input and the buttons. No empty state: the input hint (`creator_hint`) is its empty state. |
+| Creator | limit reached (`creator_limit_reached`, tag `creator_error`) | "Your shelf is full of coaches. Let one go to make room for a new one." | `JuiceType.Chat` | white 80% | Same place as the creator error. |
 
 ## Landscape
 

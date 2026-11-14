@@ -606,6 +606,20 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun aFullShelfOfCoachesFlagsTheLimitAndAddsNoCard() = runBlocking {
+        val (state, characters) = creatorState { """{"name":"Pipe Pete","personality":"Gruff but kind.","personaPrompt":"You are Pete."}""" }
+        characters.createCreatorCardIfDue(10)
+        state.observe()
+        state.complete(state.items.single())
+        repeat(5) { characters.createCharacter("h$it") }
+
+        state.createCharacter("one more")
+
+        assertEquals(true, state.creator?.limitReached)
+        assertEquals(null, state.creator?.error)
+    }
+
+    @Test
     fun aFailedGenerationShowsTheErrorAndAddsNoCard() = runBlocking {
         val (state, characters) = creatorState { throw IOException("offline") }
         characters.createCreatorCardIfDue(10)

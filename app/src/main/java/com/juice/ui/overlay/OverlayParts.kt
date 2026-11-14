@@ -120,19 +120,22 @@ class OverlayActions(
 /** A rising "+250 x2.4" over the card. */
 data class FloatingText(val id: Long, val text: String)
 
+/** A banner on show: [id] tells it from the one before, [tag] is its test tag. */
+data class ShownBanner(val id: Long, val text: String, val tag: String)
+
 /** Transient moments the host raises: the banner and the floating Juice amounts. */
 class OverlayEffects {
-    var banner by mutableStateOf<Pair<Long, String>?>(null)
+    var banner by mutableStateOf<ShownBanner?>(null)
         private set
     val floats = mutableStateListOf<FloatingText>()
     private var nextId = 0L
 
-    fun banner(text: String) {
-        banner = ++nextId to text
+    fun banner(text: String, tag: String = TAG_BANNER) {
+        banner = ShownBanner(++nextId, text, tag)
     }
 
     fun clearBanner(id: Long) {
-        if (banner?.first == id) banner = null
+        if (banner?.id == id) banner = null
     }
 
     fun float(text: String) {
