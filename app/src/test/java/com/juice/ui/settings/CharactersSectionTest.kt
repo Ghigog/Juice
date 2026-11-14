@@ -28,6 +28,7 @@ import com.juice.data.MemoryStore
 import com.juice.settings.CharacterSettings
 import java.io.File
 import java.time.DayOfWeek
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -151,7 +152,7 @@ class CharactersSectionTest {
         runBlocking {
             characters.unlockAtLevel(jim, 5)
             items.delete("meet-jim")
-            characters.recordConversation(jim.id)
+            characters.recordConversation(jim.id, Instant.parse("2026-10-01T00:00:00Z"))
         }
         show()
         compose.waitForIdle()

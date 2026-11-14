@@ -76,7 +76,7 @@ class OverlayService : Service() {
     private val coachChats by lazy {
         CoachChats(
             registry = { characters.registry() }, disabledIds = characterStore::disabledIds, characters = { characters },
-            conversationFor = container::coachConversationFor, coachTasks = container::coachTasks, scope = scope,
+            conversationFor = container::coachConversationFor, coachTasks = container::coachTasks, scope = scope, clock = clock,
         )
     }
     @Volatile private var settings = JuiceSettings()
@@ -297,7 +297,7 @@ class OverlayService : Service() {
         val scene = OverlayScene(
             context = this, container = container, scope = scope, settings = { settings }, feedback = feedback,
             groqKey = groqKey, coachChats = coachChats, closeRequest = closeRequest, blur = blur, screen = screen,
-            characterSettings = characterSettings,
+            characterSettings = characterSettings, clock = clock,
         )
         val lifecycleOwner = OverlayLifecycleOwner().also { it.start() }
         val composeView = ComposeView(this)

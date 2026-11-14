@@ -64,7 +64,7 @@ class OverlayTouchTargetsTest {
     @Test fun undoAndTypePillAreAtLeast44TallWhileTheVisiblePillsKeepTheirHeight() {
         val state = OverlayShellState(
             ItemRepository(db.itemDao()), scope, listOf(Item("a", ItemType.Task, "Call Sam"), Item("b", ItemType.Note, "Buy milk")),
-            today = LocalDate.of(2026, 10, 28), clock = { CLOCK.instant() },
+            today = LocalDate.of(2026, 10, 28), clock = CLOCK,
         )
         compose.mainClock.autoAdvance = false
         compose.setContent {

@@ -12,6 +12,10 @@ import com.juice.ui.theme.FlavourTheme
 import com.juice.feedback.SoundSet
 import com.juice.feedback.Feedback
 import com.juice.feedback.FeedbackEvent
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -34,7 +38,11 @@ class GameSessionTest {
             override fun playCompletion(multiplier: Double) { completionMultipliers += multiplier; events += FeedbackEvent.CHECKMARK }
             override fun useSoundSet(soundSet: SoundSet) { soundSets += soundSet }
         },
-        clock = { now },
+        clock = object : Clock() {
+            override fun getZone() = ZoneOffset.UTC
+            override fun withZone(zone: ZoneId) = this
+            override fun instant(): Instant = Instant.ofEpochMilli(now)
+        },
         onSatiated = { satiated++ },
         onFlavourChanged = { themes += it },
         onLevelUp = { level, unlocked -> levelUps += level to unlocked },

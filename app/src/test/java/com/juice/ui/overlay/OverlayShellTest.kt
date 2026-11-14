@@ -116,7 +116,7 @@ class OverlayShellTest {
         sliceShown: () -> Boolean = { true },
         reservoir: @Composable (Modifier) -> Unit = { PlainReservoir(hud, it) },
     ) {
-        state = OverlayShellState(repository, scope, items.toList(), today = TODAY, clock = { CLOCK.instant() })
+        state = OverlayShellState(repository, scope, items.toList(), today = TODAY, clock = CLOCK)
         // The clock only moves when a test moves it, so the 10 second undo window holds until then.
         compose.mainClock.autoAdvance = false
         compose.setContent { OverlayShell(state, clock = CLOCK, settings = JuiceSettings(reduceMotion = reduceMotion), hud = hud, actions = actions, writingBack = writingBack, onRevealProgress = onRevealProgress, sliceShown = sliceShown(), reservoir = reservoir) }
