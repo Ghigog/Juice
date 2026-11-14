@@ -2,6 +2,7 @@ package com.juice.ui.overlay
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,6 +14,8 @@ import androidx.compose.ui.test.swipeRight
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.RegisterComposeActivity
+import com.juice.core.model.Item
+import com.juice.core.intake.ItemType
 import com.juice.data.CategoryEntity
 import com.juice.data.CategoryRepository
 import com.juice.data.ItemRepository
@@ -135,5 +138,19 @@ class CategorySwipeTest {
         compose.mainClock.advanceTimeBy(5000)
         compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).assertTextEquals("Work")
         compose.onNodeWithTag(TAG_CATEGORY_EMPTY).assertIsDisplayed()
+    }
+
+    @Test
+    fun theOutgoingCategoryKeepsItsOwnCardsWhileSliding() {
+        runBlocking { ItemRepository(db.itemDao()).save(Item("m1", ItemType.Note, "Only in main")) }
+        val state = show("Work", reduceMotion = false)
+        compose.mainClock.autoAdvance = false
+        state.nextCategory()
+        repeat(20) { compose.mainClock.advanceTimeByFrame() }
+        // Mid-slide the old Main card is still drawn, not the incoming list.
+        assert(compose.onAllNodesWithText("Only in main", substring = true).fetchSemanticsNodes().isNotEmpty())
+        compose.mainClock.autoAdvance = true
+        compose.mainClock.advanceTimeBy(5000)
+        assertEquals(0, compose.onAllNodesWithText("Only in main", substring = true).fetchSemanticsNodes().size)
     }
 }
