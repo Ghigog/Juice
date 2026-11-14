@@ -333,10 +333,10 @@ internal fun CentreCard(
             Text(
                 stringResource(R.string.overlay_empty),
                 fontSize = JuiceType.Dialogue,
-                lineHeight = JuiceType.NameLine,
+                lineHeight = JuiceType.DialogueLine,
                 color = JuiceColors.white(0.85f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                modifier = Modifier.align(Alignment.Center).padding(24.dp).testTag(TAG_OVERLAY_EMPTY),
             )
         } else {
             // A short, wide card (a phone on its side) puts the title and list beside the worth and buttons.

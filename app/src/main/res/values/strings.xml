@@ -134,6 +134,7 @@
     <string name="creator_confirm">Summon</string>
     <string name="creator_progress">Summoning your coach…</string>
     <string name="creator_error">Your coach slipped away: %1$s Give it another squeeze.</string>
+    <string name="creator_limit_reached">Your shelf is full of coaches. Let one go to make room for a new one.</string>
     <string name="coach_needs_cloud">The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again.</string>
     <string name="coach_unreachable">%1$s could not be reached. %2$s</string>
     <string name="chip_picker_deadline">Pick a day</string>

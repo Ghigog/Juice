@@ -112,6 +112,9 @@ const val TAG_FLAVOUR_PREFIX = "flavour_"
 const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
 const val TAG_LIQUID_QUALITY_PREFIX = "liquid_quality_"
 const val TAG_BANNER = "banner"
+const val TAG_OVERLAY_EMPTY = "overlay_empty"
+const val TAG_COACH_NEEDS_CLOUD = "coach_needs_cloud"
+const val TAG_COACH_UNREACHABLE = "coach_unreachable"
 const val MAX_CARD_SCALE = 1.15f
 
 /** True when [y] lies between the first visible item's start and the last one's end but on no item: a gap between cards. */
@@ -449,8 +452,8 @@ fun OverlayShell(
             val unreachable = chat?.let { stringResource(R.string.coach_unreachable, it.character.name, it.reason) }.orEmpty()
             LaunchedEffect(chat?.notice) {
                 when (chat?.notice) {
-                    CoachNotice.CloudRequired -> effects.banner(needsCloud)
-                    CoachNotice.Unreachable -> effects.banner(unreachable)
+                    CoachNotice.CloudRequired -> effects.banner(needsCloud, TAG_COACH_NEEDS_CLOUD)
+                    CoachNotice.Unreachable -> effects.banner(unreachable, TAG_COACH_UNREACHABLE)
                     null -> {}
                 }
             }

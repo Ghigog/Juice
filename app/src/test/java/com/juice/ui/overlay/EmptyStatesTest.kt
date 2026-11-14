@@ -1,10 +1,12 @@
 package com.juice.ui.overlay
 
 import android.content.Context
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -64,5 +66,42 @@ class EmptyStatesTest {
         compose.setContent { CreatorFlow(creator, Hud(), {}, {}) }
         compose.onNodeWithTag(TAG_CREATOR_ERROR)
             .assertTextEquals("Your coach slipped away: no signal Give it another squeeze.")
+    }
+
+    @Test
+    fun aFullShelfShowsTheLimitCopyUnderTheCreatorErrorTag() {
+        val creator = CreatorState().apply { limitReached = true }
+        compose.setContent { CreatorFlow(creator, Hud(), {}, {}) }
+        compose.onNodeWithTag(TAG_CREATOR_ERROR)
+            .assertTextEquals("Your shelf is full of coaches. Let one go to make room for a new one.")
+    }
+
+    @Test
+    fun theEmptyCarouselShowsItsWarmCopy() {
+        val state = OverlayShellState(ItemRepository(db.itemDao()), scope, emptyList())
+        compose.setContent {
+            CentreCard(
+                state = state, item = null, hud = Hud(), tapButtons = false, reduceMotion = true, onDeviceOnly = false,
+                actions = OverlayActions(), effects = OverlayEffects(), reservoir = {}, modifier = Modifier,
+            )
+        }
+        compose.onNodeWithTag(TAG_OVERLAY_EMPTY).assertIsDisplayed().assertTextEquals("All squeezed. Add a note below.")
+    }
+
+    @Test
+    fun theCoachNoticesShowTheirCopyUnderTheirOwnTags() {
+        val effects = OverlayEffects()
+        compose.mainClock.autoAdvance = false
+        compose.setContent { Banner(effects, Hud(), Modifier) }
+        compose.mainClock.advanceTimeByFrame()
+        compose.runOnUiThread { effects.banner("The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again.", TAG_COACH_NEEDS_CLOUD); Snapshot.sendApplyNotifications() }
+        repeat(30) { compose.mainClock.advanceTimeByFrame() }
+        compose.onNodeWithTag(TAG_COACH_NEEDS_CLOUD).onChild()
+            .assertTextEquals("The coach needs a Groq key. Save yours in Settings, turn off On-device only and try again.")
+        compose.onNodeWithTag(TAG_BANNER).assertDoesNotExist()
+
+        compose.runOnUiThread { effects.banner("Mango could not be reached. offline", TAG_COACH_UNREACHABLE); Snapshot.sendApplyNotifications() }
+        repeat(30) { compose.mainClock.advanceTimeByFrame() }
+        compose.onNodeWithTag(TAG_COACH_UNREACHABLE).onChild().assertTextEquals("Mango could not be reached. offline")
     }
 }

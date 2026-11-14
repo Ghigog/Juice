@@ -70,8 +70,9 @@ internal fun CreatorFlow(creator: CreatorState, hud: Hud, onConfirm: (String) ->
         )
         Spacer(Modifier.height(12.dp))
         if (creator.busy) Text(stringResource(R.string.creator_progress), Modifier.testTag(TAG_CREATOR_PROGRESS), fontSize = JuiceType.Chat)
-        creator.error?.let {
-            Text(stringResource(R.string.creator_error, it), Modifier.testTag(TAG_CREATOR_ERROR), fontSize = JuiceType.Chat, color = JuiceColors.white(0.8f))
+        val errorText = if (creator.limitReached) stringResource(R.string.creator_limit_reached) else creator.error?.let { stringResource(R.string.creator_error, it) }
+        errorText?.let {
+            Text(it, Modifier.testTag(TAG_CREATOR_ERROR), fontSize = JuiceType.Chat, color = JuiceColors.white(0.8f))
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
