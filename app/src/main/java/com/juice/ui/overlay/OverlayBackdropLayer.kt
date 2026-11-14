@@ -43,8 +43,10 @@ internal fun overlayGroundAlpha(blurred: Boolean): Float = if (blurred) 0.35f el
  * enough for the blurred screen to show through; at 0.9 it hid the blur completely. It is drawn over the
  * slice backdrop and also backs the panels, so it stays light but dark enough for white text.
  */
-internal fun overlayTint(blurred: Boolean): Brush {
-    val alpha = overlayGroundAlpha(blurred)
+internal fun overlayTint(blurred: Boolean): Brush = overlayGround(overlayGroundAlpha(blurred))
+
+/** The ground gradient at [alpha]; 1 for screens with nothing behind them, such as onboarding. */
+internal fun overlayGround(alpha: Float): Brush {
     return Brush.linearGradient(
         listOf(JuiceColors.GroundTeal, JuiceColors.GroundInk, JuiceColors.GroundIndigo).map { it.copy(alpha = alpha) },
     )
