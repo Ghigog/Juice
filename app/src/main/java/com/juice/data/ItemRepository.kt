@@ -68,7 +68,7 @@ class ItemRepository(
         reminders.sync(saved)
     }
 
-    /** Stores the order the user chose: [ids] first to last. */
+    /** Stores the order the user chose: [ids] first to last. Only these cards are touched, so other categories keep their places. */
     suspend fun reorder(ids: List<String>) = writes.withLock {
         val base = (dao.maxPosition() ?: 0) + 1
         ids.forEachIndexed { index, id -> dao.setPosition(id, base + index) }
@@ -99,6 +99,16 @@ class ItemRepository(
     /** Active items, re-emitted whenever they change. */
     fun observeActive(today: LocalDate = LocalDate.now()): Flow<List<Item>> =
         dao.observeActive(today.toEpochDay()).visible()
+
+    /** Active items in the category [categoryId], re-emitted whenever they change. */
+    fun observeActive(today: LocalDate = LocalDate.now(), categoryId: String): Flow<List<Item>> =
+        dao.observeActive(today.toEpochDay(), categoryId).visible()
+
+    /** Puts [id] first in [categoryId]; it leaves the list it was in. */
+    suspend fun moveToCategory(id: String, categoryId: String) = writes.withLock {
+        if (dao.get(id) == null) return@withLock
+        dao.setCategory(id, categoryId, (dao.minPosition(categoryId) ?: 0) - 1)
+    }
 
     /** Items for a Recap: not archived, and either still active or completed at or after [since]. */
     suspend fun recapItems(since: Instant): List<Item> =

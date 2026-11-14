@@ -1,5 +1,6 @@
 package com.juice.core.model
 
+import com.juice.core.category.Category
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.routine.Cadence
@@ -44,4 +45,6 @@ data class Item(
     val notifyAt: Instant? = null,
     /** What the notification says; set with [notifyAt]. */
     val notifyText: String? = null,
+    /** The category (list) the card is in; Main until moved. */
+    val categoryId: String = Category.MAIN_ID,
 )

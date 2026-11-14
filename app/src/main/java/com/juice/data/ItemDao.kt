@@ -23,6 +23,12 @@ interface ItemDao {
     @Query("UPDATE items SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 
+    @Query("SELECT MIN(position) FROM items WHERE categoryId = :categoryId")
+    suspend fun minPosition(categoryId: String): Int?
+
+    @Query("UPDATE items SET categoryId = :categoryId, position = :position WHERE id = :id")
+    suspend fun setCategory(id: String, categoryId: String, position: Int)
+
     @Query("SELECT * FROM items WHERE characterId = :characterId ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun byCharacter(characterId: String): List<ItemEntity>
 
@@ -37,6 +43,9 @@ interface ItemDao {
 
     @Query("SELECT * FROM items WHERE status = 'Active' AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     fun observeActive(todayEpochDay: Long): Flow<List<ItemEntity>>
+
+    @Query("SELECT * FROM items WHERE status = 'Active' AND categoryId = :categoryId AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
+    fun observeActive(todayEpochDay: Long, categoryId: String): Flow<List<ItemEntity>>
 
     @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun routines(): List<ItemEntity>

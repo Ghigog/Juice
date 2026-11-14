@@ -8,6 +8,7 @@ import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.intake.GroqKey
 import com.juice.core.progression.Progression
+import com.juice.data.CategoryRepository
 import com.juice.data.CharacterRepository
 import com.juice.data.CharacterStore
 import com.juice.data.ConversationStore
@@ -26,6 +27,7 @@ import com.juice.settings.GroqKeyStore
 import com.juice.settings.SettingsRepository
 import java.io.File
 import java.time.Clock
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 
 /** Builds the app's stores, repositories and Groq clients once, lazily, for the service, activity, boot receiver and worker to share. */
@@ -44,6 +46,8 @@ open class AppContainer(
     val conversationStore: ConversationStore by lazy { ConversationStore(File(context.filesDir, "conversations.json")) }
     val pendingCards: PendingCoachCardStore by lazy { PendingCoachCardStore(File(context.filesDir, "pending-coach-cards.txt")) }
     val economyStore: EconomyStore by lazy { EconomyStore(context) }
+
+    val categories: CategoryRepository by lazy { CategoryRepository(database.categoryDao()) { UUID.randomUUID().toString() } }
 
     override val items: ItemRepository by lazy {
         ItemRepository(
