@@ -520,7 +520,7 @@ internal fun CentreCard(
                 }
             }
         }
-        ChipPickers(state)
+        ChipPickers(state, hud, actions)
         Canvas(Modifier.fillMaxSize()) {
             val all = strokes + if (current.size > 1) listOf(current.toList()) else emptyList()
             all.forEach { stroke ->

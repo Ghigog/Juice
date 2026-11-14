@@ -2,6 +2,10 @@ package com.juice.ui.overlay
 
 import android.content.Context
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.unit.dp
+import com.juice.feedback.FeedbackEvent
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -44,6 +48,8 @@ class ChipPickersTest {
 
     private lateinit var db: JuiceDatabase
     private lateinit var state: OverlayShellState
+    private val events = mutableListOf<FeedbackEvent>()
+    private val actions = OverlayActions(feedback = { events += it })
     private val today = LocalDate.of(2026, 10, 28) // a Wednesday
 
     @Before
@@ -62,7 +68,7 @@ class ChipPickersTest {
         val item = Item("i", type, title)
         state = OverlayShellState(ItemRepository(db.itemDao()), CoroutineScope(Dispatchers.Unconfined), listOf(item), today = today)
         state.openChipPicker(item, RulesFallback.spansOf(title, type).first { it.kind == kind })
-        compose.setContent { ChipPickers(state, today, Locale.ENGLISH) }
+        compose.setContent { ChipPickers(state, Hud(), actions, today, Locale.ENGLISH) }
     }
 
     @Test fun deadlinePickerListsTheNextSevenDays() {
@@ -79,6 +85,7 @@ class ChipPickersTest {
         assertEquals("take out the trash on Thursday", state.items.single().title)
         assertNull(state.chipPicker)
         compose.onAllNodes(tagStartsWith("chipPickerDay")).assertCountEquals(0)
+        assertEquals(listOf(FeedbackEvent.SNAP), events)
     }
 
     @Test fun intervalPickerOffersOneToFourWeeks() {
@@ -103,7 +110,7 @@ class ChipPickersTest {
         val item = Item("i", ItemType.Routine, "water tomatoes", cadence = Cadence(DayOfWeek.entries.toSet()), nextDueOn = today)
         state = OverlayShellState(ItemRepository(db.itemDao()), CoroutineScope(Dispatchers.Unconfined), listOf(item), today = today)
         state.openRepeatPicker(item)
-        compose.setContent { ChipPickers(state, today, Locale.ENGLISH) }
+        compose.setContent { ChipPickers(state, Hud(), actions, today, Locale.ENGLISH) }
         compose.onAllNodes(tagStartsWith("repeatPickerDays")).assertCountEquals(6)
         compose.onNodeWithText("Every week").assertExists()
         compose.onNodeWithTag("repeatPickerDays3").performClick()
@@ -113,6 +120,16 @@ class ChipPickersTest {
         assertEquals("Every 3 days", saved.cadence?.label())
         assertEquals(today, saved.nextDueOn)
         assertNull(state.repeatPickerItemId)
+        assertEquals(listOf(FeedbackEvent.SNAP), events)
+    }
+
+    @Test fun everyOptionIsAtLeast44dpTallAndTheTitleRenders() {
+        open("gym every 2 weeks on Mon", ItemType.Routine, ChipKind.Interval)
+        compose.onNodeWithTag(TAG_CHIP_PICKER_TITLE).assertTextEquals("Repeat every")
+        compose.onAllNodes(tagStartsWith("chipPickerDays")).fetchSemanticsNodes().indices.forEach {
+            compose.onAllNodes(tagStartsWith("chipPickerDays"))[it].assertHeightIsAtLeast(44.dp)
+        }
+        compose.onAllNodes(tagStartsWith("chipPickerWeeks"))[0].assertHeightIsAtLeast(44.dp)
     }
 
     @Test fun weekdayPickerOffersSevenWeekdaysAndCloses() {
