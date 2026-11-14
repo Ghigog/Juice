@@ -76,6 +76,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.juice.R
+import com.juice.core.model.Item
 import com.juice.feedback.FeedbackEvent
 import com.juice.settings.CharacterSettings
 import com.juice.settings.JuiceSettings
@@ -590,8 +591,9 @@ internal fun CardRow(
     cardPops: CardPops = remember { CardPops() },
     onJuiceBoxBounds: (Rect) -> Unit = {},
 ) {
-    val list = state.items
     var editing by remember { mutableStateOf(false) }
+    // What each category last showed: the outgoing content of a slide replays this rather than the incoming list.
+    val shown = remember { mutableMapOf<String, Pair<List<Item>, Int>>() }
     AnimatedContent(
         targetState = state.category.id,
         modifier = modifier,
@@ -602,10 +604,13 @@ internal fun CardRow(
         label = "category",
     ) { categoryId ->
     key(categoryId) {
+    val live = categoryId == state.category.id
+    if (live) shown[categoryId] = state.items to centre
+    val (list, shownCentre) = if (live) state.items to centre else shown[categoryId] ?: (state.items to centre)
     Row(Modifier.fillMaxSize()) {
         if (list.isNotEmpty()) {
             // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.
-            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(if (editing) 0.dp else 112.dp).fillMaxHeight())
+            Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = if (live) onCentre else { _ -> }, spin = spin, cardPops = cardPops, modifier = Modifier.width(if (editing) 0.dp else 112.dp).fillMaxHeight())
             if (!editing) Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance).then(cardPops.element(0))) {
@@ -613,7 +618,7 @@ internal fun CardRow(
             Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { onJuiceBoxBounds(it.boundsInRoot()) }.testTag(TAG_JUICE_BOX)) {
                 CentreCard(
                     state = state,
-                    item = list.getOrNull(centre.coerceAtMost(list.lastIndex)),
+                    item = list.getOrNull(shownCentre.coerceAtMost(list.lastIndex)),
                     hud = hud,
                     tapButtons = settings.tapButtons,
                     reduceMotion = settings.reduceMotion,
