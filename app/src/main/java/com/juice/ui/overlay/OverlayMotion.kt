@@ -69,7 +69,7 @@ internal fun entranceSway(fraction: Float): Float {
     return kotlin.math.sin(f * SWAY_CYCLES * 2f * Math.PI.toFloat()) * (1f - f)
 }
 
-private const val SWAY_CYCLES = 1.5f
+internal const val SWAY_CYCLES = 1.5f
 private val ENTRANCE_SWAY = 14.dp
 
 /**
@@ -132,7 +132,7 @@ internal fun popAlpha(progress: Float): Float =
 /** One froth bubble: it leaves [origin], flying [distance] along [angle] (radians), and is [radius] wide. */
 internal data class FrothBubble(val origin: Offset, val angle: Float, val distance: Float, val radius: Float)
 
-private const val BUBBLES_PER_ORIGIN = 14
+internal const val BUBBLES_PER_ORIGIN = 14
 
 /** Froth bursting from each of [origins]; the same [seed] always gives the same bubbles. */
 internal fun frothBubbles(origins: List<Offset>, seed: Long, maxDistance: Float, maxRadius: Float): List<FrothBubble> {

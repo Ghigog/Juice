@@ -23,6 +23,22 @@ class OverlayMotionTest {
     }
 
     @Test
+    fun theDocumentedEntranceSwayAndFrothValuesStayPinned() {
+        assertEquals(350, ITEM_ENTRANCE_MILLIS)
+        assertEquals(60, ENTRANCE_STAGGER_MILLIS)
+        assertEquals(1.5f, SWAY_CYCLES, 0f)
+        assertEquals(14, BUBBLES_PER_ORIGIN)
+    }
+
+    @Test
+    fun frothBurstsFourteenBubblesFromEachOrigin() {
+        val origins = listOf(Offset(10f, 20f), Offset(100f, 200f), Offset(5f, 5f))
+        val bubbles = frothBubbles(origins, seed = 3, maxDistance = 80f, maxRadius = 10f)
+        assertEquals(14 * origins.size, bubbles.size)
+        origins.forEach { origin -> assertEquals(14, bubbles.count { it.origin == origin }) }
+    }
+
+    @Test
     fun cardsStartOneAfterAnother() {
         assertEquals(0, entranceDelayMillis(0))
         assertTrue(entranceDelayMillis(2) > entranceDelayMillis(1))
