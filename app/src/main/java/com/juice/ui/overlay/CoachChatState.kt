@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Clock
 
 /** One line of the chat as the screen draws it: the coach's ([fromCoach]) or the player's. */
 data class CoachChatLine(val fromCoach: Boolean, val text: String, val expression: Expression = Expression.NEUTRAL)
@@ -43,6 +44,7 @@ class CoachChatState(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** Plays the coach's mutter as a reply types out. */
     val feedback: Feedback = SilentFeedback,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) {
     var messages by mutableStateOf(emptyList<CoachChatLine>())
         private set
@@ -126,7 +128,7 @@ class CoachChatState(
         onConfirmed()
         scope.launch {
             characters.createTasks(character.id, tasks)
-            characters.recordConversation(character.id)
+            characters.recordConversation(character.id, clock.instant())
         }
     }
 

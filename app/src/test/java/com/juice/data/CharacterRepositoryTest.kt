@@ -153,7 +153,7 @@ class CharacterRepositoryTest {
         val withChat = CharacterRepository(CharacterStore(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("reset-test", Context.MODE_PRIVATE)), items, conversations)
         withChat.unlockAtLevel(jim, 5)
         withChat.createTasks(jim.id, listOf(CoachTask.Add("Walk", daily)), today)
-        withChat.recordConversation(jim.id)
+        withChat.recordConversation(jim.id, Instant.parse("2026-10-01T00:00:00Z"))
         conversations.save(jim.id, listOf(ChatMessage("user", "hi")))
         withChat.disable(jim)
 
@@ -211,7 +211,7 @@ class CharacterRepositoryTest {
         items.save(Item("checkin-jim", ItemType.Task, "Check in", characterId = jim.id))
         assertFalse(characters.canRestore(jim)) // check-in card
         items.delete("checkin-jim")
-        characters.recordConversation(jim.id)
+        characters.recordConversation(jim.id, Instant.parse("2026-10-01T00:00:00Z"))
         assertFalse(characters.canRestore(jim)) // conversation
         characters.restore(jim)
         assertEquals(emptyList(), items.byCharacter(jim.id))

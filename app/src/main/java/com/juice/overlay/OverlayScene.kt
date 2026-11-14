@@ -28,6 +28,7 @@ import com.juice.ui.overlay.hud
 import com.juice.ui.overlay.multiplierLabel
 import com.juice.ui.overlay.toEconomy
 import kotlinx.coroutines.CoroutineScope
+import java.time.Clock
 import kotlinx.coroutines.launch
 
 /**
@@ -46,6 +47,7 @@ internal class OverlayScene(
     private val blur: OverlayBlur,
     private val screen: OverlayScreen,
     private val characterSettings: CharacterSettings,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) {
     private val repository get() = container.items
     private val characters get() = container.characters
@@ -57,6 +59,7 @@ internal class OverlayScene(
     private val session = GameSession(
         container.economyStore,
         feedback,
+        clock,
         onSatiated = {
             liquid.view.emitParticles()
             liquid.view.kick(3f)
@@ -77,7 +80,7 @@ internal class OverlayScene(
         session.open()
         scope.launch {
             unlockCharacters(session.level)
-            characters.registry().all().forEach { characters.createCheckInIfDue(it) }
+            characters.registry().all().forEach { characters.createCheckInIfDue(it, clock.instant()) }
         }
         feedback.play(FeedbackEvent.OPEN)
         groqKey.loadMasked()
@@ -120,6 +123,7 @@ internal class OverlayScene(
             repository,
             scope,
             emptyList(),
+            clock = clock,
             onCompleted = { item ->
                 val type = item.type.toEconomy()
                 val m = session.multiplier

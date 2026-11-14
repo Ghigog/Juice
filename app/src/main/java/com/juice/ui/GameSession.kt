@@ -1,5 +1,6 @@
 package com.juice.ui
 
+import java.time.Clock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,7 +29,7 @@ enum class Tier { THIRSTY, HYDRATED, SATIATED }
 class GameSession(
     private val store: EconomyStore,
     private val feedback: Feedback,
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: Clock = Clock.systemDefaultZone(),
     private val config: EconomyConfig = EconomyConfig(),
     private val onSatiated: () -> Unit = {},
     private val onFlavourChanged: (FlavourTheme) -> Unit = {},
@@ -75,7 +76,7 @@ class GameSession(
     /** Loads the saved state and drains the meter for the time the overlay was closed. */
     fun open() {
         val saved = store.load()
-        val now = clock()
+        val now = clock.millis()
         lastTick = now
         state = saved?.let {
             val minutes = ((now - it.savedAtMillis).coerceAtLeast(0)) / 60_000.0
@@ -88,7 +89,7 @@ class GameSession(
 
     /** Drains the meter for the time since the last tick, while the overlay stays open. */
     fun tick() {
-        val now = clock()
+        val now = clock.millis()
         val minutes = (now - lastTick).coerceAtLeast(0) / 60_000.0
         lastTick = now
         if (state.meter <= 0.0 || minutes <= 0.0) return
@@ -136,5 +137,5 @@ class GameSession(
         onFlavourChanged(theme)
     }
 
-    private fun persist() = store.save(state, clock())
+    private fun persist() = store.save(state, clock.millis())
 }
