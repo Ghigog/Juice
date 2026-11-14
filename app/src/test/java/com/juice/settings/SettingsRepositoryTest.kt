@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.card.CardOrder
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +22,7 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun updateIsVisibleInCurrent() = runBlocking {
+    fun updateIsVisibleInCurrent() = runTest {
         repository.update { it.copy(sound = false, swipeDistance = SwipeDistance.Long, handleX = 0.25f) }
 
         val current = repository.current()
@@ -33,12 +33,12 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun onDeviceOnlyDefaultsToTrueWhenNothingIsStored() = runBlocking {
+    fun onDeviceOnlyDefaultsToTrueWhenNothingIsStored() = runTest {
         assertTrue(repository.current().onDeviceOnly)
     }
 
     @Test
-    fun cardOrderDefaultsToNewestAndRoundTrips() = runBlocking {
+    fun cardOrderDefaultsToNewestAndRoundTrips() = runTest {
         assertEquals(CardOrder.Newest, repository.current().cardOrder)
 
         repository.update { it.copy(cardOrder = CardOrder.Oldest) }
@@ -47,7 +47,7 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun markOnboardingSeenShowsOnboardingSeen() = runBlocking {
+    fun markOnboardingSeenShowsOnboardingSeen() = runTest {
         repository.markOnboardingSeen()
 
         assertTrue(repository.onboardingSeen.first())
