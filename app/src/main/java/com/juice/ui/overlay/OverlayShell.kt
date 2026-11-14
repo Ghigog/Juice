@@ -1,5 +1,6 @@
 package com.juice.ui.overlay
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -113,6 +114,7 @@ const val TAG_SWIPE_DISTANCE_PREFIX = "swipe_distance_"
 const val TAG_LIQUID_QUALITY_PREFIX = "liquid_quality_"
 const val TAG_BANNER = "banner"
 const val TAG_OVERLAY_EMPTY = "overlay_empty"
+const val TAG_CATEGORY_EMPTY = "category_empty"
 const val TAG_COACH_NEEDS_CLOUD = "coach_needs_cloud"
 const val TAG_COACH_UNREACHABLE = "coach_unreachable"
 const val MAX_CARD_SCALE = 1.15f
@@ -201,7 +203,8 @@ fun OverlayShell(
     var routinesOpen by remember { mutableStateOf(false) }
     // Held here so the draft survives Capture leaving composition while Routines is open.
     var captureDraft by remember { mutableStateOf("") }
-    var centre by remember { mutableStateOf(0) }
+    // A new category starts on its first card.
+    var centre by remember(state.category.id) { mutableStateOf(0) }
     // Where the centre card and the Routines button are, so a Routine not due today can drain from one into the other.
     var juiceBoxBounds by remember { mutableStateOf<Rect?>(null) }
     var routinesBounds by remember { mutableStateOf<Rect?>(null) }
@@ -588,7 +591,16 @@ internal fun CardRow(
 ) {
     val list = state.items
     var editing by remember { mutableStateOf(false) }
-    Row(modifier) {
+    AnimatedContent(
+        targetState = state.category.id,
+        modifier = modifier,
+        transitionSpec = {
+            val forward = state.categories.indexOf(targetState) >= state.categories.indexOf(initialState)
+            categoryTransition(forward, settings.reduceMotion)
+        },
+        label = "category",
+    ) { _ ->
+    Row(Modifier.fillMaxSize()) {
         if (list.isNotEmpty()) {
             // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.
             Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = onCentre, spin = spin, cardPops = cardPops, modifier = Modifier.width(if (editing) 0.dp else 112.dp).fillMaxHeight())
@@ -614,5 +626,6 @@ internal fun CardRow(
                 ShakeReward(hud, settings.reduceMotion, actions, Modifier.fillMaxSize())
             }
         }
+    }
     }
 }
