@@ -168,7 +168,9 @@ internal fun Carousel(
                 }
             }
             .pointerInput(held) {
-                if (held == null) detectTapGestures { tap ->
+                // While a card is held, a tap that no card took puts it back instead of closing the overlay.
+                if (held != null) detectTapGestures { state.cancelHold() }
+                else detectTapGestures { tap ->
                     val spans = listState.layoutInfo.visibleItemsInfo.map { it.offset..(it.offset + it.size) }
                     val committed = state.commitTitleEdit()
                     if (!committed && !tapIsInCarouselGap(tap.y, spans)) actions.onClose()
@@ -227,7 +229,12 @@ internal fun Carousel(
                         .roundedClip(JuiceShapes.Bubble)
                         .background(JuiceColors.white(if (isCentre) 0.24f else 0.12f))
                         .clickable {
-                            scope.launch { listState.animateScrollToItem(index) }
+                            if (item.id == held) {
+                                state.drop()
+                                actions.feedback(FeedbackEvent.CAPTURE)
+                            } else {
+                                scope.launch { listState.animateScrollToItem(index) }
+                            }
                         }
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {

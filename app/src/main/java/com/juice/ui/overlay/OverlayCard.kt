@@ -85,7 +85,6 @@ const val STROKE_PAUSE_MILLIS = 420L
 const val STAR_STROKE_PAUSE_MILLIS = 400L
 
 /** A swipe has to cross this share of the card's width. */
-private const val SWIPE_FRACTION = 0.3f
 const val FLY_MILLIS = 300
 
 private enum class Tint { OK, X, BAD, STAR }
@@ -215,13 +214,7 @@ internal fun CentreCard(
             current.clear()
             current += down.position
             down.consume()
-            var leftSwipe = false
-            // Only a first stroke can be a swipe; a later stroke belongs to a drawing.
-            val swipeLeft = if (strokes.isEmpty()) {
-                SwipeLeftListener((size.width * SWIPE_FRACTION).toDouble()) { leftSwipe = true }
-            } else null
-            swipeLeft?.down(down.position.x.toDouble(), down.position.y.toDouble())
-            // Tapping or holding still on the title edits it; moving starts a stroke.
+            // A press held still past the long-press time picks the card up; a quick tap edits the title; moving starts a stroke.
             val longPress = viewConfiguration.longPressTimeoutMillis
             var stillLifted = false
             val outcome: Boolean? = withTimeoutOrNull(longPress) {
@@ -230,7 +223,6 @@ internal fun CentreCard(
                     val change = awaitPointerEvent().changes.first()
                     change.consume()
                     current += change.position
-                    swipeLeft?.move(change.position.x.toDouble(), change.position.y.toDouble())
                     if (!change.pressed) {
                         // Lifted without moving, after the long-press time: still a long press.
                         stillLifted = change.uptimeMillis - down.uptimeMillis >= longPress
@@ -241,16 +233,30 @@ internal fun CentreCard(
                 }
                 lifted
             }
-            if (outcome != false && (titleBounds.contains(down.position) || bodyBounds.contains(down.position))) {
+            val longPressed = outcome == null || stillLifted
+            val holding = state.held != null
+            if (holding || longPressed) {
                 current.clear()
-                val tappedChip = if (outcome == true && !stillLifted && titleBounds.contains(down.position)) {
+                if (holding) {
+                    // A held card is put down by a tap on the centre card; nothing else on it is drawn or edited.
+                    if (outcome == true && !stillLifted) {
+                        state.drop()
+                        actions.feedback(FeedbackEvent.CAPTURE)
+                    }
+                } else {
+                    state.pickUp(item)
+                    actions.feedback(FeedbackEvent.SNAP)
+                }
+                if (outcome == null || outcome == false) while (awaitPointerEvent().changes.first().pressed) Unit
+                return@awaitEachGesture
+            }
+            if (outcome == true && (titleBounds.contains(down.position) || bodyBounds.contains(down.position))) {
+                current.clear()
+                val tappedChip = if (titleBounds.contains(down.position)) {
                     chips.zip(chipBounds).firstOrNull { (_, bounds) -> bounds.translate(titleBounds.topLeft).contains(down.position) }?.first
                 } else null
-                if (item != null) {
-                    if (tappedChip != null && tappedChip.span.kind != ChipKind.Verb) state.openChipPicker(item, tappedChip.span)
-                    else state.beginTitleEdit(item)
-                }
-                if (outcome == null) while (awaitPointerEvent().changes.first().pressed) Unit
+                if (tappedChip != null && tappedChip.span.kind != ChipKind.Verb) state.openChipPicker(item, tappedChip.span)
+                else state.beginTitleEdit(item)
                 return@awaitEachGesture
             }
             var lifted = outcome == true
@@ -258,25 +264,7 @@ internal fun CentreCard(
                 val change = awaitPointerEvent().changes.first()
                 change.consume()
                 current += change.position
-                if (change.pressed) swipeLeft?.move(change.position.x.toDouble(), change.position.y.toDouble())
-                else swipeLeft?.up(change.position.x.toDouble(), change.position.y.toDouble())
                 lifted = !change.pressed
-            }
-            // A long sideways swipe picks the card up, or puts a held one down; anything else is a drawing.
-            val swipe = if (strokes.isEmpty()) {
-                swipeOf(current.map { GesturePoint(it.x.toDouble(), it.y.toDouble()) }, (size.width * SWIPE_FRACTION).toDouble())
-            } else null
-            if (swipe == Swipe.RIGHT && state.held == null) {
-                current.clear()
-                state.pickUp(item)
-                actions.feedback(FeedbackEvent.SNAP)
-                return@awaitEachGesture
-            }
-            if (leftSwipe && state.held != null) {
-                current.clear()
-                state.drop()
-                actions.feedback(FeedbackEvent.CAPTURE)
-                return@awaitEachGesture
             }
             if (current.size > 1) strokes += current.toList()
             current.clear()
