@@ -350,7 +350,7 @@ fun OverlayShell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) { detectTapGestures { if (!state.commitTitleEdit()) actions.onClose() } }
+                    .pointerInput(Unit) { detectTapGestures { if (state.held != null) state.cancelHold() else if (!state.commitTitleEdit()) actions.onClose() } }
                     .semantics { contentDescription = closeLabel }
                     .testTag(TAG_CLOSE),
             )

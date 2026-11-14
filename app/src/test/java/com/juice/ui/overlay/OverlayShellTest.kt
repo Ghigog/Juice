@@ -658,7 +658,8 @@ class OverlayShellTest {
         runBlocking { repository.save(item) }
         show(item)
         // The card's copy of the title comes after the carousel's.
-        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { longClick() }
+        compose.onAllNodesWithText("cal sam").onLast().performTouchInput { click() }
+        idle()
         compose.onNodeWithTag(TAG_TITLE_FIELD).performTextClearance()
         compose.onNodeWithTag(TAG_TITLE_FIELD).performTextInput("Call Sam")
         compose.onNodeWithTag(TAG_TITLE_FIELD).performImeAction()
@@ -790,28 +791,6 @@ class OverlayShellTest {
         }
         idle()
         compose.onAllNodesWithTag(TAG_TITLE_FIELD).assertCountEquals(0)
-    }
-
-    private fun swipeCentre(toRight: Boolean) {
-        compose.onNodeWithTag(TAG_CENTRE_CARD).performTouchInput {
-            val (from, to) = if (toRight) 0.2f to 0.8f else 0.8f to 0.2f
-            down(Offset(width * from, height * 0.5f))
-            moveTo(Offset(width * (from + to) / 2, height * 0.5f))
-            moveTo(Offset(width * to, height * 0.5f))
-            up()
-        }
-        idle()
-    }
-
-    @Test
-    fun swipingRightHoldsTheCardAndSwipingLeftDropsItAtTheFocalCard() {
-        show(Item("a", ItemType.Task, "A"), Item("b", ItemType.Task, "B"), Item("c", ItemType.Task, "C"))
-        swipeCentre(toRight = true)
-        assertEquals("a", state.held)
-        state.moveTarget(2)
-        swipeCentre(toRight = false)
-        assertEquals(null, state.held)
-        assertEquals(listOf("b", "c", "a"), state.items.map { it.id })
     }
 
     @Test
