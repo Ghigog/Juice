@@ -144,13 +144,17 @@ class OverlayCloseTest {
                 carousel.contains(nodes[0].fetchSemanticsNode().boundsInRoot.center)
         }
         assertTrue(shown.isNotEmpty())
-        assertEquals(shown.size, cards.size)
+        // A card cut off by the carousel's edge can show its title while its centre is outside, and then it does not pop.
+        assertTrue(cards.size <= shown.size)
         if (scrollTo != null) assertTrue(shown.size < items.size && shown.first() > 0)
-        shown.forEachIndexed { rank, n ->
-            val title = compose.onAllNodesWithText("Task ${n + 1}")[0].fetchSemanticsNode().boundsInRoot
-            val card = Rect(title.left - 200f, title.top - TOLERANCE, title.right + 200f, title.bottom + TOLERANCE)
-            assertTrue("splash ${cards[rank]} is off Task ${n + 1} at $title", card.contains(cards[rank]))
+        val matched = cards.map { splash ->
+            shown.firstOrNull { n ->
+                val title = compose.onAllNodesWithText("Task ${n + 1}")[0].fetchSemanticsNode().boundsInRoot
+                Rect(title.left - 200f, title.top - TOLERANCE, title.right + 200f, title.bottom + TOLERANCE).contains(splash)
+            }
         }
+        assertTrue("a splash is off every card: $cards", matched.all { it != null })
+        assertEquals(matched.distinct().size, cards.size)
         assertTrue(froth.isNotEmpty())
         assertTrue(cards.all { carousel.contains(it) })
     }

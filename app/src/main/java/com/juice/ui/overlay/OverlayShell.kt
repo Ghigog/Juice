@@ -389,6 +389,10 @@ fun OverlayShell(
                         onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true },
                         onRoutinesBounds = { routinesBounds = it },
                         middle = if (compact) undoToast else null,
+                        categoryNames = state.categories.list.map { it.name },
+                        categoryIndex = state.categories.indexOf(state.category.id).coerceAtLeast(0),
+                        onCategory = state::beginRename,
+                        reduceMotion = settings.reduceMotion,
                     )
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
                     CardRow(
@@ -441,6 +445,16 @@ fun OverlayShell(
             state.creator?.let { creator ->
                 CreatorFlow(
                     creator, hud, onConfirm = state::createCharacter, onCancel = state::cancelCreator,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(overlayTint(blurred))
+                        .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
+                        .padding(content),
+                )
+            }
+            state.categoryNaming?.let { naming ->
+                CategoryNameField(
+                    naming, hud, reduceMotion = settings.reduceMotion, onSave = state::saveNaming, onCancel = state::cancelNaming,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(overlayTint(blurred))

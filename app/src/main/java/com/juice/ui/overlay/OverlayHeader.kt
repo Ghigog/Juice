@@ -2,7 +2,19 @@ package com.juice.ui.overlay
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,8 +65,14 @@ internal fun Header(
     onRoutinesBounds: (Rect) -> Unit,
     /** Shown between the level and the multiplier, where a wide screen has room. */
     middle: (@Composable () -> Unit)? = null,
+    /** The categories' names, Main first, and which one is current. */
+    categoryNames: List<String> = listOf("Main"),
+    categoryIndex: Int = 0,
+    onCategory: () -> Unit = {},
+    reduceMotion: Boolean = false,
 ) {
-    Row(Modifier.fillMaxWidth().height(44.dp).entrance(entrance, fromBottom = false).then(pop), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth().entrance(entrance, fromBottom = false).then(pop)) {
+    Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.widthIn(max = 140.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row {
@@ -147,6 +165,60 @@ internal fun Header(
                 line(4f, 7f, 14f); line(18f, 7f, 20f); line(4f, 17f, 6f); line(10f, 17f, 20f)
                 drawCircle(Color.White, 2f * u, Offset(16f * u, 7f * u), style = Stroke(w))
                 drawCircle(Color.White, 2f * u, Offset(8f * u, 17f * u), style = Stroke(w))
+            }
+        }
+    }
+    CategoryStrip(categoryNames.getOrElse(categoryIndex) { "" }, categoryNames.size, categoryIndex, hud, reduceMotion, onCategory)
+    }
+}
+
+const val TAG_CATEGORY_CAPSULE = "category_capsule"
+const val TAG_CATEGORY_DOT_PREFIX = "category_dot_"
+
+/** The current category's name in a glass capsule, with one dot per category beside it; tapping the capsule renames. */
+@Composable
+private fun CategoryStrip(name: String, count: Int, current: Int, hud: Hud, reduceMotion: Boolean, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val squeeze by animateFloatAsState(
+        if (pressed && !reduceMotion) 0.94f else 1f,
+        if (reduceMotion) snap() else spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow),
+        label = "categorySqueeze",
+    )
+    val dip = if (pressed && reduceMotion) 0.7f else 1f
+    Row(Modifier.fillMaxWidth().height(MinTouchTarget), verticalAlignment = Alignment.CenterVertically) {
+        // The tappable box is the full touch target; the glass capsule inside keeps its own height.
+        Box(
+            Modifier.height(MinTouchTarget).widthIn(max = 200.dp).touchTarget(onClick, interactionSource = source).testTag(TAG_CATEGORY_CAPSULE),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                name,
+                Modifier
+                    .graphicsLayer { scaleX = squeeze; scaleY = squeeze; alpha = dip }
+                    .height(30.dp)
+                    .clip(JuiceShapes.Capsule)
+                    .background(JuiceColors.white(0.14f))
+                    .border(1.dp, JuiceColors.white(0.25f), JuiceShapes.Capsule)
+                    .padding(horizontal = 16.dp)
+                    .wrapContentHeight(Alignment.CenterVertically),
+                fontSize = JuiceType.Label,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            repeat(count) { i ->
+                Box(
+                    Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (i == current) hud.accent else JuiceColors.white(0.3f))
+                        .semantics { selected = i == current }
+                        .testTag(TAG_CATEGORY_DOT_PREFIX + i),
+                )
             }
         }
     }
