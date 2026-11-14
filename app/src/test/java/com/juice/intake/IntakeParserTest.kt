@@ -120,11 +120,11 @@ class IntakeParserTest {
         assertTrue(result.retryLater)
     }
 
-    private fun assertMalformedFallsBackToRules(body: String) {
+    private fun assertMalformedFallsBackToRulesAndRetries(body: String) {
         server.enqueue(MockResponse().setResponseCode(200).setBody(body))
         val result = parser().parse("do laundry by 6pm")
         assertEquals(ItemType.Goal, result.item.type)
-        assertFalse(result.retryLater)
+        assertTrue(result.retryLater)
     }
 
     @Test fun permanentHttpErrorsFallBackToRulesWithoutRetry() {
@@ -146,10 +146,10 @@ class IntakeParserTest {
         assertTrue(parser().parse("do laundry by 6pm").retryLater)
     }
 
-    @Test fun responseWithNoChoicesFallsBackToRulesWithoutRetry() = assertMalformedFallsBackToRules("""{"id":"x"}""")
+    @Test fun responseWithNoChoicesFallsBackToRulesAndRetries() = assertMalformedFallsBackToRulesAndRetries("""{"id":"x"}""")
 
-    @Test fun responseWithoutMessageContentFallsBackToRulesWithoutRetry() =
-        assertMalformedFallsBackToRules("""{"choices":[{"message":{"role":"assistant"}}]}""")
+    @Test fun responseWithoutMessageContentFallsBackToRulesAndRetries() =
+        assertMalformedFallsBackToRulesAndRetries("""{"choices":[{"message":{"role":"assistant"}}]}""")
 
     @Test fun offlineFallsBackToRulesAndRetries() {
         val url = server.url("/").toString().trimEnd('/')

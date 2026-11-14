@@ -8,7 +8,7 @@ import java.io.IOException
 import java.time.ZonedDateTime
 import java.util.logging.Logger
 
-/** Outcome of parsing a note. [retryLater] means the rules fallback answered and Groq should be tried again; false for permanent Groq errors. */
+/** Outcome of parsing a note. [retryLater] means the rules fallback answered and Groq should be tried again; false for permanent Groq errors. A malformed 200 envelope (no choices or message.content) is retried. */
 data class IntakeResult(val item: ParsedItem, val retryLater: Boolean)
 
 class IntakeParser(
@@ -33,9 +33,8 @@ class IntakeParser(
         }
     }
 
-    /** A bad request, key or model, or a malformed 2xx envelope, fails the same way every time. */
+    /** A bad request, key or model fails the same way every time. A malformed 2xx envelope is retried: it is usually a transient Groq hiccup, and IntakeWorker caps the attempts. */
     private fun IOException.isPermanent(): Boolean = when (this) {
-        is GroqEnvelopeException -> true
         is GroqHttpException -> status in PERMANENT_STATUSES || code == "model_decommissioned" || code == "model_not_found"
         else -> false
     }
