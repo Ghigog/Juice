@@ -76,6 +76,20 @@ class JuiceDatabaseMigrationTest {
     }
 
     @Test
+    fun addCategoriesPutsEveryCardInMainWithItsPositionAndCreatesOnlyMain() {
+        val db = database(
+            "$base, position INTEGER NOT NULL DEFAULT 0",
+            task, listOf("b", "Task", "B", "Active"), listOf("c", "Task", "C", "Active"),
+        )
+        db.execSQL("UPDATE items SET position = CASE id WHEN 'c' THEN 1 WHEN 'a' THEN 2 ELSE 3 END")
+        JuiceDatabase.addCategories.migrate(db)
+        assertEquals(listOf<String?>("main"), db.column("SELECT id FROM categories"))
+        assertEquals(listOf<String?>("Main"), db.column("SELECT name FROM categories"))
+        assertEquals(listOf<String?>("main", "main", "main"), db.column("SELECT categoryId FROM items"))
+        assertEquals(listOf<String?>("c", "a", "b"), db.column("SELECT id FROM items ORDER BY position"))
+    }
+
+    @Test
     fun addTimesAndCharacterIdAddsAllThreeColumnsAndStampsCompletedRows() {
         val db = database("$base", task, listOf("c", "Task", "C", "Completed"))
         JuiceDatabase.addTimesAndCharacterId(clock).migrate(db)

@@ -83,6 +83,38 @@ class ItemRepositoryTest {
         assertEquals(listOf("d", "c", "b", "a"), repository.active(LocalDate.of(2026, 1, 1)).map { it.id })
     }
 
+    private val today = LocalDate.of(2026, 1, 1)
+
+    @Test
+    fun theScopedQueryListsOnlyThatCategoriesCards() = runBlocking {
+        repository.save(item("a"))
+        repository.save(item("w").copy(categoryId = "work"))
+        assertEquals(listOf("w"), repository.observeActive(today, "work").first().map { it.id })
+        assertEquals(listOf("a"), repository.observeActive(today, "main").first().map { it.id })
+        assertEquals(setOf("a", "w"), repository.observeActive(today).first().map { it.id }.toSet())
+    }
+
+    @Test
+    fun reorderingOneCategoryLeavesTheOthersInTheirOrder() = runBlocking {
+        listOf("m1" to "main", "m2" to "main", "w1" to "work", "w2" to "work").forEach { (id, category) ->
+            repository.save(item(id).copy(categoryId = category))
+        }
+        val mainBefore = repository.observeActive(today, "main").first().map { it.id }
+        repository.reorder(listOf("w1", "w2"))
+        assertEquals(listOf("w1", "w2"), repository.observeActive(today, "work").first().map { it.id })
+        assertEquals(mainBefore, repository.observeActive(today, "main").first().map { it.id })
+    }
+
+    @Test
+    fun movingACardPutsItFirstInTheNewCategoryAndOutOfTheOld() = runBlocking {
+        repository.save(item("w1").copy(categoryId = "work"))
+        repository.save(item("a"))
+        repository.moveToCategory("a", "work")
+        assertEquals(listOf("a", "w1"), repository.observeActive(today, "work").first().map { it.id })
+        assertEquals(emptyList(), repository.observeActive(today, "main").first())
+        assertEquals("work", repository.get("a")?.categoryId)
+    }
+
     @Test
     fun savingSyncsTheReminderAndCompletingOrArchivingLeavesItNoActiveItem() = runBlocking {
         val reminders = withReminders()
