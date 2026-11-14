@@ -33,10 +33,14 @@ class JuiceDatabaseSchemaMigrationTest {
         helper.createDatabase(name, 1).use { db ->
             db.execSQL("INSERT INTO items (id, type, title, status) VALUES ('a', 'Task', 'A', 'Active')")
         }
-        helper.runMigrationsAndValidate(name, 9, true, *migrations).use { db ->
+        helper.runMigrationsAndValidate(name, 10, true, *migrations).use { db ->
             db.query("SELECT id, steps, position FROM items").use { c ->
                 c.moveToFirst()
                 assertEquals(listOf("a", "[]", "1"), listOf(c.getString(0), c.getString(1), c.getString(2)))
+            }
+            db.query("SELECT categoryId FROM items").use { c ->
+                c.moveToFirst()
+                assertEquals("main", c.getString(0))
             }
         }
     }

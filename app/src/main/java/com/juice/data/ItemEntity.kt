@@ -2,6 +2,7 @@ package com.juice.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.juice.core.category.Category
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
@@ -43,13 +44,15 @@ data class ItemEntity(
     /** When to notify about the item; null for none. */
     val notifyAtMillis: Long? = null,
     val notifyText: String? = null,
+    /** The category (list) this card is in. */
+    val categoryId: String = Category.MAIN_ID,
 )
 
 fun Item.toEntity(position: Int = 0) = ItemEntity(
     id, type.name, title, deadline?.toEpochMilli(), status.name,
     editedFields.joinToString(",") { it.name }, completionCondition, steps.encode(), position,
     cadence?.encode(), nextDueOn?.toEpochDay(), createdAt?.toEpochMilli(), completedAt?.toEpochMilli(),
-    characterId, starredAt?.toEpochMilli(), notifyAt?.toEpochMilli(), notifyText,
+    characterId, starredAt?.toEpochMilli(), notifyAt?.toEpochMilli(), notifyText, categoryId,
 )
 
 fun ItemEntity.toItem() = Item(
@@ -69,6 +72,7 @@ fun ItemEntity.toItem() = Item(
     starredAt = starredAtMillis?.let(Instant::ofEpochMilli),
     notifyAt = notifyAtMillis?.let(Instant::ofEpochMilli),
     notifyText = notifyText,
+    categoryId = categoryId,
 )
 
 private inline fun <reified E : Enum<E>> enumOrNull(name: String): E? = enumValues<E>().firstOrNull { it.name == name }
