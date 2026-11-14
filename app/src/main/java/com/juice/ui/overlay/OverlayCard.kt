@@ -215,6 +215,12 @@ internal fun CentreCard(
             current.clear()
             current += down.position
             down.consume()
+            var leftSwipe = false
+            // Only a first stroke can be a swipe; a later stroke belongs to a drawing.
+            val swipeLeft = if (strokes.isEmpty()) {
+                SwipeLeftListener((size.width * SWIPE_FRACTION).toDouble()) { leftSwipe = true }
+            } else null
+            swipeLeft?.down(down.position.x.toDouble(), down.position.y.toDouble())
             // Tapping or holding still on the title edits it; moving starts a stroke.
             val longPress = viewConfiguration.longPressTimeoutMillis
             var stillLifted = false
@@ -224,6 +230,7 @@ internal fun CentreCard(
                     val change = awaitPointerEvent().changes.first()
                     change.consume()
                     current += change.position
+                    swipeLeft?.move(change.position.x.toDouble(), change.position.y.toDouble())
                     if (!change.pressed) {
                         // Lifted without moving, after the long-press time: still a long press.
                         stillLifted = change.uptimeMillis - down.uptimeMillis >= longPress
@@ -251,6 +258,8 @@ internal fun CentreCard(
                 val change = awaitPointerEvent().changes.first()
                 change.consume()
                 current += change.position
+                if (change.pressed) swipeLeft?.move(change.position.x.toDouble(), change.position.y.toDouble())
+                else swipeLeft?.up(change.position.x.toDouble(), change.position.y.toDouble())
                 lifted = !change.pressed
             }
             // A long sideways swipe picks the card up, or puts a held one down; anything else is a drawing.
@@ -263,7 +272,7 @@ internal fun CentreCard(
                 actions.feedback(FeedbackEvent.SNAP)
                 return@awaitEachGesture
             }
-            if (swipe == Swipe.LEFT && state.held != null) {
+            if (leftSwipe && state.held != null) {
                 current.clear()
                 state.drop()
                 actions.feedback(FeedbackEvent.CAPTURE)
