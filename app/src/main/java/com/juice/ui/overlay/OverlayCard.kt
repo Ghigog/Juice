@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.core.category.Category
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.gesture.GestureRecognizer
 import com.juice.core.gesture.GestureResult
@@ -86,6 +87,9 @@ const val STAR_STROKE_PAUSE_MILLIS = 400L
 
 /** A swipe has to cross this share of the card's width. */
 const val FLY_MILLIS = 300
+
+/** A first stroke has to cross this share of the card's width to move between categories. */
+internal const val SWIPE_FRACTION = 0.25
 
 private enum class Tint { OK, X, BAD, STAR }
 
@@ -204,11 +208,43 @@ internal fun CentreCard(
         }
     }
 
-    val drawing = Modifier.pointerInput(item?.id, busy) {
-        if (item == null) return@pointerInput
+    // Left goes to the next category (a new one past the last), right to the previous; a held card is carried along.
+    fun swipe(path: List<Offset>, minDistance: Double): Boolean {
+        val direction = swipeOf(path.map { GesturePoint(it.x.toDouble(), it.y.toDouble()) }, minDistance) ?: return false
+        val forward = direction == Swipe.LEFT
+        val moved = when {
+            state.held != null -> state.carryHeld(forward)
+            forward -> if (state.nextCategory()) true else { state.beginNewCategory(); true }
+            else -> state.previousCategory()
+        }
+        if (moved) {
+            actions.feedback(FeedbackEvent.SNAP)
+            actions.onScroll(if (forward) CATEGORY_SLOSH_STEPS else -CATEGORY_SLOSH_STEPS)
+        } else if (!reduceMotion) scope.launch {
+            // Nothing before Main: nudge the card and let it spring back.
+            shake.animateTo(CATEGORY_NUDGE, tween(CATEGORY_NUDGE_MILLIS))
+            shake.animateTo(0f, categoryNudgeBack())
+        }
+        return true
+    }
+
+    val drawing = Modifier.pointerInput(item?.id, busy, state.held) {
+        val minSwipe = size.width * SWIPE_FRACTION
         awaitEachGesture {
             val down = awaitFirstDown()
             if (busy) return@awaitEachGesture
+            if (item == null) {
+                // An empty category has nothing to draw on, but can still be swiped away from.
+                down.consume()
+                val path = mutableListOf(down.position)
+                do {
+                    val change = awaitPointerEvent().changes.first()
+                    change.consume()
+                    path += change.position
+                } while (change.pressed)
+                swipe(path, minSwipe)
+                return@awaitEachGesture
+            }
             readJob?.cancel()
             if (tint != null) { strokes.clear(); tint = null }
             current.clear()
@@ -236,9 +272,10 @@ internal fun CentreCard(
             val longPressed = outcome == null || stillLifted
             val holding = state.held != null
             if (holding || longPressed) {
+                val path = current.toMutableList()
                 current.clear()
                 if (holding) {
-                    // A held card is put down by a tap on the centre card; nothing else on it is drawn or edited.
+                    // A held card is put down by a tap on the centre card, or carried to the next category by a swipe.
                     if (outcome == true && !stillLifted) {
                         state.drop()
                         actions.feedback(FeedbackEvent.CAPTURE)
@@ -247,7 +284,13 @@ internal fun CentreCard(
                     state.pickUp(item)
                     actions.feedback(FeedbackEvent.SNAP)
                 }
-                if (outcome == null || outcome == false) while (awaitPointerEvent().changes.first().pressed) Unit
+                if (outcome == null || outcome == false) {
+                    do {
+                        val change = awaitPointerEvent().changes.first()
+                        path += change.position
+                    } while (change.pressed)
+                    if (holding && outcome == false) swipe(path, minSwipe)
+                }
                 return@awaitEachGesture
             }
             if (outcome == true && (titleBounds.contains(down.position) || bodyBounds.contains(down.position))) {
@@ -265,6 +308,11 @@ internal fun CentreCard(
                 change.consume()
                 current += change.position
                 lifted = !change.pressed
+            }
+            // The first stroke, read at lift: a long sideways one moves between categories instead of being drawn.
+            if (strokes.isEmpty() && swipe(current.toList(), minSwipe)) {
+                current.clear()
+                return@awaitEachGesture
             }
             if (current.size > 1) strokes += current.toList()
             current.clear()
@@ -319,12 +367,14 @@ internal fun CentreCard(
         Box(Modifier.fillMaxSize().testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
         if (item == null) {
             Text(
-                stringResource(R.string.overlay_empty),
+                if (state.category.id == Category.MAIN_ID) stringResource(R.string.overlay_empty)
+                else stringResource(R.string.overlay_category_empty, state.category.name),
                 fontSize = JuiceType.Dialogue,
                 lineHeight = JuiceType.DialogueLine,
                 color = JuiceColors.white(0.85f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).padding(24.dp).testTag(TAG_OVERLAY_EMPTY),
+                modifier = Modifier.align(Alignment.Center).padding(24.dp)
+                    .testTag(if (state.category.id == Category.MAIN_ID) TAG_OVERLAY_EMPTY else TAG_CATEGORY_EMPTY),
             )
         } else {
             // A short, wide card (a phone on its side) puts the title and list beside the worth and buttons.

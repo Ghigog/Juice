@@ -1,6 +1,17 @@
 package com.juice.ui.overlay
 
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -177,3 +188,28 @@ internal val ClippedShape = SemanticsPropertyKey<Shape>("ClippedShape")
 /** Clips to [shape] and reports it, so a card's corners are rounded on every frame, whatever is drawn into it. */
 internal fun Modifier.roundedClip(shape: Shape): Modifier =
     clip(shape).semantics { this[ClippedShape] = shape }
+
+/** The carousel and centre card slide sideways on a spring that overshoots a little before it settles. */
+private const val CATEGORY_SLIDE_DAMPING = 0.65f
+private const val CATEGORY_SLIDE_STIFFNESS = Spring.StiffnessLow
+
+/** A crossfade between categories when motion is reduced. */
+internal const val CATEGORY_FADE_MILLIS = 150
+
+/** How hard the reservoir sloshes (carousel steps' worth) when a category is switched; the sign follows the direction. */
+internal const val CATEGORY_SLOSH_STEPS = 3
+
+/** A swipe right on Main nudges the centre card this far (px) and it springs back. */
+internal const val CATEGORY_NUDGE = 28f
+internal const val CATEGORY_NUDGE_MILLIS = 90
+
+internal fun categoryNudgeBack(): SpringSpec<Float> = spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium)
+
+/** Moving [forward] slides the new category in from the right and the old one out to the left; with [reduceMotion] they crossfade. */
+internal fun categoryTransition(forward: Boolean, reduceMotion: Boolean): ContentTransform {
+    if (reduceMotion) return fadeIn(tween(CATEGORY_FADE_MILLIS)) togetherWith fadeOut(tween(CATEGORY_FADE_MILLIS))
+    val slide = spring<IntOffset>(CATEGORY_SLIDE_DAMPING, CATEGORY_SLIDE_STIFFNESS)
+    val sign = if (forward) 1 else -1
+    return (slideInHorizontally(slide) { it * sign } + fadeIn()) togetherWith
+        (slideOutHorizontally(slide) { -it * sign } + fadeOut())
+}

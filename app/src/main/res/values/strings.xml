@@ -83,6 +83,7 @@
     <string name="overlay_done_when">Done when: %1$s</string>
     <string name="overlay_will_remind">Will remind you: %1$s</string>
     <string name="overlay_empty">All squeezed. Add a note below.</string>
+    <string name="overlay_category_empty">Nothing in %1$s yet. Add a note below.</string>
     <string name="overlay_starred">Starred</string>
     <string name="overlay_starred_badge">★</string>
     <string name="overlay_not_recognised">Not recognized</string>
