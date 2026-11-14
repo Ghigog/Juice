@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -599,7 +600,8 @@ internal fun CardRow(
             categoryTransition(forward, settings.reduceMotion)
         },
         label = "category",
-    ) { _ ->
+    ) { categoryId ->
+    key(categoryId) {
     Row(Modifier.fillMaxSize()) {
         if (list.isNotEmpty()) {
             // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.
@@ -626,6 +628,7 @@ internal fun CardRow(
                 ShakeReward(hud, settings.reduceMotion, actions, Modifier.fillMaxSize())
             }
         }
+    }
     }
     }
 }
