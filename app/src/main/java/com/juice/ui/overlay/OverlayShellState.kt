@@ -30,6 +30,7 @@ import com.juice.data.advance
 import com.juice.data.asRoutine
 import com.juice.data.toItems
 import java.time.DayOfWeek
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -79,7 +80,7 @@ class OverlayShellState(
     /** True for the Routines view's list: every Active Routine, finished for good by ✓/✗ instead of moving on. */
     private val listsRoutines: Boolean = false,
     /** The time a title is read against: "tomorrow" in an edited title, "next week" in a landed one. */
-    private val clock: () -> Instant = Instant::now,
+    private val clock: Clock = Clock.systemDefaultZone(),
     /** How the carousel is ordered; Custom keeps the dragged `position` order. */
     cardOrder: CardOrder = CardOrder.Custom,
     /** Called when a drag switches the order to Custom, so the setting can be saved. */
@@ -200,7 +201,7 @@ class OverlayShellState(
     private val routinesState = lazy {
         OverlayShellState(
             repository, scope, onCompleted = onCompleted, onCompletionUndone = onCompletionUndone,
-            today = today, io = io, listsRoutines = true, cardOrder = cardOrder,
+            today = today, clock = clock, io = io, listsRoutines = true, cardOrder = cardOrder,
         )
     }
     val routines: OverlayShellState by routinesState
@@ -284,7 +285,7 @@ class OverlayShellState(
         }
     }
 
-    private fun now() = clock().atZone(ZoneId.systemDefault())
+    private fun now() = clock.instant().atZone(ZoneId.systemDefault())
 
     /** The user rewrites a title; it is saved as typed, the card is sorted again by what it now says, and a late parse never changes it. */
     fun setTitle(item: Item, title: String) {
@@ -361,7 +362,7 @@ class OverlayShellState(
     fun star(item: Item) {
         val current = items.firstOrNull { it.id == item.id } ?: return
         if (current.starredAt != null) return
-        val starred = current.copy(starredAt = Instant.now())
+        val starred = current.copy(starredAt = clock.instant())
         items = (items.map { if (it.id == item.id) starred else it })
             .sortedWith(compareBy({ it.starredAt == null }, { it.starredAt }))
         scope.launch { repository.star(item.id) }

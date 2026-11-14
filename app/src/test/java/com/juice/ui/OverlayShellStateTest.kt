@@ -32,9 +32,11 @@ import com.juice.ui.overlay.Swipe
 import com.juice.ui.overlay.swipeOf
 import java.io.File
 import java.io.IOException
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlinx.coroutines.CoroutineScope
@@ -341,7 +343,7 @@ class OverlayShellStateTest {
 
     private fun ordered(order: CardOrder, items: List<Item> = jan, onCustom: () -> Unit = {}) = OverlayShellState(
         repository, CoroutineScope(Dispatchers.Unconfined), items, newId = { "new" }, today = sunday,
-        clock = { Instant.parse("2026-01-04T00:00:00Z") }, cardOrder = order, onCustomOrder = onCustom,
+        clock = Clock.fixed(Instant.parse("2026-01-04T00:00:00Z"), ZoneOffset.UTC), cardOrder = order, onCustomOrder = onCustom,
     )
 
     @Test
@@ -716,10 +718,30 @@ class OverlayShellStateTest {
         assertEquals(listOf("Stretch legs"), dueDay.items.filter { it.id == "l" }.map { it.title })
     }
 
+    @Test
+    fun starredCardsAreOrderedByWhenTheyWereStarredEarliestFirst() {
+        var at = Instant.parse("2026-01-01T00:00:00Z")
+        val clock = object : Clock() {
+            override fun getZone() = ZoneOffset.UTC
+            override fun withZone(zone: java.time.ZoneId) = this
+            override fun instant(): Instant = at
+        }
+        val a = Item("a", ItemType.Task, "A")
+        val b = Item("b", ItemType.Task, "B")
+        val c = Item("c", ItemType.Task, "C")
+        val state = OverlayShellState(repository, CoroutineScope(Dispatchers.Unconfined), listOf(a, b, c), today = sunday, clock = clock)
+        state.star(b)
+        at = at.plusSeconds(60)
+        state.star(a)
+        assertEquals(listOf("b", "a", "c"), state.items.map { it.id })
+        assertEquals(Instant.parse("2026-01-01T00:00:00Z"), state.items.first { it.id == "b" }.starredAt)
+        assertEquals(Instant.parse("2026-01-01T00:01:00Z"), state.items.first { it.id == "a" }.starredAt)
+    }
+
     private val noon = java.time.Instant.parse("2026-10-28T12:00:00Z")
 
     private fun clockedState(vararg items: Item) = OverlayShellState(
-        repository, CoroutineScope(Dispatchers.Unconfined), items.toList(), today = LocalDate.of(2026, 10, 28), clock = { noon },
+        repository, CoroutineScope(Dispatchers.Unconfined), items.toList(), today = LocalDate.of(2026, 10, 28), clock = Clock.fixed(noon, ZoneOffset.UTC),
     )
 
     @Test
@@ -842,7 +864,7 @@ class OverlayShellStateTest {
         val goal = Item("g", ItemType.Goal, "take out the trash")
         repository.save(goal)
         val state = OverlayShellState(
-            repository, CoroutineScope(Dispatchers.Unconfined), listOf(goal), today = sunday, clock = { java.time.Instant.parse("2026-10-18T12:00:00Z") },
+            repository, CoroutineScope(Dispatchers.Unconfined), listOf(goal), today = sunday, clock = Clock.fixed(Instant.parse("2026-10-18T12:00:00Z"), ZoneOffset.UTC),
         ).also { it.observe() }
         state.setTitle(goal, "take out the trash every Friday")
         assertEquals("g", state.draining?.id)
