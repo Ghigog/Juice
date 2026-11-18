@@ -1,7 +1,7 @@
 package com.juice.coach
 
 import com.juice.data.ChatMessage
-import com.juice.intake.GroqTransport
+import com.juice.groq.GroqTransport
 import java.io.IOException
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
