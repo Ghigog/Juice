@@ -89,7 +89,7 @@ class GroqClient(
             - Never invent steps: "sub_items" holds only steps the person actually wrote, otherwise null.
             - "cadence" is only for Routine; use null for every other type. A Routine has a null deadline.
             - A weekday name ("Saturday") means its next occurrence after today, never an earlier day; "tomorrow" is the day after today.
-            - "notify_at" and "notify_text" are only for items with a deadline or a time. Choose "notify_at" by the deadline's time of day: before 10:00, 20:00 the evening before; 10:00 to before 17:00, 09:00 that morning; 17:00 or later, 2 hours before; a date with no time, 09:00 that day. It must be after now and never after the deadline. "notify_text" is a short reminder message.
+            - "notify_at" and "notify_text" are only for items with a deadline or a time. Choose "notify_at" by the size of the task: a quick chore reminds the morning of the day it is due at 09:00 (or 20:00 the evening before an early-morning deadline, before 10:00); bigger work (an essay, a project, anything needing preparation) reminds earlier at 09:00, scaled to the time left, up to about a week before the deadline and never more than 7 days. A date with no time is 09:00 that day. It must be after now and never after the deadline. "notify_text" is a short reminder message.
             - Leave "notify_at" and "notify_text" null when no reminder is useful, for every Routine and for plain Notes.
         """.trimIndent()
     }
