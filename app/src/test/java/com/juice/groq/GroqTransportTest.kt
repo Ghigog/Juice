@@ -1,4 +1,4 @@
-package com.juice.intake
+package com.juice.groq
 
 import java.io.IOException
 import kotlin.test.AfterTest

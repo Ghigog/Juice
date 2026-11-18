@@ -3,8 +3,8 @@ package com.juice.overlay
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.intake.GroqKey
+import com.juice.groq.KeyCheck
 import com.juice.intake.GroqClient
-import com.juice.intake.KeyCheck
 import com.juice.settings.GroqKeyStore
 import com.juice.settings.KeyCipher
 import kotlin.test.Test

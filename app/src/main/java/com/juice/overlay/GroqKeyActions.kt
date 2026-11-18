@@ -1,8 +1,8 @@
 package com.juice.overlay
 
 import com.juice.core.intake.GroqKey
+import com.juice.groq.KeyCheck
 import com.juice.intake.GroqClient
-import com.juice.intake.KeyCheck
 import com.juice.intake.saveAndCheckGroqKey
 import com.juice.settings.GroqKeyStore
 import kotlinx.coroutines.CoroutineDispatcher

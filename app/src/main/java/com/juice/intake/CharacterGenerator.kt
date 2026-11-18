@@ -6,6 +6,7 @@ import com.juice.core.character.GeneratedPersonaResult
 import com.juice.core.character.toCharacter
 import com.juice.data.GenerationResult
 import com.juice.data.PersonaGenerator
+import com.juice.groq.GroqTransport
 import java.io.IOException
 import java.util.UUID
 

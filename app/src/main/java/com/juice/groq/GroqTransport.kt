@@ -1,4 +1,4 @@
-package com.juice.intake
+package com.juice.groq
 
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -134,3 +134,17 @@ class GroqTransport(
         }
     }
 }
+
+/** What [GroqClient.checkKey] learned: the key works, Groq refused it, or Groq could not be asked. */
+enum class KeyCheck { Works, Rejected, Unreachable }
+
+/** Groq answered with a non-2xx [status]; [code] and [detail] are Groq's own, [retryAfterMs] its Retry-After. */
+class GroqHttpException(
+    val status: Int,
+    val code: String?,
+    val detail: String,
+    val retryAfterMs: Long? = null,
+) : IOException("Groq HTTP $status${if (detail.isBlank()) "" else ": ${detail.take(300)}"}")
+
+/** Groq answered 2xx but the body was not a chat completion envelope; asking again will not help. */
+class GroqEnvelopeException(cause: Throwable) : IOException("Unexpected Groq response", cause)

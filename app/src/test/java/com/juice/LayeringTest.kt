@@ -10,7 +10,6 @@ class LayeringTest {
     /** A package that must not import any of [forbidden] packages (or their sub-packages). */
     private data class Rule(val pkg: String, val forbidden: List<String>)
 
-    private val transportTypes = listOf("GroqTransport", "GroqHttpException", "KeyCheck", "GroqEnvelopeException")
     private val networkTokens = Regex("""HttpURLConnection|java\.net\.URL\b|openConnection""")
 
     /** The package under `com/juice/` that [path] belongs to, or null. */
@@ -31,15 +30,15 @@ class LayeringTest {
                 if (rule != null && rule.forbidden.any { line.startsWith("import com.juice.$it.") }) {
                     found += "$at ($pkg must not import ${line.substringAfter("com.juice.").substringBefore('.')})"
                 }
-                if (pkg == "coach" && line.startsWith("import com.juice.intake.") &&
-                    transportTypes.none { line == "import com.juice.intake.$it" }
-                ) found += "$at (coach may only use the Groq transport types from intake)"
+                if (pkg == "coach" && line.startsWith("import com.juice.intake.")) {
+                    found += "$at (coach must not import intake)"
+                }
                 if (inOverlay && !fileName.endsWith("State.kt") && line.startsWith("import com.juice.data.")) {
                     found += "$at (only *State.kt files in ui/overlay may import com.juice.data)"
                 }
             }
-            if (pkg != "intake" && pkg != "coach" && networkTokens.containsMatchIn(line)) {
-                found += "$at (network access belongs under intake/ or coach/)"
+            if (pkg != "intake" && pkg != "coach" && pkg != "groq" && networkTokens.containsMatchIn(line)) {
+                found += "$at (network access belongs under groq/, intake/ or coach/)"
             }
             found
         }
@@ -47,6 +46,7 @@ class LayeringTest {
 
     private val rules = listOf(
         Rule("data", listOf("intake", "coach", "memory", "ui", "overlay", "settings", "feedback", "onboarding")),
+        Rule("groq", listOf("intake", "coach", "data", "settings", "ui", "overlay", "memory", "feedback", "onboarding")),
         Rule("feedback", listOf("ui")),
         Rule("settings", listOf("ui")),
     )
@@ -56,7 +56,7 @@ class LayeringTest {
     private val coachPath = "$root/coach/CoachClient.kt"
     private val overlayDir = "$root/ui/overlay"
 
-    private val layered = listOf("data", "intake", "coach", "ui", "settings", "feedback")
+    private val layered = listOf("data", "groq", "intake", "coach", "ui", "settings", "feedback")
 
     /** Package-level edges among [layered], read from import lines; `com.juice.ui.*` counts as ui. */
     private fun edges(): Map<String, Set<String>> = layered.associateWith { pkg ->
@@ -97,14 +97,11 @@ class LayeringTest {
     }
 
     @Test
-    fun `coach imports only the Groq transport types from intake`() {
-        val allowed = listOf("GroqTransport", "GroqHttpException", "KeyCheck", "GroqEnvelopeException")
-            .map { "import com.juice.intake.$it" }
+    fun `coach imports nothing from intake`() {
         val violations = sourceFiles("coach").flatMap { file ->
-            importsOf(file).filter { it.startsWith("import com.juice.intake.") && it !in allowed }
-                .map { "${file.path}: $it" }
+            importsOf(file).filter { it.startsWith("import com.juice.intake.") }.map { "${file.path}: $it" }
         }
-        assertTrue(violations.isEmpty(), "coach may only use the Groq transport from intake:\n" + violations.joinToString("\n"))
+        assertTrue(violations.isEmpty(), "coach must not import intake:\n" + violations.joinToString("\n"))
     }
 
     @Test
@@ -116,10 +113,17 @@ class LayeringTest {
     }
 
     @Test
-    fun `coach importing intake beyond the transport types is a violation`() {
-        val bad = layeringViolations(coachPath, "import com.juice.intake.GroqClient\n")
-        assertEquals(1, bad.size)
-        assertTrue(layeringViolations(coachPath, "import com.juice.intake.GroqTransport\n").isEmpty())
+    fun `coach importing anything from intake is a violation`() {
+        assertEquals(1, layeringViolations(coachPath, "import com.juice.intake.GroqClient\n").size)
+        assertEquals(1, layeringViolations(coachPath, "import com.juice.intake.GroqTransport\n").size)
+    }
+
+    @Test
+    fun `groq importing a feature package is a violation but network code is allowed`() {
+        val groqPath = "$root/groq/GroqTransport.kt"
+        assertEquals(1, layeringViolations(groqPath, "import com.juice.intake.GroqClient\n").size)
+        assertEquals(1, layeringViolations(groqPath, "import com.juice.data.Item\n").size)
+        assertTrue(layeringViolations(groqPath, "val c = url.openConnection()\n").isEmpty())
     }
 
     @Test
@@ -140,7 +144,7 @@ class LayeringTest {
         assertEquals(1, layeringViolations(dataPath, "import java.net.URL\n").size)
         assertEquals(1, layeringViolations(dataPath, "val c: HttpURLConnection\n").size)
         assertTrue(layeringViolations(coachPath, src).isEmpty())
-        assertTrue(layeringViolations("$root/intake/GroqTransport.kt", src).isEmpty())
+        assertTrue(layeringViolations("$root/groq/GroqTransport.kt", src).isEmpty())
     }
 
     @Test
