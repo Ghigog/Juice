@@ -6,6 +6,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import okhttp3.mockwebserver.MockResponse
@@ -43,6 +44,13 @@ class GroqClientTest {
         assertEquals("GET", request.method)
         assertEquals("/models", request.path)
         assertEquals("Bearer key-1", request.getHeader("Authorization"))
+    }
+
+    @Test fun promptScalesTheReminderToTheSizeOfTheTask() {
+        val prompt = GroqClient.systemPrompt(java.time.ZonedDateTime.parse("2026-11-16T09:00:00Z"))
+        assertTrue("quick chore reminds the morning of the day it is due" in prompt)
+        assertTrue("bigger work" in prompt && "up to about a week before" in prompt)
+        assertTrue("after now and never after the deadline" in prompt)
     }
 
     @Test fun checkKeyWorksOn200() = assertEquals(KeyCheck.Works, check(MockResponse().setBody("{}")))
