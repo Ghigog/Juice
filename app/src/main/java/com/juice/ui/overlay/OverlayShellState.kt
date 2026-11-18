@@ -9,11 +9,13 @@ import com.juice.core.category.Categories
 import com.juice.core.category.Category
 import com.juice.core.category.categoryName
 import com.juice.core.gesture.GesturePoint
+import com.juice.core.intake.DATE_ONLY_TIME
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ChipSpan
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.RulesFallback
+import com.juice.core.intake.reminderFor
 import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.intake.withDeadlineDay
 import com.juice.core.intake.withInterval
@@ -444,10 +446,21 @@ class OverlayShellState(
         val edited = items.firstOrNull { it.id == id }?.let {
             // Re-timing an item cancels the agent's reminder for the old time; it is not asked again.
             val changed = change(it).copy(editedFields = it.editedFields + field)
-            if (field == IntakeField.Deadline || field == IntakeField.Cadence) changed.copy(notifyAt = null, notifyText = null) else changed
+            when (field) {
+                IntakeField.Cadence -> changed.copy(notifyAt = null, notifyText = null)
+                IntakeField.Deadline -> changed.withReminderForDeadline()
+                else -> changed
+            }
         } ?: return
         items = items.map { if (it.id == id) edited else it }.sortedFor(cardOrder)
         scope.launch { repository.save(edited) }
+    }
+
+    /** A new reminder for the card's deadline, none when it has no deadline or the reminder time has passed. */
+    private fun Item.withReminderForDeadline(): Item {
+        val zoned = deadline?.atZone(ZoneId.systemDefault())
+        val at = zoned?.let { reminderFor(it, now(), it.toLocalTime() != DATE_ONLY_TIME, type) }?.toInstant()
+        return copy(notifyAt = at, notifyText = if (at != null) title else null)
     }
 
     /** Swaps the captured card [id] for what its parse produced: the card as the parse built it. */
