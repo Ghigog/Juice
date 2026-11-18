@@ -39,7 +39,10 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.room.Room
+import com.juice.core.intake.ChipKind
 import com.juice.core.intake.ItemType
+import com.juice.core.intake.RulesFallback
+import com.juice.core.intake.reminderFor
 import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
@@ -711,6 +714,26 @@ class OverlayShellTest {
         show(Item("a", ItemType.Task, "call the dentist"))
         tapChip("call")
         compose.onNodeWithTag(TAG_TITLE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
+    fun changingADeadlineSetsTheReminderReminderForGivesForTheNewDate() {
+        val title = "take out the trash on Friday"
+        val old = Instant.parse("2026-10-30T08:00:00Z")
+        val item = Item("a", ItemType.Goal, title, deadline = old, notifyAt = Instant.parse("2026-10-30T07:00:00Z"), notifyText = title)
+        runBlocking { repository.save(item) }
+        show(item)
+        val span = RulesFallback.spansOf(title, ItemType.Goal).single { it.kind == ChipKind.Deadline }
+        val day = LocalDate.of(2026, 12, 12)
+        state.setDeadlineDay(item, span, day)
+        idle()
+        val saved = runBlocking { repository.get("a")!! }
+        val zone = java.time.ZoneId.systemDefault()
+        val deadline = checkNotNull(saved.deadline).atZone(zone)
+        assertEquals(day, deadline.toLocalDate())
+        val expected = reminderFor(deadline, CLOCK.instant().atZone(zone), hasTime = false, type = saved.type)?.toInstant()
+        assertEquals(expected, saved.notifyAt)
+        assertEquals(saved.title, saved.notifyText)
     }
 
     @Test

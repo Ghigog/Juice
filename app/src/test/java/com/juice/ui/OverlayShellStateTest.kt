@@ -889,14 +889,14 @@ class OverlayShellStateTest {
     }
 
     @Test
-    fun editingTheDeadlineClearsTheAgentReminder() = runBlocking {
+    fun editingTheDeadlineReplacesTheAgentReminder() = runBlocking {
         val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon, notifyAt = noon, notifyText = "Bins")
         repository.save(goal)
         val state = clockedState(goal)
         state.setDeadlineDay(goal, spanOf(goal.title, ItemType.Goal, com.juice.core.intake.ChipKind.Deadline), LocalDate.of(2026, 10, 29))
         val saved = repository.get("g")!!
-        assertNull(saved.notifyAt)
-        assertNull(saved.notifyText)
+        assertEquals(java.time.Instant.parse("2026-10-29T09:00:00Z"), saved.notifyAt)
+        assertEquals(saved.title, saved.notifyText)
     }
 
     @Test

@@ -11,7 +11,7 @@ private val MORNING: LocalTime = LocalTime.of(9, 0)
 private val EVENING: LocalTime = LocalTime.of(20, 0)
 
 /** The time of day a deadline gets when the person named only a date. */
-internal val DATE_ONLY_TIME: LocalTime = LocalTime.of(23, 59)
+val DATE_ONLY_TIME: LocalTime = LocalTime.of(23, 59)
 
 /** The longest a reminder may come before its deadline. */
 internal val MAX_REMINDER_LEAD: Duration = Duration.ofDays(7)
