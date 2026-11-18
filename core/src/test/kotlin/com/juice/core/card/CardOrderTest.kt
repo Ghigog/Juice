@@ -51,4 +51,39 @@ class CardOrderTest {
         assertEquals(listOf("x", "y"), ids(listOf(x, y).sortedFor(CardOrder.Newest)))
         assertEquals(listOf("y", "x"), ids(listOf(y, x).sortedFor(CardOrder.Oldest)))
     }
+
+    private fun due(id: String, deadline: String?, created: String = "1", starred: String? = null) =
+        card(id, created, starred).copy(deadline = deadline?.let { Instant.parse("2026-03-${it}T09:00:00Z") })
+
+    @Test
+    fun closerDeadlinesComeFirstThenCardsWithNone() {
+        val friday = due("fri", "06")
+        val tuesday = due("tue", "03")
+        val none = due("none", null, created = "3")
+        val sorted = listOf(none, friday, tuesday).sortedFor(CardOrder.Newest)
+        assertEquals(listOf("tue", "fri", "none"), ids(sorted))
+        assertEquals(listOf("tue", "fri", "none"), ids(listOf(none, friday, tuesday).sortedFor(CardOrder.Oldest)))
+    }
+
+    @Test
+    fun creationBreaksDeadlineTiesPerOrder() {
+        val old = due("old", "03", created = "1")
+        val new = due("new", "03", created = "2")
+        assertEquals(listOf("new", "old"), ids(listOf(old, new).sortedFor(CardOrder.Newest)))
+        assertEquals(listOf("old", "new"), ids(listOf(new, old).sortedFor(CardOrder.Oldest)))
+    }
+
+    @Test
+    fun starredStayFirstEvenWithoutADeadline() {
+        val star = due("star", null, starred = "1")
+        val soon = due("soon", "03", created = "2")
+        val soonOld = due("soonOld", "03", created = "1")
+        assertEquals(listOf("star", "soonOld", "soon"), ids(listOf(soon, soonOld, star).sortedFor(CardOrder.Oldest)))
+    }
+
+    @Test
+    fun customIgnoresDeadlines() {
+        val list = listOf(due("late", "09"), due("soon", "03"))
+        assertEquals(listOf("late", "soon"), ids(list.sortedFor(CardOrder.Custom)))
+    }
 }
