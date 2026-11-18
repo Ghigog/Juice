@@ -461,8 +461,9 @@ class OverlayShellState(
             built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))
             else -> built
         }
-        items = items.take(at) + landed + items.drop(at + 1)
-        scope.launch { repository.save(landed) }
+        val placed = landed.copy(createdAt = landed.createdAt ?: old.createdAt, starredAt = landed.starredAt ?: old.starredAt)
+        items = (items.take(at) + placed + items.drop(at + 1)).sortedFor(cardOrder)
+        scope.launch { repository.save(placed) }
     }
 
     /** Pins [item] after the cards starred before it and before the rest; one already starred keeps its place. */

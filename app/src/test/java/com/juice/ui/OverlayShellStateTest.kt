@@ -442,6 +442,21 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun aLateParseMovesTheCardToItsDeadlinePlaceUnderADatedOrderButNotUnderCustom() = runBlocking {
+        val parsed = ParsedItem(ItemType.Task, "pay rent", deadline = Instant.parse("2026-01-02T09:00:00Z"))
+        val items = listOf(due("n", 9), due("a", 5))
+        val dated = ordered(CardOrder.Newest, items)
+        dated.land("n", parsed)
+        assertEquals(listOf("n", "a"), dated.items.map { it.id })
+        val custom = ordered(CardOrder.Custom, items)
+        custom.land("n", parsed)
+        assertEquals(listOf("n", "a"), custom.items.map { it.id })
+        val late = ordered(CardOrder.Custom, items)
+        late.land("a", parsed)
+        assertEquals(listOf("n", "a"), late.items.map { it.id })
+    }
+
+    @Test
     fun cancellingAHoldKeepsTheOrder() {
         val s = state(*abc)
         s.pickUp(abc[0])
