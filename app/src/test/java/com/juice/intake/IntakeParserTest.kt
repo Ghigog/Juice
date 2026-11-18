@@ -58,7 +58,7 @@ class IntakeParserTest {
         val prompt = GroqClient.systemPrompt(ZonedDateTime.of(2026, 11, 11, 18, 9, 0, 0, ZoneId.of("Europe/Berlin")))
         assertTrue("Today is Wednesday 2026-11-11" in prompt)
         assertTrue("weekday name" in prompt && "next occurrence after today" in prompt)
-        assertTrue("20:00 the evening before" in prompt && "09:00 that morning" in prompt && "2 hours before" in prompt)
+        assertTrue("20:00 the evening before" in prompt && "the morning of the day it is due" in prompt && "up to about a week before" in prompt)
     }
 
     @Test fun aModelThatPicksTheWrongDayIsCorrectedToTheNamedWeekday() {
