@@ -369,7 +369,7 @@ class ItemRepositoryTest {
                 .build(),
         )
         val db = helper.writableDatabase
-        JuiceDatabase.addTimes(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)).migrate(db)
+        JuiceDatabase.addTimesAndCharacterId(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)).migrate(db)
         db.query("SELECT id, createdAtMillis, completedAtMillis FROM items").use {
             assertEquals(true, it.moveToFirst())
             assertEquals("a", it.getString(0))

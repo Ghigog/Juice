@@ -43,27 +43,15 @@ abstract class JuiceDatabase : RoomDatabase() {
             }
         }
 
-        internal fun addTimes(clock: Clock) = object : Migration(6, 7) {
+        /** Room takes one step per version pair, so the 6→7 column additions run as one migration. */
+        internal fun addTimesAndCharacterId(clock: Clock) = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN createdAtMillis INTEGER")
                 db.execSQL("ALTER TABLE items ADD COLUMN completedAtMillis INTEGER")
                 // Completed rows have no recorded time; stamp them now so the Recap (which filters on it) keeps them.
                 val now = clock.millis()
                 db.execSQL("UPDATE items SET completedAtMillis = ?, createdAtMillis = ? WHERE status = 'Completed'", arrayOf<Any>(now, now))
-            }
-        }
-
-        internal val addCharacterId = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE items ADD COLUMN characterId TEXT")
-            }
-        }
-
-        /** Room takes one step per version pair, so the two 6→7 column additions run together. */
-        internal fun addTimesAndCharacterId(clock: Clock) = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                addTimes(clock).migrate(db)
-                addCharacterId.migrate(db)
             }
         }
 
