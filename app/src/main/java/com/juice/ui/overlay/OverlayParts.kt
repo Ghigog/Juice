@@ -5,37 +5,35 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.core.economy.EconomyConfig
+import com.juice.core.economy.ItemType as EconomyItemType
+import com.juice.core.intake.GroqKey
+import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.core.notify.plan
-import com.juice.core.economy.EconomyConfig
-import com.juice.core.intake.GroqKey
-import com.juice.intake.KeyCheck
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import com.juice.core.economy.ItemType as EconomyItemType
-import com.juice.core.intake.ItemType
 import com.juice.core.progression.Flavour
 import com.juice.feedback.FeedbackEvent
+import com.juice.groq.KeyCheck
 import com.juice.settings.JuiceSettings
 import com.juice.ui.GameSession
 import com.juice.ui.Tier
@@ -47,6 +45,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /** What the header and reservoir show. Read from [GameSession.hud] so it follows the session's state. */
 data class Hud(

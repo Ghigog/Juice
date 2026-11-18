@@ -14,7 +14,7 @@ import com.juice.core.model.Item
 import com.juice.data.ChatMessage
 import com.juice.data.ConversationStore
 import com.juice.data.MemoryStore
-import com.juice.intake.GroqTransport
+import com.juice.groq.GroqTransport
 import java.io.IOException
 
 sealed interface CoachReply {
