@@ -33,13 +33,15 @@ import kotlinx.coroutines.CoroutineScope
 /** Builds the app's stores, repositories and Groq clients once, lazily, for the service, activity, boot receiver and worker to share. */
 open class AppContainer(
     context: Context,
+    /** The one clock the container's reminders and database use; [JuiceApplication] builds it once. */
+    val clock: Clock,
     /** Builds the Groq client for a key; the only way the app gets one, so a test can supply its own. */
     override val groqFor: (GroqKey) -> GroqClient = { GroqClient(it.value) },
 ) : IntakeDependencies {
     private val context: Context = context.applicationContext
 
     override val settings: SettingsRepository by lazy { SettingsRepository(context) }
-    val database: JuiceDatabase by lazy { JuiceDatabase.open(context) }
+    val database: JuiceDatabase by lazy { JuiceDatabase.open(context, clock) }
     val characterStore: CharacterStore by lazy { CharacterStore(context) }
     val createdStore: CreatedCharacterStore by lazy { CreatedCharacterStore(context) }
     val memoryStore: MemoryStore by lazy { MemoryStore(File(context.filesDir, "memory.json")) }
@@ -54,7 +56,7 @@ open class AppContainer(
             database.itemDao(),
             hiddenCharacterIds = characterStore::disabledIds,
             hiddenChanges = characterStore.changes(),
-            reminders = ReminderScheduler(context, Clock.systemDefaultZone()),
+            reminders = ReminderScheduler(context, clock),
         )
     }
 
