@@ -7,12 +7,16 @@ import java.time.Instant
 enum class CardOrder { Newest, Oldest, Custom }
 
 /**
- * Starred cards stay first in their current order; the rest follow [order].
- * A card with no [Item.createdAt] counts as the oldest. The sort is stable, so ties keep their incoming order.
+ * Starred cards stay first in their current order; the rest follow [order]: cards with a deadline, closest first,
+ * then cards with no deadline. Creation date (newest or oldest per [order]) breaks deadline ties and orders the
+ * cards with no deadline. A card with no [Item.createdAt] counts as the oldest. [CardOrder.Custom] returns the list
+ * unchanged. The sort is stable, so full ties keep their incoming order.
  */
 fun List<Item>.sortedFor(order: CardOrder): List<Item> {
     if (order == CardOrder.Custom) return this
     val (starred, rest) = partition { it.starredAt != null }
     val created = compareBy<Item> { it.createdAt ?: Instant.MIN }
-    return starred + rest.sortedWith(if (order == CardOrder.Newest) created.reversed() else created)
+    val byCreated = if (order == CardOrder.Newest) created.reversed() else created
+    val byDeadline = compareBy<Item> { it.deadline == null }.thenBy { it.deadline ?: Instant.MAX }
+    return starred + rest.sortedWith(byDeadline.then(byCreated))
 }

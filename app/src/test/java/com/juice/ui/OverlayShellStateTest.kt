@@ -396,6 +396,51 @@ class OverlayShellStateTest {
         assertEquals(1, custom)
     }
 
+    private fun due(id: String, day: Int, created: Int = 1) =
+        dated(id, created).copy(deadline = Instant.parse("2026-01-${day.toString().padStart(2, '0')}T09:00:00Z"))
+
+    @Test
+    fun anAddedCardDueSoonerLandsAboveALaterDeadline() = runBlocking {
+        val fri = due("fri", 9)
+        repository.save(fri)
+        val s = ordered(CardOrder.Newest, listOf(fri))
+        s.observe()
+        repository.save(due("tomorrow", 5, created = 3))
+        assertEquals(listOf("tomorrow", "fri"), s.items.map { it.id })
+    }
+
+    @Test
+    fun aCaptureWithNoDeadlineLandsBelowDatedCards() {
+        val s = ordered(CardOrder.Newest, listOf(due("fri", 9)))
+        s.capture("fresh")
+        assertEquals(listOf("fri", "new"), s.items.map { it.id })
+    }
+
+    @Test
+    fun editingADeadlineAwayMovesTheCardUnderADatedOrderButNotUnderCustom() = runBlocking {
+        val items = listOf(due("a", 5), due("b", 7))
+        items.forEach { repository.save(it) }
+        val dated = ordered(CardOrder.Newest, items)
+        dated.setType(items[0], ItemType.List)
+        assertEquals(listOf("b", "a"), dated.items.map { it.id })
+        val custom = ordered(CardOrder.Custom, items)
+        custom.setType(items[0], ItemType.List)
+        assertEquals(listOf("a", "b"), custom.items.map { it.id })
+    }
+
+    @Test
+    fun aCustomOrderKeepsTheDragAndPutsACaptureOnTop() = runBlocking {
+        val items = listOf(due("soon", 3), due("late", 9))
+        items.forEach { repository.save(it) }
+        val s = ordered(CardOrder.Newest, items)
+        s.pickUp(s.items[0])
+        s.moveTarget(1)
+        s.drop()
+        assertEquals(listOf("late", "soon"), s.items.map { it.id })
+        s.capture("fresh")
+        assertEquals(listOf("new", "late", "soon"), s.items.map { it.id })
+    }
+
     @Test
     fun cancellingAHoldKeepsTheOrder() {
         val s = state(*abc)
