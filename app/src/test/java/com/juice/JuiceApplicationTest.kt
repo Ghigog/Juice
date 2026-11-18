@@ -2,6 +2,9 @@ package com.juice
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertSame
 import org.junit.runner.RunWith
@@ -27,5 +30,11 @@ class JuiceApplicationTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         assertSame(app.container, (service.applicationContext as JuiceApplication).container)
         assertSame(app.container.items, (activity.applicationContext as JuiceApplication).container.items)
+    }
+
+    @Test
+    fun containerKeepsTheClockItWasGiven() {
+        val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
+        assertSame(clock, AppContainer(app, clock).clock)
     }
 }
