@@ -15,9 +15,11 @@ import com.juice.core.intake.ItemType
 import com.juice.core.memory.Memory
 import com.juice.core.model.Item
 import com.juice.core.routine.Cadence
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -71,7 +73,7 @@ class CharacterRepositoryTest {
                 .build(),
         )
         val db = helper.writableDatabase
-        JuiceDatabase.addCharacterId.migrate(db)
+        JuiceDatabase.addTimesAndCharacterId(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)).migrate(db)
         db.query("SELECT id, characterId FROM items ORDER BY id").use {
             val rows = generateSequence { if (it.moveToNext()) it.getString(0) to it.isNull(1) else null }.toList()
             assertEquals(listOf("a" to true, "b" to true), rows)
