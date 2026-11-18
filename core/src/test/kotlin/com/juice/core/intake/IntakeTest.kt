@@ -487,9 +487,9 @@ class IntakeTest {
         assertEquals(model, model.improvingOn(RulesFallback.classify(text, wed), wed, text))
     }
 
-    @Test fun aReminderTwoDaysBeforeTheDeadlineIsReplaced() {
+    @Test fun aReminderThatHasAlreadyPassedIsReplaced() {
         val text = "dentist Friday 3pm"
-        val model = goal(at(13, 15), notify = at(11, 20), text = "Dentist")
+        val model = goal(at(13, 15), notify = at(11, 18), text = "Dentist")
         val merged = model.improvingOn(RulesFallback.classify(text, wed), wed, text)
         assertEquals(at(13, 9).toInstant(), merged.notifyAt)
         assertEquals("Dentist", merged.notifyText)
