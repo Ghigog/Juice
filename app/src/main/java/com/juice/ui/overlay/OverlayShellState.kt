@@ -272,12 +272,18 @@ class OverlayShellState(
         draining = null
     }
 
+    /** [items] with a new [card] at its sorted place in Newest and Oldest, and at the top in Custom. */
+    private fun placed(card: Item): List<Item> = when (cardOrder) {
+        CardOrder.Custom -> listOf(card) + items
+        else -> (listOf(card) + items).sortedFor(cardOrder)
+    }
+
     /** Shows a new Note card at once (first in the carousel) and saves it in the background. */
     fun capture(text: String): Item? {
         val title = text.trim()
         if (title.isEmpty()) return null
-        val note = Item(newId(), ItemType.Note, title, categoryId = category.id)
-        items = if (cardOrder == CardOrder.Oldest) items + note else listOf(note) + items
+        val note = Item(newId(), ItemType.Note, title, categoryId = category.id, createdAt = clock.instant())
+        items = placed(note)
         scope.launch {
             repository.save(note)
             if (onCaptured(note)) {
@@ -440,7 +446,7 @@ class OverlayShellState(
             val changed = change(it).copy(editedFields = it.editedFields + field)
             if (field == IntakeField.Deadline || field == IntakeField.Cadence) changed.copy(notifyAt = null, notifyText = null) else changed
         } ?: return
-        items = items.map { if (it.id == id) edited else it }
+        items = items.map { if (it.id == id) edited else it }.sortedFor(cardOrder)
         scope.launch { repository.save(edited) }
     }
 
@@ -455,8 +461,9 @@ class OverlayShellState(
             built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))
             else -> built
         }
-        items = items.take(at) + landed + items.drop(at + 1)
-        scope.launch { repository.save(landed) }
+        val placed = landed.copy(createdAt = landed.createdAt ?: old.createdAt, starredAt = landed.starredAt ?: old.starredAt)
+        items = (items.take(at) + placed + items.drop(at + 1)).sortedFor(cardOrder)
+        scope.launch { repository.save(placed) }
     }
 
     /** Pins [item] after the cards starred before it and before the rest; one already starred keeps its place. */
@@ -504,7 +511,7 @@ class OverlayShellState(
             when (result) {
                 is CreateResult.Created -> {
                     repo.consumeCreatorCard()
-                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = if (cardOrder == CardOrder.Oldest) items + card else listOf(card) + items }
+                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = placed(card) }
                     creator = null
                 }
                 is CreateResult.Failed -> flow.error = result.message
