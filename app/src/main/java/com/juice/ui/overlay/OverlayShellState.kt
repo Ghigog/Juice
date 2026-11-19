@@ -446,9 +446,9 @@ class OverlayShellState(
         val edited = items.firstOrNull { it.id == id }?.let {
             // Re-timing an item cancels the agent's reminder for the old time; it is not asked again.
             val changed = change(it).copy(editedFields = it.editedFields + field)
-            when (field) {
-                IntakeField.Cadence -> changed.copy(notifyAt = null, notifyText = null)
-                IntakeField.Deadline -> changed.withReminderForDeadline()
+            when {
+                field == IntakeField.Cadence -> changed.copy(notifyAt = null, notifyText = null)
+                field == IntakeField.Deadline || changed.deadline != it.deadline -> changed.withReminderForDeadline()
                 else -> changed
             }
         } ?: return
