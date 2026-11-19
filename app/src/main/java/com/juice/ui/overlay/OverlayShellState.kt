@@ -444,7 +444,7 @@ class OverlayShellState(
         val edited = items.firstOrNull { it.id == id }?.let {
             // Re-timing an item cancels the agent's reminder for the old time; it is not asked again.
             val changed = change(it).copy(editedFields = it.editedFields + field)
-            if (field == IntakeField.Deadline || field == IntakeField.Cadence) changed.copy(notifyAt = null, notifyText = null) else changed
+            if (field == IntakeField.Deadline || field == IntakeField.Cadence || changed.deadline != it.deadline) changed.copy(notifyAt = null, notifyText = null) else changed
         } ?: return
         items = items.map { if (it.id == id) edited else it }.sortedFor(cardOrder)
         scope.launch { repository.save(edited) }

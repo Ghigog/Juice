@@ -900,6 +900,18 @@ class OverlayShellStateTest {
     }
 
     @Test
+    fun retitlingAwayTheDeadlineClearsTheAgentReminder() = runBlocking {
+        val goal = Item("g", ItemType.Goal, "take out the trash on Tuesday", deadline = noon, notifyAt = noon, notifyText = "Bins")
+        repository.save(goal)
+        val state = clockedState(goal)
+        state.setTitle(goal, "take out the trash")
+        val saved = repository.get("g")!!
+        assertNull(saved.deadline)
+        assertNull(saved.notifyAt)
+        assertNull(saved.notifyText)
+    }
+
+    @Test
     fun editingARoutinesCadenceClearsTheAgentReminder() = runBlocking {
         val item = routine.copy(notifyAt = java.time.Instant.ofEpochSecond(1_800_000_000), notifyText = "Water")
         repository.save(item)
