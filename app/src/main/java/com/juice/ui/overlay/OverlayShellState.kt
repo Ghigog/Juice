@@ -9,11 +9,13 @@ import com.juice.core.category.Categories
 import com.juice.core.category.Category
 import com.juice.core.category.categoryName
 import com.juice.core.gesture.GesturePoint
+import com.juice.core.intake.DATE_ONLY_TIME
 import com.juice.core.intake.IntakeField
 import com.juice.core.intake.ChipSpan
 import com.juice.core.intake.ItemType
 import com.juice.core.intake.ParsedItem
 import com.juice.core.intake.RulesFallback
+import com.juice.core.intake.reminderFor
 import com.juice.core.intake.rewriteRelativeDeadline
 import com.juice.core.intake.withDeadlineDay
 import com.juice.core.intake.withInterval
@@ -272,12 +274,18 @@ class OverlayShellState(
         draining = null
     }
 
+    /** [items] with a new [card] at its sorted place in Newest and Oldest, and at the top in Custom. */
+    private fun placed(card: Item): List<Item> = when (cardOrder) {
+        CardOrder.Custom -> listOf(card) + items
+        else -> (listOf(card) + items).sortedFor(cardOrder)
+    }
+
     /** Shows a new Note card at once (first in the carousel) and saves it in the background. */
     fun capture(text: String): Item? {
         val title = text.trim()
         if (title.isEmpty()) return null
-        val note = Item(newId(), ItemType.Note, title, categoryId = category.id)
-        items = if (cardOrder == CardOrder.Oldest) items + note else listOf(note) + items
+        val note = Item(newId(), ItemType.Note, title, categoryId = category.id, createdAt = clock.instant())
+        items = placed(note)
         scope.launch {
             repository.save(note)
             if (onCaptured(note)) {
@@ -438,10 +446,21 @@ class OverlayShellState(
         val edited = items.firstOrNull { it.id == id }?.let {
             // Re-timing an item cancels the agent's reminder for the old time; it is not asked again.
             val changed = change(it).copy(editedFields = it.editedFields + field)
-            if (field == IntakeField.Deadline || field == IntakeField.Cadence) changed.copy(notifyAt = null, notifyText = null) else changed
+            when {
+                field == IntakeField.Cadence -> changed.copy(notifyAt = null, notifyText = null)
+                field == IntakeField.Deadline || changed.deadline != it.deadline -> changed.withReminderForDeadline()
+                else -> changed
+            }
         } ?: return
-        items = items.map { if (it.id == id) edited else it }
+        items = items.map { if (it.id == id) edited else it }.sortedFor(cardOrder)
         scope.launch { repository.save(edited) }
+    }
+
+    /** A new reminder for the card's deadline, none when it has no deadline or the reminder time has passed. */
+    private fun Item.withReminderForDeadline(): Item {
+        val zoned = deadline?.atZone(ZoneId.systemDefault())
+        val at = zoned?.let { reminderFor(it, now(), it.toLocalTime() != DATE_ONLY_TIME, type) }?.toInstant()
+        return copy(notifyAt = at, notifyText = if (at != null) title else null)
     }
 
     /** Swaps the captured card [id] for what its parse produced: the card as the parse built it. */
@@ -455,8 +474,9 @@ class OverlayShellState(
             built.type == ItemType.Goal -> built.copy(title = rewriteRelativeDeadline(built.title, now()))
             else -> built
         }
-        items = items.take(at) + landed + items.drop(at + 1)
-        scope.launch { repository.save(landed) }
+        val placed = landed.copy(createdAt = landed.createdAt ?: old.createdAt, starredAt = landed.starredAt ?: old.starredAt)
+        items = (items.take(at) + placed + items.drop(at + 1)).sortedFor(cardOrder)
+        scope.launch { repository.save(placed) }
     }
 
     /** Pins [item] after the cards starred before it and before the rest; one already starred keeps its place. */
@@ -504,7 +524,7 @@ class OverlayShellState(
             when (result) {
                 is CreateResult.Created -> {
                     repo.consumeCreatorCard()
-                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = if (cardOrder == CardOrder.Oldest) items + card else listOf(card) + items }
+                    repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = placed(card) }
                     creator = null
                 }
                 is CreateResult.Failed -> flow.error = result.message
