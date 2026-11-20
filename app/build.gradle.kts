@@ -14,8 +14,9 @@ android {
         warningsAsErrors = true
         abortOnError = true
         baseline = file("lint-baseline.xml")
-        // Needs the network and fails CI whenever a dependency releases; versions are bumped deliberately.
-        disable += "NewerVersionAvailable"
+        // These need the network and fail CI whenever Gradle, AGP or a dependency releases,
+        // so they break unrelated pull requests; versions are bumped deliberately.
+        disable += listOf("NewerVersionAvailable", "AndroidGradlePluginVersion", "GradleDependency")
     }
 
     defaultConfig {
