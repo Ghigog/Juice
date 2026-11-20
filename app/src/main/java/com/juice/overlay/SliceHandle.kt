@@ -23,6 +23,8 @@ import com.juice.ui.overlay.SpinMomentum
 import com.juice.ui.overlay.spinForPull
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
+import androidx.core.graphics.withRotation
+import androidx.core.graphics.withScale
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -51,19 +53,18 @@ internal class HandleBadgePainter(private val density: Float) {
         val cx = x + (if (towardX >= x) 1 else -1) * size * BADGE_OFFSET
         val cy = y + (if (towardY >= y) 1 else -1) * size * BADGE_OFFSET
         fill.color = accent
-        canvas.save()
-        canvas.scale(scale, scale, cx, cy)
-        if (dot) {
-            canvas.drawCircle(cx, cy, DOT_RADIUS_DP * density, fill)
-        } else {
-            val label = if (count > 9) "9+" else count.toString()
-            val h = BADGE_HEIGHT_DP * density
-            val w = maxOf(h, text.measureText(label) + 2 * BADGE_PAD_DP * density)
-            val r = minOf(BADGE_RADIUS_DP * density, h / 2)
-            canvas.drawRoundRect(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2, r, r, fill)
-            canvas.drawText(label, cx, cy - (text.ascent() + text.descent()) / 2, text)
+        canvas.withScale(scale, scale, cx, cy) {
+            if (dot) {
+                canvas.drawCircle(cx, cy, DOT_RADIUS_DP * density, fill)
+            } else {
+                val label = if (count > 9) "9+" else count.toString()
+                val h = BADGE_HEIGHT_DP * density
+                val w = maxOf(h, text.measureText(label) + 2 * BADGE_PAD_DP * density)
+                val r = minOf(BADGE_RADIUS_DP * density, h / 2)
+                canvas.drawRoundRect(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2, r, r, fill)
+                canvas.drawText(label, cx, cy - (text.ascent() + text.descent()) / 2, text)
+            }
         }
-        canvas.restore()
     }
 
     private companion object {
@@ -712,10 +713,9 @@ internal class SliceStage(context: Context) : View(context) {
         dismissTarget?.let { drawDismissTarget(canvas, it) }
         ring?.let { painter.drawRing(canvas, it.x, it.y, it.radius, it.pull, it.ready, it.accent, density) }
         slice?.let {
-            canvas.save()
-            canvas.rotate(it.rotation, it.x, it.y)
-            painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0)
-            canvas.restore()
+            canvas.withRotation(it.rotation, it.x, it.y) {
+                painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0)
+            }
             badge?.let { b ->
                 badgePainter.draw(
                     canvas, it.x, it.y, it.size, if (it.x <= width / 2f) width.toFloat() else 0f,
