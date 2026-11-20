@@ -50,8 +50,35 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import com.juice.core.model.Item
+import java.time.Duration
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
+import com.juice.core.notify.DeadlineNudge
+import com.juice.core.notify.deadlineNudge
 import kotlinx.coroutines.launch
+
+/** How often the handle's spin is recomputed while a deadline is incoming. */
+internal val NUDGE_TICK: Duration = Duration.ofSeconds(30)
+
+/**
+ * The nudge for [items] by [clock], emitted now and again every [NUDGE_TICK] while any item is
+ * incoming, and at the instant the next reminder or deadline passes, so the handle starts, speeds
+ * up and stops on time. Waits on coroutine time, so tests drive it with a test scheduler.
+ */
+internal fun nudgeTicker(items: List<Item>, clock: Clock): Flow<DeadlineNudge> = flow {
+    while (true) {
+        val now = clock.instant()
+        val nudge = deadlineNudge(items, now)
+        emit(nudge)
+        val untilChange = nudge.nextChange?.let { Duration.between(now, it) } ?: return@flow
+        val wait = if (nudge.incomingCount > 0) minOf(NUDGE_TICK, untilChange) else untilChange
+        delay(wait.toMillis().coerceAtLeast(1L))
+    }
+}
 
 /** Foreground service owning the slice handle window and the full-screen overlay window. */
 class OverlayService : Service() {
@@ -87,9 +114,13 @@ class OverlayService : Service() {
     private val characterSettings by lazy { container.characterSettings(scope) }
     /** Service has no constructor arguments; tests set this before onCreate. */
     internal var clock: Clock = Clock.systemDefaultZone()
+    /** The deadlines coming now; a handle shown later starts with it. */
+    private var nudge = HandleNudge.NONE
+    private val activeItems = MutableStateFlow<List<Item>>(emptyList())
     private var openItems = 0
     internal val openItemCount get() = openItems
     internal val handleSlices get() = handle?.slices
+    internal val handleNudge get() = handle?.nudge
     private lateinit var screen: OverlayScreen
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayChanged(displayId: Int) {
@@ -150,7 +181,16 @@ class OverlayService : Service() {
                 }
                 active.collect {
                     openItems = it.size
+                    activeItems.value = it
                     handle?.slices = SliceLogoPainter.sliceCount(openItems)
+                }
+            }
+            scope.launch {
+                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                val nudges = activeItems.flatMapLatest { items -> nudgeTicker(items, clock) }
+                nudges.collect {
+                    nudge = HandleNudge(it.incomingCount, it.spinDegPerSec)
+                    handle?.nudge = nudge
                 }
             }
         } else if (open && handle != null && overlay == null) {
@@ -218,6 +258,7 @@ class OverlayService : Service() {
         )
         styleHandle(view)
         view.slices = SliceLogoPainter.sliceCount(openItems)
+        view.nudge = nudge
         val (x, y) = handleCentre()
         handle = view
         if (flyFrom == null) view.show(x, y) else view.flyHome(x, y, flyFrom, animate = !settings.reduceMotion, onStageDrawn, onLanded)

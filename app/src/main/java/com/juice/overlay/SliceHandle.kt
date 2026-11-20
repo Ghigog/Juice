@@ -23,8 +23,58 @@ import com.juice.ui.overlay.SpinMomentum
 import com.juice.ui.overlay.spinForPull
 import com.juice.ui.logo.SliceLogoPainter
 import com.juice.ui.logo.SliceStyle
+import androidx.core.graphics.withRotation
+import androidx.core.graphics.withScale
 import kotlin.math.hypot
 import kotlin.math.roundToInt
+
+/** What the handle shows for the deadlines coming: how many are incoming and the spin of the most urgent. */
+internal data class HandleNudge(val count: Int, val spinDegPerSec: Float) {
+    companion object { val NONE = HandleNudge(0, 0f) }
+}
+
+/**
+ * Draws the incoming-deadline mark on a slice at ([x], [y]) of [size]: the count as an accent
+ * badge (11 sp bold, +1 tracking, a capsule at the badge radius), or, for [dot], a small still
+ * accent dot. It sits at the slice corner towards ([towardX], [towardY]), the screen centre.
+ */
+internal class HandleBadgePainter(private val density: Float) {
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 11f * density
+        isFakeBoldText = true
+        letterSpacing = 1f / 11f
+        textAlign = Paint.Align.CENTER
+        color = 0xFF0B1A22.toInt()
+    }
+
+    fun draw(canvas: Canvas, x: Float, y: Float, size: Float, towardX: Float, towardY: Float, count: Int, dot: Boolean, scale: Float, accent: Int) {
+        if (count <= 0 || scale <= 0f) return
+        val cx = x + (if (towardX >= x) 1 else -1) * size * BADGE_OFFSET
+        val cy = y + (if (towardY >= y) 1 else -1) * size * BADGE_OFFSET
+        fill.color = accent
+        canvas.withScale(scale, scale, cx, cy) {
+            if (dot) {
+                canvas.drawCircle(cx, cy, DOT_RADIUS_DP * density, fill)
+            } else {
+                val label = if (count > 9) "9+" else count.toString()
+                val h = BADGE_HEIGHT_DP * density
+                val w = maxOf(h, text.measureText(label) + 2 * BADGE_PAD_DP * density)
+                val r = minOf(BADGE_RADIUS_DP * density, h / 2)
+                canvas.drawRoundRect(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2, r, r, fill)
+                canvas.drawText(label, cx, cy - (text.ascent() + text.descent()) / 2, text)
+            }
+        }
+    }
+
+    private companion object {
+        const val BADGE_OFFSET = 0.43f
+        const val BADGE_HEIGHT_DP = 18f
+        const val BADGE_PAD_DP = 5f
+        const val BADGE_RADIUS_DP = 14f
+        const val DOT_RADIUS_DP = 5f
+    }
+}
 
 /** What letting go of the handle does. */
 internal enum class Release { NONE, OPEN, MOVED, DISMISS }
@@ -129,9 +179,27 @@ internal class SliceHandleView(
     var style: SliceStyle = SliceStyle.of(com.juice.core.progression.Flavour.ELECTRIC_CITRUS)
         set(value) { field = value; invalidate(); stage.invalidate() }
     var accent: Int = 0
-        set(value) { field = value; stage.invalidate() }
+        set(value) { field = value; invalidate(); syncStageBadge() }
     var slices: Int = 0
         set(value) { field = value; invalidate(); stage.invalidate() }
+
+    /** The deadlines coming: spins the slice at the most urgent one's speed and marks the count. */
+    var nudge: HandleNudge = HandleNudge.NONE
+        set(value) {
+            if (field == value) return
+            val countChanged = field.count != value.count
+            field = value
+            spin.cruise = value.spinDegPerSec
+            if (countChanged) {
+                contentDescription = if (value.count > 0) {
+                    resources.getQuantityString(com.juice.R.plurals.strip_open_deadlines, value.count, value.count)
+                } else {
+                    context.getString(com.juice.R.string.strip_open)
+                }
+                popBadge(value.count)
+            }
+            if (spin.cruise != 0f) startFrames()
+        }
 
     private val density = resources.displayMetrics.density
     private val logo = LOGO_DP * density
@@ -146,21 +214,27 @@ internal class SliceHandleView(
     private var overTarget = false
     private var velocity: VelocityTracker? = null
     /** The slice's spin, kicked by the drag and stepped by [frame] while the stage shows the slice. */
-    private var spin = SpinMomentum(enabled = !reduceMotion())
+    private var spin = newSpin()
     /** 1 while the spin shows in full; falls to 0 as the slice springs back, fading the spin out. */
     private var settle = 1f
+    /** The badge's size, 0..1 with overshoot; the count it is drawn with while it pops out is [badgeCount]. */
+    private var badgeScale = 0f
+    private var badgeCount = 0
+    private var badgePop: ValueAnimator? = null
+    private val badgePainter = HandleBadgePainter(density)
     private var frameRunning = false
     private var lastFrameNanos = 0L
     private val frame = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             val shown = stage.slice
-            if (shown == null) {
+            if (shown == null && spin.cruise == 0f && spin.boost == 0f) {
                 frameRunning = false
                 return
             }
             if (lastFrameNanos != 0L) spin.step(frameTimeNanos - lastFrameNanos)
             lastFrameNanos = frameTimeNanos
-            if (spin.boost != 0f) stage.slice = shown.copy(rotation = rotation())
+            if (shown != null && spin.boost != 0f) stage.slice = shown.copy(rotation = rotation())
+            if (!handedOff && spin.boost != 0f) invalidate()
             Choreographer.getInstance().postFrameCallback(this)
         }
     }
@@ -194,6 +268,42 @@ internal class SliceHandleView(
         setOnClickListener { onOpen(spin.angle, spin.boost) }
     }
 
+    /** A fresh spin at the deadline cruise speed, carrying on from [angle]. */
+    private fun newSpin(angle: Float = 0f) = SpinMomentum(enabled = !reduceMotion()).also {
+        it.seed(angle)
+        it.cruise = nudge.spinDegPerSec
+    }
+
+    /** Pops the badge in, out or between counts like a bubble; with reduced motion it just appears. */
+    private fun popBadge(count: Int) {
+        badgePop?.cancel()
+        val marked = count >= 2 || (count == 1 && reduceMotion())
+        if (marked) badgeCount = count
+        val target = if (marked) 1f else 0f
+        // A new count over a shown badge pops again from a little smaller.
+        val from = if (badgeScale > 0f && target > 0f) 0.6f else badgeScale
+        if (reduceMotion()) {
+            badgeScale = target
+            syncStageBadge()
+            invalidate()
+            return
+        }
+        badgePop = ValueAnimator.ofFloat(from, target).apply {
+            duration = POP_MILLIS
+            interpolator = if (target > 0f) OvershootInterpolator(2.5f) else DecelerateInterpolator()
+            addUpdateListener {
+                badgeScale = (it.animatedValue as Float).coerceAtLeast(0f)
+                syncStageBadge()
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    private fun syncStageBadge() {
+        stage.badge = SliceStage.Badge(badgeCount, badgeCount == 1, badgeScale, accent)
+    }
+
     /** The slice's live angle in degrees, for the overlay to carry on from. */
     val spinAngle: Float get() = spin.angle
 
@@ -219,6 +329,7 @@ internal class SliceHandleView(
         windowManager.addView(this, params)
         stageAttached = true
         windowAttached = true
+        if (spin.cruise != 0f) startFrames()
     }
 
     /**
@@ -277,6 +388,9 @@ internal class SliceHandleView(
 
     /** Removes the stage only; safe to call again. */
     fun dismissStage() {
+        badgePop?.cancel()
+        Choreographer.getInstance().removeFrameCallback(frame)
+        frameRunning = false
         if (stageAttached) windowManager.removeView(stage)
         stageAttached = false
     }
@@ -337,7 +451,7 @@ internal class SliceHandleView(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 springBack?.cancel()
-                spin = SpinMomentum(enabled = !reduceMotion())
+                spin = newSpin(rotation())
                 settle = 1f
                 gesture.down(event.rawX, event.rawY)
                 velocity?.recycle()
@@ -407,7 +521,16 @@ internal class SliceHandleView(
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (!handedOff) painter.draw(canvas, width / 2f, height / 2f, logo, style, slices, active = 0)
+        if (handedOff) return
+        canvas.save()
+        canvas.rotate(rotation(), width / 2f, height / 2f)
+        painter.draw(canvas, width / 2f, height / 2f, logo, style, slices, active = 0)
+        canvas.restore()
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        badgePainter.draw(
+            canvas, width / 2f, height / 2f, logo, if (centreX <= bounds.width() / 2f) width.toFloat() else 0f,
+            if (centreY <= bounds.height() / 2f) height.toFloat() else 0f, badgeCount, badgeCount == 1, badgeScale, accent,
+        )
     }
 
     /** Where the slice is drawn now, in screen px: following a move, or out towards the ring. */
@@ -459,6 +582,10 @@ internal class SliceHandleView(
         stage.dismissTarget = null
         springBack = null
         handedOff = false
+        // The pull's spin has faded out with the spring, so the handle carries on from still at the cruise speed.
+        spin = newSpin(rotation())
+        settle = 1f
+        startFrames()
         invalidate()
         whenDrawn {
             if (!gesture.pressed && springBack == null) {
@@ -519,6 +646,7 @@ internal class SliceHandleView(
 
         /** How close to a system bar or cutout the handle's centre may sit: the logo stays clear of it. */
         const val LOGO_HALF_DP = LOGO_DP / 2
+        private const val POP_MILLIS = 380L
         private const val MOVE_SLOP_DP = 6f
         private const val HOLD_MILLIS = 420L
         private const val SPRING_MILLIS = 320L
@@ -544,17 +672,21 @@ internal fun View.whenDrawn(action: () -> Unit) {
 internal class SliceStage(context: Context) : View(context) {
     data class Slice(val x: Float, val y: Float, val size: Float, val style: SliceStyle, val slices: Int, val rotation: Float = 0f)
     data class DismissTarget(val x: Float, val y: Float, val radius: Float, val highlighted: Boolean)
+    data class Badge(val count: Int, val dot: Boolean, val scale: Float, val accent: Int)
     data class Ring(val x: Float, val y: Float, val radius: Float, val pull: Float, val ready: Boolean, val accent: Int)
 
     var slice: Slice? = null
         set(value) { field = value; invalidate() }
     var ring: Ring? = null
         set(value) { field = value; invalidate() }
+    var badge: Badge? = null
+        set(value) { field = value; invalidate() }
     var dismissTarget: DismissTarget? = null
         set(value) { field = value; invalidate() }
 
     private val painter = SliceLogoPainter()
     private val density = resources.displayMetrics.density
+    private val badgePainter = HandleBadgePainter(density)
     private val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     val params = WindowManager.LayoutParams(
@@ -581,10 +713,15 @@ internal class SliceStage(context: Context) : View(context) {
         dismissTarget?.let { drawDismissTarget(canvas, it) }
         ring?.let { painter.drawRing(canvas, it.x, it.y, it.radius, it.pull, it.ready, it.accent, density) }
         slice?.let {
-            canvas.save()
-            canvas.rotate(it.rotation, it.x, it.y)
-            painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0)
-            canvas.restore()
+            canvas.withRotation(it.rotation, it.x, it.y) {
+                painter.draw(canvas, it.x, it.y, it.size, it.style, it.slices, active = 0)
+            }
+            badge?.let { b ->
+                badgePainter.draw(
+                    canvas, it.x, it.y, it.size, if (it.x <= width / 2f) width.toFloat() else 0f,
+                    if (it.y <= height / 2f) height.toFloat() else 0f, b.count, b.dot, b.scale, b.accent,
+                )
+            }
         }
     }
 
