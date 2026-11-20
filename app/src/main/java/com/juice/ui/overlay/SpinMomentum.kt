@@ -37,7 +37,7 @@ internal fun spinForFling(vy: Float): Float =
 
 /**
  * The backdrop slice's rotation: still unless dragged, or spun by a [kick] (the opening pull) that
- * decays exponentially back to rest. Pure, so it can be stepped by a frame loop or a test. When not
+ * decays exponentially back to the [cruise] speed (rest, when there is none). Pure, so it can be stepped by a frame loop or a test. When not
  * [enabled] (reduce motion) it never turns.
  */
 internal class SpinMomentum(
@@ -51,6 +51,10 @@ internal class SpinMomentum(
         private set
 
     private var held = false
+
+    /** The speed, in degrees per second, the spin eases toward: a deadline's slow turn. Ignored when not [enabled]. */
+    var cruise = 0f
+        set(value) { field = if (enabled) value else 0f }
 
     /** A finger is down: stops any spin and holds the slice so it follows the finger. */
     fun grab() {
@@ -87,8 +91,8 @@ internal class SpinMomentum(
         if (held) return angle
         val dt = dtNanos / 1e9f
         angle = ((angle + boost * dt) % 360f + 360f) % 360f
-        boost *= exp(-dt / frictionSeconds)
-        if (abs(boost) < 0.01f) boost = 0f
+        boost = cruise + (boost - cruise) * exp(-dt / frictionSeconds)
+        if (abs(boost - cruise) < 0.01f) boost = cruise
         return angle
     }
 }

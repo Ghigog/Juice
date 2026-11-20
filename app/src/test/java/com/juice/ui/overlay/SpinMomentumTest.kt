@@ -106,4 +106,37 @@ class SpinMomentumTest {
         m.run(15)
         assertEquals(0f, m.boost, 0.0001f)
     }
+
+    @Test fun boostEasesToTheCruiseSpeedWithoutJumping() {
+        val m = SpinMomentum().apply { cruise = 20f }
+        var last = m.boost
+        repeat(600) {
+            m.step(frame)
+            assertTrue(m.boost >= last && m.boost - last < 1f)
+            last = m.boost
+        }
+        assertEquals(20f, m.boost, 0.01f)
+        assertTrue(turnPerStep(m) > 0f)
+    }
+
+    @Test fun cruiseEasesBackToStillWhenItEnds() {
+        val m = SpinMomentum().apply { cruise = 20f; run(10); cruise = 0f }
+        m.step(frame)
+        assertTrue(m.boost in 0.01f..20f)
+        m.run(20)
+        assertEquals(0f, m.boost, 0f)
+    }
+
+    @Test fun kickOverridesCruiseThenSettlesBackToIt() {
+        val m = SpinMomentum().apply { cruise = 20f; run(10); kick(500f) }
+        assertEquals(500f, m.boost, 0f)
+        m.run(20)
+        assertEquals(20f, m.boost, 0f)
+    }
+
+    @Test fun disabledNeverTurnsEvenWithCruise() {
+        val m = SpinMomentum(enabled = false).apply { cruise = 20f; run(5) }
+        assertEquals(0f, m.angle, 0f)
+        assertEquals(0f, m.boost, 0f)
+    }
 }

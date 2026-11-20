@@ -11,6 +11,7 @@ import com.juice.ui.liquid.JuiceLiquidView
 import com.juice.ui.liquid.LiquidRunner
 import org.junit.Rule
 import kotlin.random.Random
+import kotlinx.coroutines.launch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -196,6 +197,75 @@ class OverlayServiceTest {
         shadowOf(android.os.Looper.getMainLooper()).idle()
         awaitOpenItems(controller.get(), 1)
         assertEquals(1, controller.get().handleSlices)
+    }
+
+    private val base = java.time.Instant.parse("2026-01-01T08:00:00Z")
+
+    /** A clock that reads the test scheduler's virtual time. */
+    private fun kotlinx.coroutines.test.TestScope.virtualClock() = object : java.time.Clock() {
+        override fun getZone() = java.time.ZoneOffset.UTC
+        override fun withZone(zone: java.time.ZoneId) = this
+        override fun instant(): java.time.Instant = base.plusMillis(testScheduler.currentTime)
+    }
+
+    private fun incoming(id: String, reminderInMin: Long, deadlineInMin: Long) = com.juice.core.model.Item(
+        id, com.juice.core.intake.ItemType.Task, id,
+        notifyAt = base.plusSeconds(reminderInMin * 60), deadline = base.plusSeconds(deadlineInMin * 60),
+    )
+
+    @Test
+    fun nudgeStartsAtTheReminderSpeedsUpAndStopsAtTheDeadline() = kotlinx.coroutines.test.runTest {
+        val seen = mutableListOf<Pair<Long, com.juice.core.notify.DeadlineNudge>>()
+        val job = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            nudgeTicker(listOf(incoming("a", 10, 130)), virtualClock()).collect { seen += testScheduler.currentTime to it }
+        }
+        testScheduler.advanceTimeBy(3 * 60 * 60_000L)
+        job.cancel()
+        val (firstAt, first) = seen.first { it.second.incomingCount == 1 }
+        assertEquals(10 * 60_000L, firstAt)
+        assertEquals(com.juice.core.notify.MIN_NUDGE_SPIN_DEG_PER_SEC, first.spinDegPerSec, 0.01f)
+        val speeds = seen.filter { it.second.incomingCount == 1 }.map { it.second.spinDegPerSec }
+        assertTrue(speeds.zipWithNext().all { (a, b) -> b >= a } && speeds.last() > speeds.first())
+        val (stopAt, stop) = seen.last()
+        assertEquals(130 * 60_000L, stopAt)
+        assertEquals(0, stop.incomingCount)
+        assertEquals(0f, stop.spinDegPerSec)
+    }
+
+    @Test
+    fun nudgeCountsASecondItemWhenItsReminderPasses() = kotlinx.coroutines.test.runTest {
+        val seen = mutableListOf<Pair<Long, Int>>()
+        val job = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            nudgeTicker(listOf(incoming("a", 10, 300), incoming("b", 60, 120)), virtualClock())
+                .collect { seen += testScheduler.currentTime to it.incomingCount }
+        }
+        testScheduler.advanceTimeBy(70 * 60_000L)
+        job.cancel()
+        assertEquals(1, seen.first { it.first == 10 * 60_000L }.second)
+        assertEquals(2, seen.first { it.first == 60 * 60_000L }.second)
+    }
+
+    @Test
+    fun handleCountsIncomingDeadlinesWithTheOverlayClosed() {
+        // The handle's frame callback re-posts itself, so a running Choreographer would keep the looper busy forever.
+        org.robolectric.shadows.ShadowChoreographer.setPaused(true)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        val clock = MutableClock(base.plusSeconds(30 * 60))
+        val database = com.juice.data.JuiceDatabase.open(context)
+        val repository = com.juice.data.ItemRepository(database.itemDao())
+        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            database.clearAllTables()
+            repository.save(incoming("a", 10, 130))
+            repository.save(incoming("b", 20, 300))
+        }
+        val controller = Robolectric.buildService(OverlayService::class.java).create()
+        controller.get().clock = clock
+        controller.startCommand(0, 1)
+        awaitOpenItems(controller.get(), 2)
+        assertEquals(2, controller.get().handleNudge?.count)
+        assertTrue(controller.get().handleNudge!!.spinDegPerSec > 0f)
+        assertEquals(controller.get().getResources().getQuantityString(com.juice.R.plurals.strip_open_deadlines, 2, 2), "Open Juice, 2 deadlines coming")
     }
 
     // Room's query executors run off the main thread; hand the looper over until the count lands.

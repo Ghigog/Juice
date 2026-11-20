@@ -10,6 +10,10 @@
     <string name="overlay_permission_open_settings">Open settings</string>
     <string name="overlay_close">Close Juice</string>
     <string name="strip_open">Open Juice</string>
+    <plurals name="strip_open_deadlines">
+        <item quantity="one">Open Juice, %d deadline coming</item>
+        <item quantity="other">Open Juice, %d deadlines coming</item>
+    </plurals>
     <string name="strip_dismiss">Close Juice</string>
     <string name="overlay_failed">Juice couldn\'t open: %1$s: %2$s</string>
     <string name="overlay_undo">Undo</string>
