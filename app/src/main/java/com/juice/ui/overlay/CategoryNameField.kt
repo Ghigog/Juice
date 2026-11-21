@@ -11,6 +11,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.selected
+import com.juice.core.category.Category
+import com.juice.core.category.CategoryPalette
+import com.juice.core.category.PaletteColour
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
@@ -46,6 +53,7 @@ const val TAG_CATEGORY_NAME_FIELD = "category_name_field"
 const val TAG_CATEGORY_NAME_INPUT = "category_name_input"
 const val TAG_CATEGORY_NAME_SAVE = "category_name_save"
 const val TAG_CATEGORY_NAME_CANCEL = "category_name_cancel"
+const val TAG_CATEGORY_SWATCH_PREFIX = "category_swatch_"
 
 /**
  * The glass field for naming a new category or renaming one ([naming]). It rises in from below on a spring, or
@@ -56,11 +64,16 @@ internal fun CategoryNameField(
     naming: CategoryNaming,
     hud: Hud,
     reduceMotion: Boolean,
-    onSave: (String) -> Unit,
+    onSave: (name: String, colour: Int?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Plays the tap sound and haptic when a swatch is picked. */
+    onPick: () -> Unit = {},
 ) {
     var name by remember(naming) { mutableStateOf(naming.renaming?.name.orEmpty()) }
+    var picked by remember(naming) { mutableStateOf(naming.colour) }
+    val mainName = naming.renaming?.id == Category.MAIN_ID
+    val accent = picked?.let { Color(it.accent) } ?: hud.accent
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val shown = remember { Animatable(0f) }
@@ -92,10 +105,11 @@ internal fun CategoryNameField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
+                readOnly = mainName,
                 textStyle = LocalTextStyle.current.copy(fontSize = JuiceType.Chat, color = Color.White),
-                cursorBrush = SolidColor(hud.accent),
+                cursorBrush = SolidColor(accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSave(name) }),
+                keyboardActions = KeyboardActions(onDone = { onSave(name, picked?.accent) }),
                 modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = fieldLabel }.testTag(TAG_CATEGORY_NAME_INPUT),
                 decorationBox = { field ->
                     Box(
@@ -113,9 +127,39 @@ internal fun CategoryNameField(
                     }
                 },
             )
+            if (naming.renaming != null) {
+                Swatches(picked, onPick = { picked = it; onPick() })
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillButton(stringResource(R.string.category_cancel), JuiceColors.white(0.14f), Color.White, Modifier.weight(1f).testTag(TAG_CATEGORY_NAME_CANCEL), onCancel)
-                PillButton(stringResource(R.string.category_save), hud.accent, JuiceColors.Ink, Modifier.weight(1f).testTag(TAG_CATEGORY_NAME_SAVE)) { onSave(name) }
+                PillButton(stringResource(R.string.category_save), accent, JuiceColors.Ink, Modifier.weight(1f).testTag(TAG_CATEGORY_NAME_SAVE)) { onSave(name, picked?.accent) }
+            }
+        }
+    }
+}
+
+/** The palette as a row of juice dots, each a [MinTouchTarget] tap area; the [selected] one is ringed in white. */
+@Composable
+private fun Swatches(selected: PaletteColour?, onPick: (PaletteColour) -> Unit) {
+    val label = stringResource(R.string.category_colour_label)
+    Row(Modifier.fillMaxWidth().semantics { contentDescription = label }, horizontalArrangement = Arrangement.SpaceBetween) {
+        for (colour in CategoryPalette.colours) {
+            val on = colour == selected
+            Box(
+                Modifier
+                    .size(MinTouchTarget)
+                    .testTag(TAG_CATEGORY_SWATCH_PREFIX + colour.accent)
+                    .semantics { this.selected = on }
+                    .touchTarget({ onPick(colour) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(Color(colour.accent), Color(colour.deep))))
+                        .then(if (on) Modifier.border(2.dp, Color.White, CircleShape) else Modifier),
+                )
             }
         }
     }

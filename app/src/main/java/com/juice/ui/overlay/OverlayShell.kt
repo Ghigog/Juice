@@ -482,6 +482,7 @@ fun OverlayShell(
             state.categoryNaming?.let { naming ->
                 CategoryNameField(
                     naming, hud, reduceMotion = settings.reduceMotion, onSave = state::saveNaming, onCancel = state::cancelNaming,
+                    onPick = { actions.feedback(FeedbackEvent.SNAP) },
                     modifier = Modifier
                         .fillMaxSize()
                         .background(overlayTint(blurred))

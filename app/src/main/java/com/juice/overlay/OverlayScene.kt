@@ -1,6 +1,7 @@
 package com.juice.overlay
 
 import android.content.Context
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -161,7 +162,8 @@ internal class OverlayScene(
             LaunchedEffect(current.flavour) { session.applyFlavour() }
             LaunchedEffect(current.cardOrder) { state.setCardOrder(current.cardOrder) }
             SideEffect { liquid.sync(current) }
-            val hud = session.hud(state.category.id)
+            val hud = session.hud(state.category.id, state.categories.colourOf(state.category.id))
+            LaunchedEffect(hud.accent, hud.deep) { liquid.showColour(hud.accent.toArgb(), hud.deep.toArgb()) }
             OverlayShell(
                 state,
                 settings = current,
