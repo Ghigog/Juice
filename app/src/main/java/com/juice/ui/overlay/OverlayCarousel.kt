@@ -165,6 +165,9 @@ internal fun Carousel(
             actions.onScroll(centreIndex - previous)
         }
     }
+    // A change of filter starts again from the first card.
+    val filter = state.filter
+    LaunchedEffect(filter) { if (centreIndex != 0) listState.scrollToItem(0) }
     // A capture lands first: bring it to the focal dot.
     val firstId = items.firstOrNull()?.id
     LaunchedEffect(firstId) {

@@ -303,7 +303,7 @@ internal fun CentreCard(
                         state.drop()
                         actions.feedback(FeedbackEvent.CAPTURE)
                     }
-                } else {
+                } else if (!state.filter.isActive) {
                     state.pickUp(item)
                     actions.feedback(FeedbackEvent.SNAP)
                 }
@@ -420,7 +420,10 @@ internal fun CentreCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         var typeMenuOpen by remember { mutableStateOf(false) }
                         Box {
-                            Box(Modifier.testTag(TAG_TYPE_PILL).touchTarget({ typeMenuOpen = true }), contentAlignment = Alignment.Center) {
+                            Box(Modifier.testTag(TAG_TYPE_PILL).touchTarget(
+                                onClick = { typeMenuOpen = true },
+                                onDoubleClick = { if (state.floatType(item.type)) actions.feedback(FeedbackEvent.SNAP) },
+                            ), contentAlignment = Alignment.Center) {
                                 Box(
                                     Modifier
                                         .height(28.dp)
