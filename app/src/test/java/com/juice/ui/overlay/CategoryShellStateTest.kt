@@ -247,4 +247,22 @@ class CategoryShellStateTest {
         assertEquals(coachCategoryId("jim"), state.category.id)
         assertEquals(Characters.Jim.name, state.category.name)
     }
+
+    @Test
+    fun meetingTheCoachAgainKeepsTheRenamedCategory() {
+        val (state, characters) = openWithJim()
+        runBlocking { characters.unlockAtLevel(Characters.Jim, 5) }
+        val meet = runBlocking { items.get("meet-jim") }!!
+        state.complete(meet)
+        state.nextCategory()
+        state.beginRename()
+        state.saveNaming("Running")
+
+        runBlocking { items.save(meet) }
+        state.complete(runBlocking { items.get("meet-jim") }!!)
+
+        val coach = state.categories.list.filter { it.id == coachCategoryId("jim") }
+        assertEquals(listOf("Running"), coach.map { it.name })
+        assertEquals("Running", runBlocking { categories.get(coachCategoryId("jim")) }!!.name)
+    }
 }
