@@ -268,14 +268,21 @@ class OverlayServiceTest {
         assertEquals(controller.get().getResources().getQuantityString(com.juice.R.plurals.strip_open_deadlines, 2, 2), "Open Juice, 2 deadlines coming")
     }
 
-    // Room's query executors run off the main thread; hand the looper over until the count lands.
+    // Room's query executors run off the main thread. Hand the looper over until the count lands, parking
+    // briefly between checks so a loaded machine gives those executors time instead of exhausting a fixed spin.
     private fun awaitOpenItems(service: OverlayService, count: Int) {
         val looper = shadowOf(android.os.Looper.getMainLooper())
-        repeat(200_000) {
+        var checks = 0
+        while (true) {
             looper.idle()
-            if (service.openItemCount == count) return
-            Thread.yield()
+            if (service.openItemCount == count || ++checks >= MAX_AWAIT_CHECKS) break
+            java.util.concurrent.locks.LockSupport.parkNanos(AWAIT_PARK_NANOS)
         }
         assertEquals(count, service.openItemCount)
+    }
+
+    private companion object {
+        const val AWAIT_PARK_NANOS = 1_000_000L
+        const val MAX_AWAIT_CHECKS = 60_000
     }
 }
