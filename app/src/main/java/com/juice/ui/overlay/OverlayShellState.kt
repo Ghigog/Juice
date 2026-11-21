@@ -169,6 +169,22 @@ class OverlayShellState(
         }
     }
 
+    /** Moves [id] to [toIndex] (never before Main) and saves the order; false when the order did not change. */
+    fun moveCategory(id: String, toIndex: Int): Boolean = apply(categories.move(id, toIndex))
+
+    /** One place earlier, for accessibility actions; false when already as early as it goes. */
+    fun moveCategoryEarlier(id: String): Boolean = apply(categories.moveEarlier(id))
+
+    /** One place later, for accessibility actions; false when already last. */
+    fun moveCategoryLater(id: String): Boolean = apply(categories.moveLater(id))
+
+    private fun apply(moved: Categories): Boolean {
+        if (moved == categories) return false
+        categories = moved
+        categoryRepository?.let { repo -> scope.launch { repo.reorder(moved.list.map { it.id }) } }
+        return true
+    }
+
     /** Moves the held card to the top of the neighbouring category and goes there; false when nothing is held or there is no neighbour. */
     fun carryHeld(forward: Boolean): Boolean {
         val card = items.firstOrNull { it.id == held } ?: return false

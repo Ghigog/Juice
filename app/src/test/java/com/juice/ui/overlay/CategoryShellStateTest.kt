@@ -141,4 +141,35 @@ class CategoryShellStateTest {
         state.previousCategory()
         assertTrue(state.items.none { it.id == note.id })
     }
+
+    @Test
+    fun movingACategoryReordersSavesAndKeepsTheCurrentOne() {
+        val work = withWork()
+        val home = runBlocking { categories.create("Home")!! }
+        val state = open()
+        state.nextCategory()
+        assertTrue(state.moveCategory(home.id, 1))
+        assertEquals(listOf(main, home, work), state.categories.list)
+        assertEquals(work, state.category)
+        assertEquals(listOf(main, home, work), runBlocking { categories.observe().first() })
+        state.previousCategory()
+        state.previousCategory()
+        assertEquals(home, state.categories.next(main.id))
+        assertFalse(state.moveCategory(home.id, 1))
+        assertFalse(state.moveCategoryEarlier(home.id))
+        assertTrue(state.moveCategoryLater(home.id))
+        assertEquals(listOf(main, work, home), state.categories.list)
+    }
+
+    @Test
+    fun aHeldCardIsCarriedToTheReorderedNeighbour() {
+        withWork()
+        val home = runBlocking { categories.create("Home")!! }
+        val state = open()
+        state.moveCategory(home.id, 1)
+        val note = state.capture("Carry me")!!
+        state.pickUp(note)
+        assertTrue(state.carryHeld(forward = true))
+        assertEquals(home, state.category)
+    }
 }

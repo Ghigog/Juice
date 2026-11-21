@@ -60,4 +60,30 @@ class CategoryRepositoryTest {
         repository.rename(Category.MAIN_ID, "Home")
         assertEquals(listOf(main, Category(groceries.id, "Shopping")), repository.observe().first())
     }
+
+    @Test
+    fun reorderSavesTheNewOrder() = runBlocking {
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
+        val work = repository.create("Work")!!
+        val home = repository.create("Home")!!
+        repository.reorder(listOf(main.id, home.id, work.id))
+        assertEquals(listOf(main, home, work), repository.observe().first())
+    }
+
+    @Test
+    fun reorderKeepsMainFirstAndIgnoresUnknownIds() = runBlocking {
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
+        val work = repository.create("Work")!!
+        val home = repository.create("Home")!!
+        repository.reorder(listOf(home.id, "ghost", work.id, main.id))
+        assertEquals(listOf(main, home, work), repository.observe().first())
+    }
+
+    @Test
+    fun reorderWorksWithoutAMainRow() = runBlocking {
+        val work = repository.create("Work")!!
+        val home = repository.create("Home")!!
+        repository.reorder(listOf(home.id, work.id))
+        assertEquals(listOf(main, home, work), repository.observe().first())
+    }
 }
