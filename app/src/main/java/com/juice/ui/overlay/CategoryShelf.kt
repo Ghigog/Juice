@@ -2,6 +2,7 @@ package com.juice.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -79,7 +80,7 @@ internal data class ShelfCategory(val name: String, val movable: Boolean)
 private val SHELF_GAP = 8.dp
 
 /**
- * The current category's name in a glass capsule, with one dot per category beside it. Tapping the capsule renames;
+ * The current category's name in a glass capsule (the dots live in [CategoryDots]). Tapping the capsule renames;
  * a long tap unfurls the strip into a shelf of capsules, one per category, and lifts the pressed one under the finger
  * so it can slide along the shelf. Main stays first. The shelf folds back after a pause or a tap outside it.
  * Callbacks only: the caller owns the order.
@@ -88,13 +89,14 @@ private val SHELF_GAP = 8.dp
 internal fun CategoryStrip(
     order: List<ShelfCategory>,
     current: Int,
-    hud: Hud,
     reduceMotion: Boolean,
     onCategory: () -> Unit,
     onMoveCategory: (fromIndex: Int, toIndex: Int) -> Unit,
     onMoveEarlier: (index: Int) -> Unit,
     onMoveLater: (index: Int) -> Unit,
     onShelfTick: () -> Unit,
+    glow: Animatable<Float, AnimationVector1D>,
+    onOpenChange: (Boolean) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val latestOrder by rememberUpdatedState(order)
@@ -118,12 +120,12 @@ internal fun CategoryStrip(
     var nudgeTarget by remember { mutableFloatStateOf(0f) }
     var dropStamp by remember { mutableIntStateOf(0) }
     val settle = remember { Animatable(0f) }
-    val glow = remember { Animatable(0f) }
     val rests = remember { HashMap<Int, Rect>() }
     var containerLeft by remember { mutableFloatStateOf(0f) }
     val gapPx = with(density) { SHELF_GAP.toPx() }
     val nudgePx = with(density) { SHELF_NUDGE_DP.dp.toPx() }
 
+    LaunchedEffect(open) { onOpenChange(open) }
     val busy = pressedIndex >= 0 || dragFrom >= 0
     // The pause after the last drop (driven by the frame clock, so a test advances it with mainClock).
     LaunchedEffect(dropStamp, busy) {
@@ -163,9 +165,10 @@ internal fun CategoryStrip(
 
     Row(
         Modifier
-            .fillMaxWidth()
+            .then(if (open) Modifier.fillMaxWidth() else Modifier)
             .height(MinTouchTarget)
             .pointerInput(open) { if (open) detectTapGestures { open = false } },
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -332,25 +335,6 @@ internal fun CategoryStrip(
                         }
                     }
                 }
-            }
-        }
-        Spacer(Modifier.width(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            repeat(order.size) { i ->
-                Box(
-                    Modifier
-                        .size(6.dp)
-                        .then(
-                            if (i == current) Modifier.drawBehind {
-                                val g = glow.value
-                                if (g > 0f) drawCircle(hud.accent.copy(alpha = 0.5f * g), radius = size.width * (0.5f + 1.2f * g))
-                            } else Modifier,
-                        )
-                        .clip(CircleShape)
-                        .background(if (i == current) hud.accent else JuiceColors.white(0.3f))
-                        .semantics { selected = i == current }
-                        .testTag(TAG_CATEGORY_DOT_PREFIX + i),
-                )
             }
         }
     }

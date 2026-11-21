@@ -93,10 +93,16 @@ Every state is one `Text` in the screen's own area, in Juice's warm voice (say w
 | Creator | error (`creator_error`, tag `creator_error`) | "Your coach slipped away: %1$s Give it another squeeze." | `JuiceType.Chat` | white 80% | Between the hobby input and the buttons. No empty state: the input hint (`creator_hint`) is its empty state. |
 | Creator | limit reached (`creator_limit_reached`, tag `creator_error`) | "Your shelf is full of coaches. Let one go to make room for a new one." | `JuiceType.Chat` | white 80% | Same place as the creator error. |
 
+## Top bar
+
+- Left: the Level/XP block, "Level 9 ⚙ - 6,788" over the XP bar. Tap the level (or its cog) for Settings, tap the points for Recap; each is its own 44 dp target and squeezes like the category capsule (an alpha dip with reduced motion).
+- Right: the category name capsule, then the Routines button. The multiplier badge sits between them for now.
+- The category dots are centred above the text entry, below the cards.
+
 ## Landscape
 
 - The overlay keeps clear of the status bar, navigation bar and cutout on every side, re-read whenever the screen turns.
-- Below 480 dp tall (a phone on its side) it is compact: smaller top gap, the undo prompt sits in the header's middle, the settings sheet is at most 560 dp wide.
+- Below 480 dp tall (a phone on its side) it is compact: smaller top gap, the undo prompt sits in the header's middle (between the Level block and the category name), the settings sheet is at most 560 dp wide.
 - A centre card under 300 dp tall and at least 480 dp wide puts the title and steps on the left and the worth, buttons and hint on the right.
 - The backdrop slice is 280 dp, or half the screen's height if that is less.
 - The slice handle is saved as fractions of the screen, so it follows the screen round; it always lands with its logo clear of the bars and cutout.

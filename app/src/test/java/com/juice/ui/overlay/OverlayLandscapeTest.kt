@@ -94,6 +94,9 @@ class OverlayLandscapeTest {
         idle()
         compose.onNodeWithTag(TAG_UNDO).assertIsDisplayed()
         assertTrue(bounds(TAG_UNDO).bottom <= bounds(TAG_CENTRE_CARD).top)
+        // Between the Level block and the category name.
+        assertTrue(bounds(TAG_UNDO).left >= bounds(TAG_RECAP).right)
+        assertTrue(bounds(TAG_UNDO).right <= bounds(TAG_CATEGORY_CAPSULE).left)
     }
 
     @Test

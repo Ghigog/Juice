@@ -84,4 +84,17 @@ class OverlayTouchTargetsTest {
         assertTrue(compose.onNodeWithTag(TAG_UNDO).getUnclippedBoundsInRoot().height >= 44.dp)
         assertEquals(32.dp, compose.onNodeWithTag(TAG_UNDO_PILL, useUnmergedTree = true).getUnclippedBoundsInRoot().height)
     }
+
+    @Test fun theLevelAndThePointsAreSeparateTargetsAtLeast44Tall() {
+        val state = OverlayShellState(ItemRepository(db.itemDao()), scope, emptyList(), today = LocalDate.of(2026, 10, 28), clock = CLOCK)
+        compose.setContent {
+            OverlayShell(state, clock = CLOCK, settings = JuiceSettings(reduceMotion = true), hud = Hud(level = 9, juice = 6_788), reservoir = { PlainReservoir(Hud(), it) })
+        }
+        compose.waitForIdle()
+        val level = compose.onNodeWithTag(TAG_SETTINGS).getUnclippedBoundsInRoot()
+        val points = compose.onNodeWithTag(TAG_RECAP).getUnclippedBoundsInRoot()
+        assertTrue(level.height >= 44.dp)
+        assertTrue(points.height >= 44.dp)
+        assertTrue("separate nodes side by side", level.right <= points.left)
+    }
 }

@@ -21,6 +21,8 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.assertIsSelected
@@ -269,5 +271,54 @@ class CategoryHeaderTest {
         kotlin.test.assertEquals(listOf("Move earlier"), labels(2))
         capsule(2).fetchSemanticsNode().config.getOrNull(SemanticsActions.CustomActions)!!.first().action()
         kotlin.test.assertEquals(listOf(2), earlier)
+    }
+
+    @Test
+    fun theCapsuleSitsRightOfTheLevelBlockAndTheDotsAreCentredBetweenTheCardsAndTheTextEntry() {
+        showWork()
+        val capsule = compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).fetchSemanticsNode().boundsInRoot
+        val level = compose.onNodeWithTag(TAG_SETTINGS).fetchSemanticsNode().boundsInRoot
+        val points = compose.onNodeWithTag(TAG_RECAP).fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertTrue(capsule.left >= points.right, "capsule $capsule is right of the level block $level / $points")
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val dots = (0..1).map { compose.onNodeWithTag(TAG_CATEGORY_DOT_PREFIX + it, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot }
+        val dotsCentre = (dots.first().left + dots.last().right) / 2
+        kotlin.test.assertTrue(kotlin.math.abs(dotsCentre - root.center.x) < 2f, "dots centred at $dotsCentre in $root")
+        val cards = compose.onNodeWithTag(TAG_CENTRE_CARD).fetchSemanticsNode().boundsInRoot
+        val capture = compose.onNodeWithTag(TAG_CAPTURE_FIELD).fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertTrue(dots.first().top >= cards.bottom && dots.first().bottom <= capture.top, "dots $dots between $cards and $capture")
+    }
+
+    @Test
+    fun theLevelLineReadsLevelAndTotalWithoutTheFlavourName() {
+        compose.setContent {
+            Header(
+                hud = Hud(level = 9, juice = 6_788), entrance = { 1f }, pop = androidx.compose.ui.Modifier,
+                onRecap = {}, onRoutines = {}, onSettings = {}, onRoutinesBounds = {},
+            )
+        }
+        compose.onNodeWithTag(TAG_SETTINGS).assertTextEquals("Level 9", includeEditableText = false)
+        compose.onNodeWithTag(TAG_RECAP).assertTextEquals("6,788")
+        compose.onNodeWithText(Hud().flavour.displayName).assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingTheLevelFiresSnapAndOpensSettingsWhileThePointsOpenRecap() {
+        val cues = mutableListOf<com.juice.feedback.FeedbackEvent>()
+        var settings = 0
+        var recap = 0
+        compose.setContent {
+            Header(
+                hud = Hud(level = 9, juice = 6_788), entrance = { 1f }, pop = androidx.compose.ui.Modifier,
+                onRecap = { recap++ }, onRoutines = {}, onSettings = { settings++ }, onRoutinesBounds = {},
+                onFeedback = { cues += it },
+            )
+        }
+        compose.onNodeWithTag(TAG_SETTINGS).performClick()
+        kotlin.test.assertEquals(listOf(com.juice.feedback.FeedbackEvent.SNAP), cues)
+        kotlin.test.assertEquals(1 to 0, settings to recap)
+        compose.onNodeWithTag(TAG_RECAP).performClick()
+        kotlin.test.assertEquals(1 to 1, settings to recap)
+        kotlin.test.assertEquals(1, cues.size)
     }
 }
