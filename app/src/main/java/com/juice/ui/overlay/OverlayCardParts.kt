@@ -164,7 +164,7 @@ internal fun ParsingChip(onDeviceOnly: Boolean) {
 }
 
 @Composable
-internal fun TitleField(title: String, onChange: (String) -> Unit, fontSize: TextUnit = JuiceType.Title, modifier: Modifier = Modifier, onDone: () -> Unit) {
+internal fun TitleField(title: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, fontSize: TextUnit = JuiceType.Title, onDone: () -> Unit) {
     var text by remember(title) { mutableStateOf(title) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
