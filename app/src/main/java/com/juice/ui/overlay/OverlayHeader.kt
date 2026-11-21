@@ -105,7 +105,6 @@ internal fun Header(
             if (middle != null) {
                 Box(Modifier.weight(1f).height(44.dp).padding(horizontal = 8.dp)) { middle() }
             }
-            MultiplierBadge(hud)
             Spacer(Modifier.width(10.dp))
         }
         Box(

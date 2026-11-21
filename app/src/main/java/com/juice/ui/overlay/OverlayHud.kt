@@ -49,6 +49,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
@@ -111,7 +112,7 @@ internal fun HydrationLabel(hud: Hud, modifier: Modifier = Modifier) {
 
 /** The multiplier pill; it pulses while Satiated. */
 @Composable
-internal fun MultiplierBadge(hud: Hud) {
+internal fun MultiplierBadge(hud: Hud, height: Dp = 34.dp) {
     val satiated = hud.tier == Tier.SATIATED
     val pulse by rememberInfiniteTransition(label = "badge").animateFloat(
         1f, if (satiated) 1.08f else 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse",
@@ -119,16 +120,16 @@ internal fun MultiplierBadge(hud: Hud) {
     Box(
         Modifier
             .graphicsLayer { scaleX = pulse; scaleY = pulse }
-            .widthIn(min = 56.dp)
-            .height(34.dp)
+            .widthIn(min = 44.dp)
+            .height(height)
             .clip(JuiceShapes.Capsule)
             .background(if (satiated) hud.accent.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.45f))
             .border(if (satiated) 2.dp else 1.dp, hud.accent, JuiceShapes.Capsule)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 10.dp)
             .testTag(TAG_MULTIPLIER),
         contentAlignment = Alignment.Center,
     ) {
-        Text(hud.multiplierLabel, fontSize = JuiceType.Dialogue, fontWeight = FontWeight.Bold)
+        Text(hud.multiplierLabel, fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold)
     }
 }
 
