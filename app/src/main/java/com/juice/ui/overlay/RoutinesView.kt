@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -50,6 +51,8 @@ internal fun RoutinesView(
     reservoir: @Composable (Modifier) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    cardPops: CardPops = remember { CardPops() },
+    onJuiceBoxBounds: (Rect) -> Unit = {},
 ) {
     var centre by remember { mutableStateOf(0) }
     val undo = state.undo
@@ -61,7 +64,7 @@ internal fun RoutinesView(
     }
     val closeLabel = stringResource(R.string.routines_close)
     Column(modifier.testTag(TAG_ROUTINES_SCREEN)) {
-        Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(44.dp).then(cardPops.element(0)), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.routines_title), fontSize = JuiceType.SheetHeading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(
                 Modifier
@@ -83,10 +86,10 @@ internal fun RoutinesView(
                 modifier = Modifier.weight(1f).testTag(TAG_ROUTINES_EMPTY),
             )
         } else {
-            CardRow(state, hud, settings, groqKeySaved, actions, effects, reservoir, centre, onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth())
+            CardRow(state, hud, settings, groqKeySaved, actions, effects, reservoir, centre, onCentre = { centre = it }, modifier = Modifier.weight(1f).fillMaxWidth(), cardPops = cardPops, onJuiceBoxBounds = onJuiceBoxBounds)
         }
         Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().height(44.dp)) {
+        Box(Modifier.fillMaxWidth().height(44.dp).then(cardPops.element(1))) {
             if (undo != null) UndoToast(undo, hud) {
                 state.undoLast()
                 actions.feedback(FeedbackEvent.UNDO)
