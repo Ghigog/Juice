@@ -10,6 +10,8 @@ import kotlinx.serialization.json.JsonPrimitive
 /** One proposed change to the player's regular tasks. */
 sealed interface CoachTask {
     data class Add(val title: String, val cadence: Cadence) : CoachTask
+    /** A one-off Task with no cadence. */
+    data class Once(val title: String) : CoachTask
     data class Change(val id: String, val title: String, val cadence: Cadence) : CoachTask
     data class Remove(val id: String) : CoachTask
 }
@@ -40,6 +42,7 @@ object CoachProposal {
             val task = entry as? JsonObject ?: throw IllegalArgumentException("task is not an object")
             when (string(task, "action")) {
                 "add" -> CoachTask.Add(title(task), IntakeValidator.cadence(task))
+                "once" -> CoachTask.Once(title(task))
                 "change" -> CoachTask.Change(knownId(task, knownIds), title(task), IntakeValidator.cadence(task))
                 "remove" -> CoachTask.Remove(knownId(task, knownIds))
                 else -> throw IllegalArgumentException("bad action")

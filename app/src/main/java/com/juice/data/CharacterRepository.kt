@@ -172,7 +172,7 @@ class CharacterRepository(
         unlockAtLevel(character, level)
     }
 
-    /** Applies a validated proposal: new Routines are added, changed ones updated, removed ones deleted. */
+    /** Applies a validated proposal: new Routines and one-off Tasks are added, changed ones updated, removed ones deleted. */
     suspend fun createTasks(
         characterId: String,
         tasks: List<CoachTask>,
@@ -183,6 +183,8 @@ class CharacterRepository(
             when (task) {
                 is CoachTask.Add ->
                     items.save(Item(newId(), ItemType.Routine, task.title, characterId = characterId, categoryId = coachCategoryId(characterId)).asRoutine(task.cadence, today))
+                is CoachTask.Once ->
+                    items.save(Item(newId(), ItemType.Task, task.title, characterId = characterId, categoryId = coachCategoryId(characterId)))
                 is CoachTask.Change -> items.get(task.id)?.takeIf { it.characterId == characterId }?.let {
                     items.save(it.copy(title = task.title).asRoutine(task.cadence, today))
                 }
