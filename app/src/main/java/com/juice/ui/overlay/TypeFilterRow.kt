@@ -66,9 +66,9 @@ internal fun TypeFilterRow(
     types: Set<ItemType>,
     reduceMotion: Boolean,
     onRelease: (ItemType) -> Unit,
+    modifier: Modifier = Modifier,
     query: String? = null,
     onClearQuery: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     // A released type stays here until its exit animation has played.
     var present by remember { mutableStateOf(types.toList()) }
