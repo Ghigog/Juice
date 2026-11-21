@@ -23,3 +23,8 @@ kover {
         }
     }
 }
+
+tasks.withType<Test> {
+    // Half the cores, at least one, so several test JVMs run side by side without starving the machine.
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+}
