@@ -67,7 +67,12 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         // Print a failing test's full message, so a CI log says why it failed.
-        unitTests.all { it.testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL } }
+        unitTests.all {
+            it.testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+            // Half the cores, at least one, so several Robolectric JVMs run side by side.
+            it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+            it.maxHeapSize = "1g"
+        }
     }
 
     sourceSets {
