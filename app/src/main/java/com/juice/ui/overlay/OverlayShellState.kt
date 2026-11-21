@@ -9,6 +9,7 @@ import com.juice.core.card.filteredBy
 import com.juice.core.card.sortedFor
 import com.juice.core.category.Categories
 import com.juice.core.category.Category
+import com.juice.core.category.PaletteColour
 import com.juice.core.category.categoryName
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.intake.DATE_ONLY_TIME
@@ -65,7 +66,7 @@ data class TitleEdit(val itemId: String, val text: String)
 data class ChipPicker(val itemId: String, val span: ChipSpan)
 
 /** The name field being open: for a new category, or for renaming [renaming]. */
-data class CategoryNaming(val renaming: Category? = null)
+data class CategoryNaming(val renaming: Category? = null, val colour: PaletteColour? = null)
 
 /** State of the overlay: the Active items shown in the carousel and the pending undo. */
 class OverlayShellState(
@@ -140,29 +141,35 @@ class OverlayShellState(
         categoryNaming = CategoryNaming()
     }
 
-    /** Opens the name field on the current category; Main cannot be renamed. */
+    /** Opens the sheet on the current category; Main's name is read-only but its colour can be chosen. */
     fun beginRename() {
-        if (category.id == Category.MAIN_ID) return
-        categoryNaming = CategoryNaming(category)
+        categoryNaming = CategoryNaming(category, categories.colourOf(category.id))
     }
 
     fun cancelNaming() {
         categoryNaming = null
     }
 
-    /** Creates or renames with [text]; a blank name closes the field and changes nothing. A new category is opened, empty. */
-    fun saveNaming(text: String) {
+    /**
+     * Creates or renames with [text] and applies [colour] (a palette accent) to the renamed category; a blank name
+     * changes no name. Main keeps its name. A new category is opened, empty.
+     */
+    fun saveNaming(text: String, colour: Int? = null) {
         val naming = categoryNaming ?: return
         categoryNaming = null
-        val name = categoryName(text) ?: return
         val repo = categoryRepository ?: return
         val renaming = naming.renaming
         if (renaming != null) {
-            val renamed = renaming.copy(name = name)
+            val name = if (renaming.id == Category.MAIN_ID) null else categoryName(text)
+            val renamed = renaming.copy(name = name ?: renaming.name, colour = colour ?: renaming.colour)
             categories = Categories(categories.list.map { if (it.id == renamed.id) renamed else it })
             if (category.id == renamed.id) category = renamed
-            scope.launch { repo.rename(renamed.id, name) }
+            scope.launch {
+                if (name != null) repo.rename(renamed.id, name)
+                if (colour != null) repo.setColour(renamed.id, colour)
+            }
         } else {
+            val name = categoryName(text) ?: return
             scope.launch {
                 val created = repo.create(name) ?: return@launch
                 if (categories.indexOf(created.id) < 0) categories = Categories(categories.list + created)

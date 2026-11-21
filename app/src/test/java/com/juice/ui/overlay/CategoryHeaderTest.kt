@@ -97,6 +97,13 @@ class CategoryHeaderTest {
     }
 
     @Test
+    fun aNewCategoryShowsZeroJuiceAndAThirstyEmptyGlass() {
+        showWork()
+        compose.onNodeWithTag(TAG_HYDRATION).assertTextEquals("THIRSTY: 0%")
+        compose.onNodeWithText("0").assertIsDisplayed()
+    }
+
+    @Test
     fun tappingTheCapsuleRenamesTheCategory() {
         showWork()
         compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).performClick()
@@ -110,11 +117,11 @@ class CategoryHeaderTest {
     }
 
     @Test
-    fun onMainATapOpensNothing() {
+    fun onMainATapOpensTheSheetForItsColour() {
         val state = showWork()
         compose.runOnIdle { state.previousCategory() }
         compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).assertTextEquals("Main").performClick()
-        compose.onNodeWithTag(TAG_CATEGORY_NAME_FIELD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CATEGORY_NAME_FIELD).assertIsDisplayed()
     }
 
     @Test

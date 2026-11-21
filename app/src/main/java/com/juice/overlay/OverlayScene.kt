@@ -1,6 +1,7 @@
 package com.juice.overlay
 
 import android.content.Context
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -92,10 +93,10 @@ internal class OverlayScene(
         characters.createCreatorCardIfDue(level)
     }
 
-    private fun actions(): OverlayActions {
+    private fun actions(shell: OverlayShellState): OverlayActions {
         val reservoir = liquid.view
         return OverlayActions(
-            feedback = { feedback.play(it, boosted = session.tier == Tier.SATIATED) },
+            feedback = { feedback.play(it, boosted = session.tier(shell.category.id) == Tier.SATIATED) },
             onSettingsChange = { change -> scope.launch { settingsRepository.update(change) } },
             onClose = closeRequest::request,
             onScroll = { steps -> reservoir.kick(steps * 2.2f) },
@@ -126,8 +127,8 @@ internal class OverlayScene(
             clock = clock,
             onCompleted = { item ->
                 val type = item.type.toEconomy()
-                val m = session.multiplier
-                val earned = session.complete(type)
+                val m = session.multiplier(item.categoryId)
+                val earned = session.complete(type, item.categoryId)
                 liquid.view.kick(2.4f + (EconomyConfig().fillPercent.getValue(type) / 25f).toFloat())
                 liquid.view.emitParticles(10)
                 effects.float(if (m > 1.0) "+$earned x${multiplierLabel(m).dropLast(1)}" else "+$earned")
@@ -153,7 +154,7 @@ internal class OverlayScene(
         onDraining: () -> Unit,
     ) {
         val state = shellState()
-        val actions = actions()
+        val actions = actions(state)
         state.observe()
         state.restorePending()
         view.setContent {
@@ -161,7 +162,8 @@ internal class OverlayScene(
             LaunchedEffect(current.flavour) { session.applyFlavour() }
             LaunchedEffect(current.cardOrder) { state.setCardOrder(current.cardOrder) }
             SideEffect { liquid.sync(current) }
-            val hud = session.hud()
+            val hud = session.hud(state.category.id, state.categories.colourOf(state.category.id))
+            LaunchedEffect(hud.accent, hud.deep) { liquid.showColour(hud.accent.toArgb(), hud.deep.toArgb()) }
             OverlayShell(
                 state,
                 settings = current,
