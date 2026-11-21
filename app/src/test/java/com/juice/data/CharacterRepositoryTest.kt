@@ -6,6 +6,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.juice.core.category.Category
+import kotlinx.coroutines.flow.first
 import com.juice.core.character.Availability
 import com.juice.core.character.CharacterState
 import java.io.File
@@ -36,6 +38,7 @@ class CharacterRepositoryTest {
     private lateinit var db: JuiceDatabase
     private lateinit var items: ItemRepository
     private lateinit var characters: CharacterRepository
+    private lateinit var categories: CategoryRepository
     private val jim = Characters.Jim
 
     @Before
@@ -43,7 +46,10 @@ class CharacterRepositoryTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, JuiceDatabase::class.java).allowMainThreadQueries().build()
         items = ItemRepository(db.itemDao())
-        characters = CharacterRepository(CharacterStore(context.getSharedPreferences("characters-test", Context.MODE_PRIVATE)), items)
+        categories = CategoryRepository(db.categoryDao()) { "c" }
+        characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("characters-test", Context.MODE_PRIVATE)), items, categories = categories,
+        )
     }
 
     @After
@@ -249,5 +255,58 @@ class CharacterRepositoryTest {
         assertEquals(true, characters.createCheckInIfDue(jim, Instant.parse("2026-10-16T00:00:00Z")))
         assertFalse(characters.createCheckInIfDue(jim, Instant.parse("2026-10-17T00:00:00Z")))
         assertEquals(2, items.byCharacter(jim.id).size)
+    }
+
+    private val jimCategory = "coach-jim"
+
+    @Test
+    fun meetingTwiceMakesOneCategoryNamedJim() = runBlocking {
+        characters.meet(jim)
+        characters.meet(jim)
+        assertEquals(listOf("main", jimCategory), categories.observe().first().map { it.id })
+        assertEquals(jim.name, categories.observe().first().last().name)
+    }
+
+    @Test
+    fun coachCardsAreSavedInTheCoachCategory() = runBlocking {
+        characters.createTasks("jim", listOf(CoachTask.Add("Run", daily)), today) { "r1" }
+        assertEquals(jimCategory, items.get("r1")!!.categoryId)
+        val now = Instant.parse("2026-01-01T00:00:00Z")
+        characters.recordConversation("jim", now)
+        assertTrue(characters.createCheckInIfDue(jim, now.plusSeconds(30L * 24 * 3600)))
+        assertEquals(jimCategory, items.get("checkin-jim")!!.categoryId)
+    }
+
+    @Test
+    fun aChangeKeepsAHandMovedCardWhereItIs() = runBlocking {
+        characters.createTasks("jim", listOf(CoachTask.Add("Run", daily)), today) { "r1" }
+        items.moveToCategory("r1", Category.MAIN_ID)
+        characters.createTasks("jim", listOf(CoachTask.Change("r1", "Run more", daily)), today)
+        assertEquals(Category.MAIN_ID, items.get("r1")!!.categoryId)
+    }
+
+    @Test
+    fun moveCoachCardsOutOfMainRunsOnce() = runBlocking {
+        items.save(Item("r1", ItemType.Routine, "Run", characterId = "jim"))
+        items.save(Item("r2", ItemType.Routine, "Stretch", characterId = "jim"))
+        items.save(Item("meet-jim", ItemType.Task, "Meet Jim", characterId = "jim"))
+        characters.moveCoachCardsOutOfMain()
+        assertEquals(jimCategory, items.get("r1")!!.categoryId)
+        assertEquals(jimCategory, items.get("r2")!!.categoryId)
+        assertEquals(Category.MAIN_ID, items.get("meet-jim")!!.categoryId)
+        assertEquals(jim.name, categories.observe().first().last().name)
+        items.moveToCategory("r1", Category.MAIN_ID)
+        characters.moveCoachCardsOutOfMain()
+        assertEquals(Category.MAIN_ID, items.get("r1")!!.categoryId)
+    }
+
+    @Test
+    fun resetDeletesTheCoachCardsAndCategory() = runBlocking {
+        characters.unlockAtLevel(jim, 100)
+        characters.meet(jim)
+        characters.createTasks("jim", listOf(CoachTask.Add("Run", daily)), today) { "r1" }
+        characters.reset(jim, 100)
+        assertNull(items.get("r1"))
+        assertEquals(listOf("main"), categories.observe().first().map { it.id })
     }
 }

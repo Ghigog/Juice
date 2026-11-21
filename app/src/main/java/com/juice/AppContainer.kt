@@ -49,7 +49,13 @@ open class AppContainer(
     val pendingCards: PendingCoachCardStore by lazy { PendingCoachCardStore(File(context.filesDir, "pending-coach-cards.txt")) }
     val economyStore: EconomyStore by lazy { EconomyStore(context) }
 
-    val categories: CategoryRepository by lazy { CategoryRepository(database.categoryDao()) { UUID.randomUUID().toString() } }
+    val categories: CategoryRepository by lazy {
+        CategoryRepository(
+            database.categoryDao(),
+            hiddenCharacterIds = characterStore::disabledIds,
+            hiddenChanges = characterStore.changes(),
+        ) { UUID.randomUUID().toString() }
+    }
 
     override val items: ItemRepository by lazy {
         ItemRepository(
@@ -75,6 +81,7 @@ open class AppContainer(
                 onDeviceOnly = { settings.current().onDeviceOnly },
                 cloudAvailable = { groqKeyStore.load() != null },
             ),
+            categories,
         )
     }
 
