@@ -4,9 +4,8 @@ import java.time.Clock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.juice.core.category.Category
 import com.juice.core.economy.CategoryEconomy
-import com.juice.core.economy.Completion
+import com.juice.core.economy.CategoryCompletion
 import com.juice.core.economy.Economy
 import com.juice.core.economy.EconomyConfig
 import com.juice.core.economy.EconomyState
@@ -22,7 +21,7 @@ import com.juice.ui.theme.FlavourTheme
 enum class Tier { THIRSTY, HYDRATED, SATIATED }
 
 /**
- * The game loop behind the overlay: owns Juice and the Thirst Meter, persists them, and plays
+ * The game loop behind the overlay: owns every category's Juice and Thirst Meter, persists them, and plays
  * feedback. [onSatiated] fires when a completion pushes the meter into Satiated (for particles);
  * [onLevelUp] gets the new level and the flavour it unlocked, if any. [chosenFlavour] is the
  * player's pick; it only applies once unlocked, otherwise the highest unlocked flavour is used.
@@ -38,82 +37,85 @@ class GameSession(
     private val onLevelUp: (level: Int, unlocked: Flavour?) -> Unit = { _, _ -> },
     private val chosenFlavour: () -> Flavour? = { null },
 ) {
-    private val economy = Economy(config)
-    private val undoStack = ArrayDeque<Completion>()
+    private val undoStack = ArrayDeque<CategoryCompletion>()
     private var lastTick = 0L
 
-    /** Every category as loaded; this session plays Main and carries the others through saves untouched. */
-    private var saved = CategoryEconomy()
+    /** Every category's Juice and Thirst Meter; snapshot state, so the HUD follows it. */
+    private var all by mutableStateOf(CategoryEconomy())
 
-    var state by mutableStateOf(EconomyState())
-        private set
+    /** The Juice and meter of [categoryId]; an untouched category is empty. */
+    fun state(categoryId: String): EconomyState = all[categoryId]
 
-    val multiplier: Double get() = economy.multiplier(state.meter)
+    fun multiplier(categoryId: String): Double = all.multiplier(categoryId)
 
-    val tier: Tier get() = when {
-        state.meter <= config.thirstyMax -> Tier.THIRSTY
-        state.meter > config.satiatedAbove -> Tier.SATIATED
-        else -> Tier.HYDRATED
-    }
+    fun tier(categoryId: String): Tier = tierOf(state(categoryId).meter)
 
-    val level: Int get() = Progression.levelFor(state.juice)
+    /** Total Juice across every category: what level and flavour unlocks read. */
+    val totalJuice: Long get() = all.totalJuice
+
+    val level: Int get() = Progression.levelFor(totalJuice)
 
     /** How far through the current level, 0..1. */
     val levelProgress: Float get() {
         val lo = Progression.thresholdFor(level)
         val hi = Progression.thresholdFor(level + 1)
-        return ((state.juice - lo).toFloat() / (hi - lo)).coerceIn(0f, 1f)
+        return ((totalJuice - lo).toFloat() / (hi - lo)).coerceIn(0f, 1f)
     }
 
     val flavour: Flavour get() =
-        chosenFlavour()?.takeIf { it.unlockLevel <= level } ?: Progression.flavourForJuice(state.juice)
+        chosenFlavour()?.takeIf { it.unlockLevel <= level } ?: Progression.flavourForJuice(totalJuice)
 
     val theme: FlavourTheme get() = FlavourTheme.of(flavour)
 
-    /** Meter as the 0..1 reservoir fill. */
-    val fill: Float get() = (state.meter / 100.0).toFloat()
+    /** [categoryId]'s meter as the 0..1 reservoir fill. */
+    fun fill(categoryId: String): Float = (state(categoryId).meter / 100.0).toFloat()
 
-    /** Juice that completing an item of [type] would earn right now. */
-    fun worth(type: ItemType): Long = Math.round(config.baseXp.getValue(type) * multiplier)
+    /** Juice that completing an item of [type] in [categoryId] would earn right now. */
+    fun worth(type: ItemType, categoryId: String): Long = Math.round(config.baseXp.getValue(type) * multiplier(categoryId))
 
     fun baseXp(type: ItemType): Long = config.baseXp.getValue(type)
 
-    /** Loads the saved state and drains the meter for the time the overlay was closed. */
+    private fun tierOf(meter: Double) = when {
+        meter <= config.thirstyMax -> Tier.THIRSTY
+        meter > config.satiatedAbove -> Tier.SATIATED
+        else -> Tier.HYDRATED
+    }
+
+    /** Loads the saved state and drains every category for the time the overlay was closed. */
     fun open() {
         val loaded = store.load()
-        saved = loaded?.economy ?: CategoryEconomy()
         val now = clock.millis()
         lastTick = now
-        state = loaded?.let {
+        all = loaded?.let {
             val minutes = ((now - it.savedAtMillis).coerceAtLeast(0)) / 60_000.0
-            economy.drain(it.economy[Category.MAIN_ID], minutes)
-        } ?: EconomyState()
+            it.economy.drain(minutes)
+        } ?: CategoryEconomy()
         undoStack.clear()
         persist()
         applyFlavour()
     }
 
-    /** Drains the meter for the time since the last tick, while the overlay stays open. */
+    /** Drains every category for the time since the last tick, while the overlay stays open. */
     fun tick() {
         val now = clock.millis()
         val minutes = (now - lastTick).coerceAtLeast(0) / 60_000.0
         lastTick = now
-        if (state.meter <= 0.0 || minutes <= 0.0) return
-        state = economy.drain(state, minutes)
+        if (minutes <= 0.0 || all.states.values.none { it.meter > 0.0 }) return
+        all = all.drain(minutes)
         persist()
     }
 
-    /** Completes an item of [type]; returns the Juice it earned. */
-    fun complete(type: ItemType): Long {
-        val wasSatiated = state.meter > config.satiatedAbove
+    /** Completes an item of [type] in [categoryId]; returns the Juice it earned. */
+    fun complete(type: ItemType, categoryId: String): Long {
+        val wasSatiated = tier(categoryId) == Tier.SATIATED
         val levelBefore = level
-        val multiplierBefore = multiplier
-        val (next, completion) = economy.complete(state, type)
-        state = next
+        val multiplierBefore = multiplier(categoryId)
+        val (next, completion) = all.complete(categoryId, type)
+        all = next
         undoStack.addLast(completion)
         persist()
         feedback.playCompletion(multiplierBefore)
-        if (!wasSatiated && state.meter > config.satiatedAbove) {
+        if (!wasSatiated && tier(categoryId) == Tier.SATIATED) {
             feedback.play(FeedbackEvent.SATIATED_PEAK)
             onSatiated()
         }
@@ -122,13 +124,13 @@ class GameSession(
             onLevelUp(level, Flavour.entries.lastOrNull { it.unlockLevel in (levelBefore + 1)..level })
         }
         applyFlavour()
-        return completion.earned
+        return completion.completion.earned
     }
 
-    /** Reverts the latest completion's Juice and fill. */
+    /** Reverts the latest completion's Juice and fill, on the category that earned it. */
     fun undo() {
         val completion = undoStack.removeLastOrNull() ?: return
-        state = economy.undo(state, completion)
+        all = all.undo(completion)
         persist()
         applyFlavour()
     }
@@ -143,5 +145,5 @@ class GameSession(
         onFlavourChanged(theme)
     }
 
-    private fun persist() = store.save(CategoryEconomy(states = saved.states + (Category.MAIN_ID to state)), clock.millis())
+    private fun persist() = store.save(all, clock.millis())
 }
