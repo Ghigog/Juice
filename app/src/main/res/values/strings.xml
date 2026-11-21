@@ -140,6 +140,8 @@
     <string name="category_name_field">Category name</string>
     <string name="category_save">Save</string>
     <string name="category_cancel">Cancel</string>
+    <string name="shelf_move_earlier">Move earlier</string>
+    <string name="shelf_move_later">Move later</string>
     <string name="creator_title">Summon a coach. What hobby do you want to get better at?</string>
     <string name="creator_hint">e.g. plumbing</string>
     <string name="creator_confirm">Summon</string>
