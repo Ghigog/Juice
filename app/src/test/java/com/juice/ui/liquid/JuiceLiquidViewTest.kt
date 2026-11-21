@@ -158,4 +158,30 @@ class JuiceLiquidViewTest {
         assertEquals(LiquidQuality.FAST.h, v.engine!!.sim.p.h)
         assertEquals(v.expected(0.5f), v.engine!!.sim.count)
     }
+
+    private fun isBetween(c: Int, from: Int, to: Int) =
+        c != from && c != to && listOf(Color::red, Color::green, Color::blue).all { ch ->
+            ch(c) in minOf(ch(from), ch(to))..maxOf(ch(from), ch(to))
+        }
+
+    @Test fun blendToPassesThroughIntermediateColoursAndEndsExactlyOnTheTarget() {
+        val orange = Color.rgb(255, 176, 32) to Color.rgb(232, 89, 12)
+        val purple = Color.rgb(140, 80, 220) to Color.rgb(70, 30, 130)
+        val v = view { setFlavour(orange.first, orange.second) }
+        v.blendTo(purple.first, purple.second, 400)
+        v.blendFrame(1_000_000_000L)
+        assertEquals(orange, v.currentFlavour)
+        v.blendFrame(1_200_000_000L)
+        val (accent, deep) = v.currentFlavour
+        assertTrue(isBetween(accent, orange.first, purple.first), "accent midpoint was ${Integer.toHexString(accent)}")
+        assertTrue(isBetween(deep, orange.second, purple.second), "deep midpoint was ${Integer.toHexString(deep)}")
+        v.blendFrame(1_400_000_000L)
+        assertEquals(purple, v.currentFlavour)
+    }
+
+    @Test fun blendToSetsTheColourAtOnceWhenReduceMotionIsOn() {
+        val v = view { sloshEnabled = false }
+        v.blendTo(Color.BLUE, Color.BLACK)
+        assertEquals(Color.BLUE to Color.BLACK, v.currentFlavour)
+    }
 }
