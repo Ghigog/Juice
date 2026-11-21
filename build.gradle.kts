@@ -13,11 +13,17 @@ dependencies {
 }
 
 kover {
+    currentProject {
+        createVariant("ci") {}
+    }
     reports {
-        verify {
-            rule {
-                // Merged :app and :core line coverage; measured 79.0% when set.
-                minBound(79)
+        // The "ci" variant merges :core (jvm) and :app (debug only); see koverVerifyCi.
+        variant("ci") {
+            verify {
+                rule {
+                    // Merged :app and :core line coverage; measured 79.0% when set.
+                    minBound(79)
+                }
             }
         }
     }

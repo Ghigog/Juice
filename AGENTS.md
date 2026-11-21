@@ -13,11 +13,12 @@ Put logic that does not need Android in `:core` so it stays easy to test.
 
 Run from the repository root with the Gradle wrapper:
 
-- All modules: `./gradlew test` (this is what the `Unit tests` workflow runs)
+- What CI runs (the `Unit tests` workflow): `./gradlew :core:test :app:testDebugUnitTest koverVerifyCi`. It unit-tests `:core` and the `:app` debug variant only, never `testReleaseUnitTest`; the workflow's other job also runs `:app:compileReleaseKotlin`.
+- All modules, both variants: `./gradlew test`
 - `:core` only: `./gradlew :core:test`
 - `:app` only: `./gradlew :app:testDebugUnitTest`
 - One class: `./gradlew :core:test --tests 'com.juice.core.economy.EconomyTest'`
-- Coverage rules: `./gradlew koverVerify` for the whole build, or per module `./gradlew :core:koverVerify` and `./gradlew :app:koverVerify`. Run it after the tests when you change code.
+- Coverage rules (core 85, app 60, merged 79, measured on the `ci` Kover variant: core JVM plus app debug): `./gradlew koverVerifyCi` for the whole build, or per module `./gradlew :core:koverVerifyCi` and `./gradlew :app:koverVerifyCi`. Run it after the tests when you change code.
 
 ## Test rules
 

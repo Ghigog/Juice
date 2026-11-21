@@ -14,11 +14,17 @@ dependencies {
 }
 
 kover {
+    currentProject {
+        // The "ci" variant exists in every module so the root can merge them; see the root build file.
+        createVariant("ci") { add("jvm") }
+    }
     reports {
-        verify {
-            rule {
-                // :core line coverage alone, so :app cannot mask a drop; measured 98.0% when set.
-                minBound(85)
+        variant("ci") {
+            verify {
+                rule {
+                    // :core line coverage alone, so :app cannot mask a drop; measured 98.0% when set.
+                    minBound(85)
+                }
             }
         }
     }
