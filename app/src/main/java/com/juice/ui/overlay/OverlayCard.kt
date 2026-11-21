@@ -73,7 +73,9 @@ import com.juice.core.gesture.GestureResult
 import com.juice.core.intake.ChipKind
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
+import com.juice.core.card.createdStamp
 import java.time.Clock
+import java.time.LocalDate
 import com.juice.feedback.FeedbackEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -95,6 +97,8 @@ const val FLY_MILLIS = 300
 internal const val SWIPE_FRACTION = 0.25
 
 private enum class Tint { OK, X, BAD, STAR }
+
+const val TAG_CREATED_STAMP = "created_stamp"
 
 /**
  * The frosted centre card: the current item, its type pill, worth and the drawing surface. A ✓
@@ -512,6 +516,17 @@ internal fun CentreCard(
                             lineHeight = JuiceType.BodyLine,
                             color = JuiceColors.white(0.82f),
                             modifier = Modifier.testTag(TAG_REMINDER_LINE),
+                        )
+                    }
+                    item.createdAt?.let { created ->
+                        Text(
+                            createdStamp(created, clock.zone, LocalDate.now(clock)),
+                            fontSize = JuiceType.Caption,
+                            lineHeight = JuiceType.CaptionLine,
+                            color = JuiceColors.white(0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp).testTag(TAG_CREATED_STAMP),
                         )
                     }
                     Spacer(Modifier.height(12.dp))
