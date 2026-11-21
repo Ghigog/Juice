@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -632,7 +633,10 @@ internal fun CardRow(
             if (!editing) Spacer(Modifier.width(8.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight().entrance(entrance).then(cardPops.element(0))) {
-            HydrationLabel(hud, Modifier.padding(bottom = 6.dp))
+            Row(Modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HydrationLabel(hud)
+                MultiplierBadge(hud, height = 24.dp)
+            }
             Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { onJuiceBoxBounds(it.boundsInRoot()) }.testTag(TAG_JUICE_BOX)) {
                 CentreCard(
                     state = state,

@@ -96,7 +96,8 @@ Every state is one `Text` in the screen's own area, in Juice's warm voice (say w
 ## Top bar
 
 - Left: the Level/XP block, "Level 9 ⚙ - 6,788" over the XP bar. Tap the level (or its cog) for Settings, tap the points for Recap; each is its own 44 dp target and squeezes like the category capsule (an alpha dip with reduced motion).
-- Right: the category name capsule, then the Routines button. The multiplier badge sits between them for now.
+- Right: the category name capsule, then the Routines button.
+- The multiplier badge is not in the bar: it sits beside the thirst label above the centre card, a 24 dp capsule that pulses in the accent while Satiated.
 - The category dots are centred above the text entry, below the cards.
 
 ## Landscape

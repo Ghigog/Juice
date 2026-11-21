@@ -381,9 +381,13 @@ class OverlayShellTest {
     }
 
     @Test
-    fun multiplierBadgeIsInTheHeader() {
+    fun multiplierBadgeSharesALineWithTheHydrationLabel() {
         show(hud = Hud(multiplier = 1.5))
         compose.onNodeWithTag(TAG_MULTIPLIER).assertIsDisplayed()
+        val badge = compose.onNodeWithTag(TAG_MULTIPLIER).fetchSemanticsNode().boundsInRoot
+        val label = compose.onNodeWithTag(TAG_HYDRATION).fetchSemanticsNode().boundsInRoot
+        assertEquals(label.center.y, badge.center.y, 2f)
+        assertTrue(badge.left >= label.right)
         compose.onNode(hasText("1.5x") and hasAnyAncestor(hasTestTag(TAG_MULTIPLIER)), useUnmergedTree = true).assertExists()
     }
 
