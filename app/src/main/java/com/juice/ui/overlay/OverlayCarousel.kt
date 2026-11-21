@@ -133,6 +133,18 @@ internal fun Carousel(
             }
         }
     }
+    // Flipping the order replays the entrance, so the cards bubble back in one after another; reduce motion skips it.
+    val reorder = remember { Animatable(1f) }
+    var shownOrder by remember { mutableStateOf(state.cardOrder) }
+    LaunchedEffect(state.cardOrder) {
+        if (state.cardOrder == shownOrder) return@LaunchedEffect
+        shownOrder = state.cardOrder
+        if (!reduceMotion) {
+            reorder.snapTo(0f)
+            reorder.animateTo(1f, tween(ENTRANCE_TOTAL_MILLIS, easing = LinearEasing))
+        }
+    }
+    val cardEntrance: () -> Float = { minOf(entrance(), reorder.value) }
     val held = state.held
     val heldIndex = items.indexOfFirst { it.id == held }
     // While a card is held, the card at the focal dot is where it would land.
@@ -200,7 +212,7 @@ internal fun Carousel(
                 val isCentre = index == centreIndex
                 Column(
                     Modifier
-                        .entrance(entrance, index)
+                        .entrance(cardEntrance, index)
                         .size(width = 88.dp, height = CAROUSEL_ITEM_DP.dp)
                         .graphicsLayer {
                             val info = listState.layoutInfo

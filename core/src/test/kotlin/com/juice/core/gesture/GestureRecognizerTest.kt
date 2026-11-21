@@ -35,13 +35,29 @@ class GestureRecognizerTest {
         crosses.forEach { assertIs<GestureResult.Dismiss>(recogniser.recognise(it)) }
     }
 
-    @Test
-    fun circleScribbleIsNotRecognised() {
-        val circle = (0..40).map {
-            val a = it * 2 * PI / 40
-            GesturePoint(100 + 80 * cos(a), 100 + 80 * sin(a))
+    private fun circle(clockwise: Boolean, start: Double, cx: Double = 100.0, cy: Double = 100.0, radius: Double = 80.0) =
+        (0..40).map {
+            val a = start + (if (clockwise) 1 else -1) * it * 2 * PI / 40
+            GesturePoint(cx + radius * cos(a), cy + radius * sin(a))
         }
-        assertEquals(GestureResult.NotRecognised, recogniser.recognise(circle))
+
+    @Test
+    fun circlesAreReadInTheirDrawnDirectionFromAnyStart() {
+        listOf(0.0, 1.0, 2.5, 4.0, 5.5).forEach { start ->
+            assertEquals(true, assertIs<GestureResult.Circle>(recogniser.recognise(circle(true, start))).clockwise)
+            assertEquals(false, assertIs<GestureResult.Circle>(recogniser.recognise(circle(false, start))).clockwise)
+        }
+    }
+
+    @Test
+    fun circlesAreReadWhateverTheirSizeOrPlace() {
+        assertIs<GestureResult.Circle>(recogniser.recognise(circle(true, 0.3, 500.0, 900.0, 20.0)))
+    }
+
+    @Test
+    fun marksAreNeverTakenForCircles() {
+        (checkmarks + crosses).forEach { assertEquals(false, recogniser.recognise(it) is GestureResult.Circle) }
+        assertIs<GestureResult.Star>(recogniser.recogniseStrokes(listOf((0..5).map { vertex[(it * 2) % 5] })))
     }
 
     @Test
@@ -111,11 +127,11 @@ class GestureRecognizerTest {
     }
 
     @Test
-    fun circleIsNotAStarWhenReadByStrokes() {
+    fun circleIsACircleNotAStarWhenReadByStrokes() {
         val circle = (0..40).map {
             val a = it * 2 * PI / 40
             GesturePoint(100 + 80 * cos(a), 100 + 80 * sin(a))
         }
-        assertEquals(GestureResult.NotRecognised, recogniser.recogniseStrokes(listOf(circle)))
+        assertIs<GestureResult.Circle>(recogniser.recogniseStrokes(listOf(circle)))
     }
 }

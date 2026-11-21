@@ -88,6 +88,8 @@
     <string name="overlay_empty">All squeezed. Add a note below.</string>
     <string name="overlay_category_empty">Nothing in %1$s yet. Add a note below.</string>
     <string name="overlay_starred">Starred</string>
+    <string name="overlay_order_newest">Newest first</string>
+    <string name="overlay_order_oldest">Oldest first</string>
     <string name="overlay_starred_badge">★</string>
     <string name="overlay_not_recognised">Not recognized</string>
     <string name="overlay_archived">Archived</string>
