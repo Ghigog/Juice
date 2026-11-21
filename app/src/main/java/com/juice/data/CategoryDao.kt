@@ -26,6 +26,15 @@ interface CategoryDao {
     @Query("UPDATE categories SET colour = :colour WHERE id = :id")
     suspend fun setColour(id: String, colour: Int?)
 
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun get(id: String): CategoryEntity?
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("UPDATE items SET categoryId = :toId WHERE categoryId = :fromId")
+    suspend fun moveItems(fromId: String, toId: String)
+
     @Query("UPDATE categories SET name = :name WHERE id = :id")
     suspend fun rename(id: String, name: String)
 }

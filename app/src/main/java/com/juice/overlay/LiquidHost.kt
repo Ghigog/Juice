@@ -23,10 +23,18 @@ class LiquidHost(context: Context, val view: JuiceLiquidView = JuiceLiquidView(c
         }
     }
 
+    private var coloured = false
+
+    /** Sets the flavour's liquid behaviour; the colour comes from [showColour], which follows the open category. */
     fun setFlavour(theme: FlavourTheme) {
-        view.setFlavour(theme.accent, theme.deep)
         view.viscous = theme.viscous
         view.fizz = theme.fizz
+    }
+
+    /** Blends the juice to the open category's colour; the first call sets it outright. */
+    fun showColour(accent: Int, deep: Int) {
+        if (coloured) view.blendTo(accent, deep) else view.setFlavour(accent, deep)
+        coloured = true
     }
 
     fun sync(settings: JuiceSettings) {

@@ -1,5 +1,7 @@
 package com.juice.data
 
+import com.juice.core.category.Category
+import com.juice.core.category.coachCategoryId
 import com.juice.core.character.Availability
 import com.juice.core.character.Character
 import com.juice.core.character.CharacterRegistry
@@ -33,6 +35,7 @@ class CharacterRepository(
     private val memory: MemoryStore? = null,
     private val created: CreatedCharacterStore? = null,
     private val generator: PersonaGenerator? = null,
+    private val categories: CategoryRepository? = null,
 ) {
     /** Every built-in character plus the ones the player created. */
     fun registry(): CharacterRegistry = CharacterRegistry { created?.list().orEmpty() }
@@ -47,6 +50,7 @@ class CharacterRepository(
             is GenerationResult.Success -> {
                 store.add(result.character)
                 this.store.save(result.character.id, CharacterState(availability = Availability.MetPending))
+                categories?.ensureCoach(result.character.id, result.character.name)
                 items.save(meetCard(result.character))
                 CreateResult.Created(result.character)
             }
@@ -77,6 +81,7 @@ class CharacterRepository(
         memory?.deleteCharacter(id)
         store.clear(id)
         created?.remove(id)
+        categories?.delete(coachCategoryId(id))
     }
 
     fun state(characterId: String): CharacterState = store.load(characterId)
@@ -88,6 +93,26 @@ class CharacterRepository(
         if (after == before) return
         store.save(character.id, after)
         items.save(meetCard(character))
+    }
+
+    /** Makes the category of [character], where its routines and cards live; meeting again changes nothing. */
+    suspend fun meet(character: Character) {
+        categories?.ensureCoach(character.id, character.name)
+    }
+
+    /**
+     * Once per install, moves the coaches' cards (not meet or creator cards) that sit in Main into their coach's category;
+     * coaches no longer in the registry are skipped. Later runs move nothing, so a card the person moves back stays.
+     */
+    suspend fun moveCoachCardsOutOfMain() {
+        if (store.coachCardsMoved()) return
+        registry().all().forEach { coach ->
+            items.byCharacter(coach.id).filter { it.categoryId == Category.MAIN_ID && cardKind(it) != CoachCardKind.Meet }.forEach { item ->
+                categories?.ensureCoach(coach.id, coach.name)
+                items.moveToCategory(item.id, coachCategoryId(coach.id))
+            }
+        }
+        store.markCoachCardsMoved()
     }
 
     /** The player turned the meet card away; it goes, and can come back with [restore]. */
@@ -141,6 +166,7 @@ class CharacterRepository(
     suspend fun reset(character: Character, level: Int) {
         if (state(character.id).availability == Availability.Locked) return
         items.deleteByCharacter(character.id)
+        categories?.delete(coachCategoryId(character.id))
         conversations?.clear(character.id)
         store.save(character.id, CharacterState())
         unlockAtLevel(character, level)
@@ -156,7 +182,7 @@ class CharacterRepository(
         tasks.forEach { task ->
             when (task) {
                 is CoachTask.Add ->
-                    items.save(Item(newId(), ItemType.Routine, task.title, characterId = characterId).asRoutine(task.cadence, today))
+                    items.save(Item(newId(), ItemType.Routine, task.title, characterId = characterId, categoryId = coachCategoryId(characterId)).asRoutine(task.cadence, today))
                 is CoachTask.Change -> items.get(task.id)?.takeIf { it.characterId == characterId }?.let {
                     items.save(it.copy(title = task.title).asRoutine(task.cadence, today))
                 }
@@ -174,7 +200,7 @@ class CharacterRepository(
     suspend fun createCheckInIfDue(character: Character, now: Instant): Boolean {
         if (!CharacterTransitions.checkInDue(state(character.id), character, now)) return false
         if (items.get(checkInCardId(character)) != null) return false
-        items.save(Item(checkInCardId(character), ItemType.Task, "Check in with ${character.name}", characterId = character.id))
+        items.save(Item(checkInCardId(character), ItemType.Task, "Check in with ${character.name}", characterId = character.id, categoryId = coachCategoryId(character.id)))
         return true
     }
 

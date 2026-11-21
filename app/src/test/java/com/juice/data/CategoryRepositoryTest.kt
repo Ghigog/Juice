@@ -122,4 +122,38 @@ class CategoryRepositoryTest {
         assertEquals(CategoryEntity(Category.MAIN_ID, Category.MAIN_NAME, 0, colour), row)
         assertEquals(listOf(Category(Category.MAIN_ID, Category.MAIN_NAME, colour)), repository.observe().first())
     }
+
+    @Test
+    fun ensureCoachMakesOneCategoryAfterTheLastAndKeepsARename() = runBlocking {
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
+        val work = repository.create("Work")!!
+        repository.ensureCoach("jim", "Jim")
+        val jim = Category("coach-jim", "Jim", CategoryPalette.colours[1].accent)
+        assertEquals(listOf(main, work, jim), repository.observe().first())
+        repository.rename(jim.id, "Coach J")
+        repository.ensureCoach("jim", "Jim")
+        assertEquals(listOf(main, work, jim.copy(name = "Coach J")), repository.observe().first())
+    }
+
+    @Test
+    fun deleteMovesRemainingCardsToMainFirst() = runBlocking {
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
+        repository.ensureCoach("jim", "Jim")
+        val items = ItemRepository(db.itemDao())
+        items.save(com.juice.core.model.Item("a", com.juice.core.intake.ItemType.Task, "A", categoryId = "coach-jim"))
+        repository.delete("coach-jim")
+        assertEquals(listOf(main), repository.observe().first())
+        assertEquals(Category.MAIN_ID, items.get("a")!!.categoryId)
+    }
+
+    @Test
+    fun observeHidesTheCategoriesOfDisabledCoaches() = runBlocking {
+        var hidden = setOf("jim")
+        val hiding = CategoryRepository(db.categoryDao(), hiddenCharacterIds = { hidden }) { "x" }
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
+        hiding.ensureCoach("jim", "Jim")
+        assertEquals(listOf(main), hiding.observe().first())
+        hidden = emptySet()
+        assertEquals(listOf("main", "coach-jim"), hiding.observe().first().map { it.id })
+    }
 }

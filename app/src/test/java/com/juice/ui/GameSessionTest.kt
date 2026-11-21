@@ -10,6 +10,7 @@ import com.juice.core.economy.ItemType
 import com.juice.data.EconomyStore
 import com.juice.core.progression.Flavour
 import com.juice.core.progression.Progression
+import com.juice.ui.overlay.hud
 import com.juice.ui.theme.FlavourTheme
 import com.juice.feedback.SoundSet
 import com.juice.feedback.Feedback
@@ -50,22 +51,23 @@ class GameSessionTest {
         onLevelUp = { level, unlocked -> levelUps += level to unlocked },
         chosenFlavour = { chosen },
     )
+    private val MAIN = Category.MAIN_ID
     private val levelUps = mutableListOf<Pair<Int, Flavour?>>()
     private var chosen: Flavour? = null
 
     @Test fun completionIsPlayedWithTheMultiplierBeforeIt() {
         session.open()
-        val before = session.multiplier
-        session.complete(ItemType.PROJECT)
-        val afterFirst = session.multiplier
-        session.complete(ItemType.NOTE)
+        val before = session.multiplier(MAIN)
+        session.complete(ItemType.PROJECT, MAIN)
+        val afterFirst = session.multiplier(MAIN)
+        session.complete(ItemType.NOTE, MAIN)
         assertEquals(listOf(before, afterFirst), completionMultipliers)
     }
 
     @Test fun completingUpdatesJuiceMeterAndPlaysFeedback() {
         session.open()
-        session.complete(ItemType.TASK)
-        assertEquals(EconomyState(25, 12.0), session.state)
+        session.complete(ItemType.TASK, MAIN)
+        assertEquals(EconomyState(25, 12.0), session.state(MAIN))
         assertEquals(listOf(FeedbackEvent.CHECKMARK), events)
         assertEquals(EconomyState(25, 12.0), store.load()?.economy?.get(Category.MAIN_ID))
     }
@@ -73,30 +75,30 @@ class GameSessionTest {
     @Test fun crossingTheLevelFiveThresholdReportsLevelFive() {
         store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1, meter = 50.0))), 0L)
         session.open()
-        session.complete(ItemType.TASK)
+        session.complete(ItemType.TASK, MAIN)
         assertEquals(5, levelUps.last().first)
     }
 
     @Test fun reopeningAfterTenMinutesDrainsByTheConfiguredRate() {
         session.open()
-        session.complete(ItemType.GOAL) // meter 30
+        session.complete(ItemType.GOAL, MAIN) // meter 30
         now = 10 * 60_000L
         session.open()
-        assertEquals(30.0 - 10 * EconomyConfig().drainPercentPerMinute, session.state.meter, 0.01)
-        assertEquals(100, session.state.juice)
+        assertEquals(30.0 - 10 * EconomyConfig().drainPercentPerMinute, session.state(MAIN).meter, 0.01)
+        assertEquals(100, session.state(MAIN).juice)
     }
 
     @Test fun undoRevertsJuiceAndFill() {
         session.open()
-        session.complete(ItemType.TASK)
+        session.complete(ItemType.TASK, MAIN)
         session.undo()
-        assertEquals(EconomyState(0, 0.0), session.state)
+        assertEquals(EconomyState(0, 0.0), session.state(MAIN))
     }
 
     @Test fun crossingIntoSatiatedTriggersParticlesAndPeakFeedback() {
         session.open()
-        session.complete(ItemType.PROJECT) // 50
-        session.complete(ItemType.PROJECT) // 100
+        session.complete(ItemType.PROJECT, MAIN) // 50
+        session.complete(ItemType.PROJECT, MAIN) // 100
         assertEquals(1, satiated)
         assertEquals(1, events.count { it == FeedbackEvent.SATIATED_PEAK })
     }
@@ -112,7 +114,7 @@ class GameSessionTest {
         store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1))), 0)
         session.open()
         assertEquals(Flavour.ELECTRIC_CITRUS, session.flavour)
-        session.complete(ItemType.TASK)
+        session.complete(ItemType.TASK, MAIN)
         assertEquals(5, session.level)
         assertEquals(FlavourTheme.of(Flavour.BERRY_SURGE), themes.last())
         assertEquals(SoundSet.SUB_BASS_AND_FIZZ, soundSets.last())
@@ -121,7 +123,7 @@ class GameSessionTest {
     @Test fun levelUpReportsTheFlavourItUnlocks() {
         store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1))), 0)
         session.open()
-        session.complete(ItemType.TASK)
+        session.complete(ItemType.TASK, MAIN)
         assertEquals(listOf<Pair<Int, Flavour?>>(5 to Flavour.BERRY_SURGE), levelUps)
         assertEquals(FeedbackEvent.LEVEL_UP, events.last())
     }
@@ -143,8 +145,8 @@ class GameSessionTest {
         session.open()
         now = 6 * 60 * 60_000L
         session.tick()
-        assertEquals(30.0 - 6 * 60 * EconomyConfig().drainPercentPerMinute, session.state.meter, 0.01)
-        assertEquals(Tier.THIRSTY, session.tier)
+        assertEquals(30.0 - 6 * 60 * EconomyConfig().drainPercentPerMinute, session.state(MAIN).meter, 0.01)
+        assertEquals(Tier.THIRSTY, session.tier(MAIN))
     }
 
     @Test fun levelProgressRunsThroughTheLevel() {
@@ -152,5 +154,69 @@ class GameSessionTest {
         session.open()
         assertEquals(2, session.level)
         assertEquals(50f / 300f, session.levelProgress, 0.001f)
+    }
+
+    private val ideas = "game-ideas"
+
+    @Test fun completingInOneCategoryLeavesTheOthersAndGrowsTheLevelFromTheTotal() {
+        session.open()
+        session.complete(ItemType.TASK, ideas)
+        assertEquals(EconomyState(25, 12.0), session.state(ideas))
+        assertEquals(EconomyState(), session.state(MAIN))
+        assertEquals(25L, session.totalJuice)
+        assertEquals(1.0, session.multiplier(MAIN))
+    }
+
+    @Test fun undoRevertsOnlyTheCategoryThatEarnedIt() {
+        session.open()
+        session.complete(ItemType.TASK, MAIN)
+        session.complete(ItemType.TASK, ideas)
+        session.undo()
+        assertEquals(EconomyState(), session.state(ideas))
+        assertEquals(EconomyState(25, 12.0), session.state(MAIN))
+    }
+
+    @Test fun openingDrainsEveryCategoryForTheTimeClosed() {
+        store.save(CategoryEconomy(states = mapOf(MAIN to EconomyState(10, 50.0), ideas to EconomyState(5, 40.0))), 0L)
+        now = 10 * 60_000L
+        session.open()
+        val drained = 10 * EconomyConfig().drainPercentPerMinute
+        assertEquals(50.0 - drained, session.state(MAIN).meter, 0.01)
+        assertEquals(40.0 - drained, session.state(ideas).meter, 0.01)
+    }
+
+    @Test fun tickDrainsEveryCategoryWhileOpen() {
+        store.save(CategoryEconomy(states = mapOf(MAIN to EconomyState(0, 50.0), ideas to EconomyState(0, 40.0))), 0L)
+        session.open()
+        now = 60 * 60_000L
+        session.tick()
+        assertEquals(50.0 - 60 * EconomyConfig().drainPercentPerMinute, session.state(MAIN).meter, 0.01)
+        assertEquals(40.0 - 60 * EconomyConfig().drainPercentPerMinute, session.state(ideas).meter, 0.01)
+    }
+
+    @Test fun levelReadsTheTotalAcrossCategories() {
+        val half = Progression.thresholdFor(5) / 2
+        store.save(CategoryEconomy(states = mapOf(MAIN to EconomyState(half, 0.0), ideas to EconomyState(half, 0.0))), 0L)
+        session.open()
+        assertEquals(Progression.levelFor(half * 2), session.level)
+    }
+
+    @Test fun satiatedPeakFiresOnlyWhenThatCategoryCrossesIn() {
+        store.save(CategoryEconomy(states = mapOf(MAIN to EconomyState(0, 99.0))), 0L)
+        session.open()
+        session.complete(ItemType.PROJECT, ideas)
+        assertEquals(0, satiated)
+        session.complete(ItemType.PROJECT, ideas)
+        assertEquals(1, satiated)
+    }
+
+    @Test fun hudShowsTheOpenCategoryAndTheTotal() {
+        store.save(CategoryEconomy(states = mapOf(MAIN to EconomyState(6798, 5.0))), 0L)
+        session.open()
+        val hud = session.hud(ideas)
+        assertEquals(0L, hud.juice)
+        assertEquals(0f, hud.fill)
+        assertEquals(1.0, hud.multiplier)
+        assertEquals(6798L, hud.totalJuice)
     }
 }
