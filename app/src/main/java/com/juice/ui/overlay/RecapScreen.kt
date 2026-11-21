@@ -59,6 +59,7 @@ import com.juice.core.recap.RecapBuilder
 import com.juice.core.recap.RecapPeriod
 import com.juice.feedback.FeedbackEvent
 import java.time.Clock
+import java.util.Locale
 import kotlin.math.roundToInt
 
 const val TAG_RECAP_SCREEN = "recap_screen"
@@ -157,7 +158,7 @@ private fun TotalJuice(hud: Hud, reduceMotion: Boolean) {
     ) {
         Text(stringResource(R.string.recap_total_juice), fontSize = JuiceType.Badge, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = hud.accent)
         Text(
-            String.format("%,d", (hud.totalJuice * counter.value).toLong()),
+            String.format(Locale.getDefault(), "%,d", (hud.totalJuice * counter.value).toLong()),
             fontSize = JuiceType.Stat,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 6.dp).testTag(TAG_RECAP_TOTAL_JUICE),
@@ -218,7 +219,7 @@ private fun RecapSection(recap: Recap, hud: Hud, reduceMotion: Boolean, onReveal
             Text(stringResource(R.string.recap_completed_label), fontSize = JuiceType.Label, color = JuiceColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
             Spacer(Modifier.weight(1f))
             Text(
-                stringResource(R.string.recap_juice_size, String.format("%,d", (recap.size * counter.value).toLong())),
+                stringResource(R.string.recap_juice_size, String.format(Locale.getDefault(), "%,d", (recap.size * counter.value).toLong())),
                 fontSize = JuiceType.Body,
                 color = JuiceColors.Muted,
                 modifier = Modifier.padding(bottom = 6.dp),
