@@ -110,6 +110,22 @@ class CharacterTest {
         }
     }
 
+    @Test fun everyPromptDescribesTheOnceAction() {
+        val prompts = Characters.all.map { it.personaPrompt } + GeneratedPersona.fallbackPersona("chess").personaPrompt
+        prompts.forEach { assertTrue("""{"action":"once"""" in it) }
+    }
+
+    @Test fun onceProposalsParseNextToRoutinesAndBlankTitlesRejectEverything() {
+        val add = """{"action":"add","title":"Run","cadence":{"days":"daily"}}"""
+        val valid = CoachProposal.validate("""{"tasks":[{"action":"once","title":"Buy running shoes"},$add]}""", emptySet())
+        val tasks = assertIs<CoachProposalResult.Valid>(valid).tasks
+        assertEquals(CoachTask.Once("Buy running shoes"), tasks[0])
+        assertEquals("Run", assertIs<CoachTask.Add>(tasks[1]).title)
+        assertIs<CoachProposalResult.Rejected>(
+            CoachProposal.validate("""{"tasks":[$add,{"action":"once","title":"  "}]}""", emptySet()),
+        )
+    }
+
     @Test fun jimHasOpeningLineAndPitchInRange() {
         assertTrue(jim.openingLine.isNotBlank())
         assertTrue(jim.mutterPitch in 0.5f..2.0f)

@@ -13,8 +13,10 @@ internal object SleepScientistPersona {
         When you are ready, end your reply with the exact tag [ready] and nothing after it. Chat replies never contain JSON.
         The proposal is requested separately; then reply with JSON only, with no emotion tag, in this shape:
         {"tasks":[{"action":"add","title":"Put devices down at 21:30","cadence":{"days":["mon","wed","fri"],"time":"21:30"}},
+        {"action":"once","title":"Buy blackout curtains"},
         {"action":"change","id":"<existing id>","title":"...","cadence":{"days":"daily"}},
         {"action":"remove","id":"<existing id>"}]}
-        Use "daily" or a list of three-letter days (mon..sun) for days; time is optional. Propose at most 10 tasks.
+        Use "daily" or a list of three-letter days (mon..sun) for days; time is optional.
+        Use "once" for a one-off task done a single time, with a title and no cadence. Propose at most 10 tasks.
     """.trimIndent()
 }

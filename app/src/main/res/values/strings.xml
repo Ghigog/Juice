@@ -128,7 +128,8 @@
     <string name="coach_send">Send</string>
     <string name="coach_thinking">…</string>
     <string name="coach_proposal_title">Proposed regular tasks</string>
-    <string name="coach_proposal_add">Add: %1$s (%2$s)</string>
+    <string name="coach_proposal_add">%1$s: %2$s</string>
+    <string name="coach_proposal_once">Once: %1$s</string>
     <string name="coach_proposal_change">Change: %1$s (%2$s)</string>
     <string name="coach_proposal_remove">Remove: %1$s</string>
     <string name="coach_proposal_rejected">I couldn\'t make a usable list of tasks yet. Tell me more.</string>
