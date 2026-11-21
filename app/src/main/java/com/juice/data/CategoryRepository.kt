@@ -1,6 +1,7 @@
 package com.juice.data
 
 import com.juice.core.category.Category
+import com.juice.core.category.CategoryPalette
 import com.juice.core.category.categoryName
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,8 +25,9 @@ class CategoryRepository(
     /** Adds a category after the last one; null (and nothing added) for a blank [name]. */
     suspend fun create(name: String): Category? = writes.withLock {
         val clean = categoryName(name) ?: return@withLock null
-        val category = Category(newId(), clean)
-        dao.upsert(CategoryEntity(category.id, category.name, (dao.maxPosition() ?: 0) + 1))
+        val colour = CategoryPalette.firstUnused(dao.all().mapNotNull { it.colour }).accent
+        val category = Category(newId(), clean, colour)
+        dao.upsert(CategoryEntity(category.id, category.name, (dao.maxPosition() ?: 0) + 1, colour))
         category
     }
 
@@ -33,6 +35,16 @@ class CategoryRepository(
     suspend fun rename(id: String, name: String) = writes.withLock {
         if (id == Category.MAIN_ID) return@withLock
         categoryName(name)?.let { dao.rename(id, it) }
+    }
+
+    /** Saves [colour], a palette accent, for [id]; Main gets its row (name, position 0) when it has none yet. */
+    suspend fun setColour(id: String, colour: Int) = writes.withLock {
+        if (CategoryPalette.byAccent(colour) == null) return@withLock
+        if (id == Category.MAIN_ID && dao.all().none { it.id == id }) {
+            dao.upsert(CategoryEntity(Category.MAIN_ID, Category.MAIN_NAME, 0, colour))
+        } else {
+            dao.setColour(id, colour)
+        }
     }
 
     /**

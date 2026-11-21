@@ -1,7 +1,10 @@
 package com.juice.core.category
 
-/** A named list of cards. */
-data class Category(val id: String, val name: String) {
+/**
+ * A named list of cards. [colour] is the accent ARGB of its juice, from [CategoryPalette]; null means
+ * not chosen yet (see [Categories.colourOf]).
+ */
+data class Category(val id: String, val name: String, val colour: Int? = null) {
     companion object {
         const val MAIN_ID = "main"
         const val MAIN_NAME = "Main"
@@ -12,6 +15,25 @@ data class Category(val id: String, val name: String) {
 data class Categories(val list: List<Category>) {
     /** Position of [id] in the order, or -1 when unknown. */
     fun indexOf(id: String): Int = list.indexOfFirst { it.id == id }
+
+    /**
+     * The juice colour of [id]: its saved colour; Main with none follows the flavour accent (null);
+     * any other category with none takes the first palette colour no category has saved or been given
+     * earlier in the order, so the result never changes between calls.
+     */
+    fun colourOf(id: String): PaletteColour? {
+        val target = list.firstOrNull { it.id == id } ?: return null
+        target.colour?.let { return CategoryPalette.byAccent(it) }
+        if (id == Category.MAIN_ID) return null
+        val used = list.mapNotNullTo(mutableSetOf()) { it.colour }
+        for (c in list) {
+            if (c.colour != null || c.id == Category.MAIN_ID) continue
+            val pick = CategoryPalette.firstUnused(used)
+            if (c.id == id) return pick
+            used += pick.accent
+        }
+        return null
+    }
 
     /** The category after [id], or null on the last (or an unknown id). */
     fun next(id: String): Category? {
