@@ -188,6 +188,12 @@ class IntakeParserTest {
         assertEquals(0, server.requestCount)
     }
 
+    @Test fun onDeviceOnlyGivesAClockedGoalAReminderTwoHoursBefore() {
+        val item = parser(onDeviceOnly = true).parse("today at 19:00, is the Christmas dinner").item
+        assertEquals(ItemType.Goal, item.type)
+        assertEquals(now.withHour(17).withMinute(0).toInstant(), item.notifyAt)
+    }
+
     @Test fun onDeviceOnlyReadsACadencePhraseAsRoutine() {
         val item = parser(onDeviceOnly = true).parse("go to the library every Sunday").item
         assertEquals(ItemType.Routine, item.type)
