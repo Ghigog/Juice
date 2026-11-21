@@ -226,7 +226,7 @@ class OverlayService : Service() {
 
     /** The flavour the handle wears: the player's pick once unlocked, else the highest unlocked. */
     private fun styleHandle(view: SliceHandleView) {
-        val juice = container.economyStore.load()?.state?.juice ?: 0L
+        val juice = container.economyStore.load()?.economy?.totalJuice ?: 0L
         val level = Progression.levelFor(juice)
         val flavour = settings.flavour?.takeIf { it.unlockLevel <= level } ?: Progression.flavourFor(level)
         view.style = SliceStyle.of(flavour)

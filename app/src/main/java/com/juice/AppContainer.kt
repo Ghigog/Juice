@@ -91,5 +91,5 @@ open class AppContainer(
     )
 
     fun characterSettings(scope: CoroutineScope): CharacterSettings =
-        CharacterSettings(characters, scope, level = { Progression.levelFor(economyStore.load()?.state?.juice ?: 0L) })
+        CharacterSettings(characters, scope, level = { Progression.levelFor(economyStore.load()?.economy?.totalJuice ?: 0L) })
 }

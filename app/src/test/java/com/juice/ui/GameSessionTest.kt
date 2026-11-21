@@ -3,6 +3,8 @@ package com.juice.ui
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.economy.EconomyConfig
+import com.juice.core.category.Category
+import com.juice.core.economy.CategoryEconomy
 import com.juice.core.economy.EconomyState
 import com.juice.core.economy.ItemType
 import com.juice.data.EconomyStore
@@ -65,11 +67,11 @@ class GameSessionTest {
         session.complete(ItemType.TASK)
         assertEquals(EconomyState(25, 12.0), session.state)
         assertEquals(listOf(FeedbackEvent.CHECKMARK), events)
-        assertEquals(EconomyState(25, 12.0), store.load()?.state)
+        assertEquals(EconomyState(25, 12.0), store.load()?.economy?.get(Category.MAIN_ID))
     }
 
     @Test fun crossingTheLevelFiveThresholdReportsLevelFive() {
-        store.save(EconomyState(juice = Progression.thresholdFor(5) - 1, meter = 50.0), 0L)
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1, meter = 50.0))), 0L)
         session.open()
         session.complete(ItemType.TASK)
         assertEquals(5, levelUps.last().first)
@@ -107,7 +109,7 @@ class GameSessionTest {
     }
 
     @Test fun crossingLevelFiveSwitchesToBerrySurge() {
-        store.save(EconomyState(juice = Progression.thresholdFor(5) - 1), 0)
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1))), 0)
         session.open()
         assertEquals(Flavour.ELECTRIC_CITRUS, session.flavour)
         session.complete(ItemType.TASK)
@@ -117,7 +119,7 @@ class GameSessionTest {
     }
 
     @Test fun levelUpReportsTheFlavourItUnlocks() {
-        store.save(EconomyState(juice = Progression.thresholdFor(5) - 1), 0)
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(5) - 1))), 0)
         session.open()
         session.complete(ItemType.TASK)
         assertEquals(listOf<Pair<Int, Flavour?>>(5 to Flavour.BERRY_SURGE), levelUps)
@@ -128,7 +130,7 @@ class GameSessionTest {
         chosen = Flavour.GOLDEN_HONEY
         session.open()
         assertEquals(Flavour.ELECTRIC_CITRUS, session.flavour)
-        store.save(EconomyState(juice = Progression.thresholdFor(25)), 0)
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = Progression.thresholdFor(25)))), 0)
         session.open()
         assertEquals(Flavour.GOLDEN_HONEY, session.flavour)
         chosen = Flavour.BERRY_SURGE
@@ -137,7 +139,7 @@ class GameSessionTest {
     }
 
     @Test fun meterDrainsWhileOpen() {
-        store.save(EconomyState(0, 30.0), 0L)
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(0, 30.0))), 0L)
         session.open()
         now = 6 * 60 * 60_000L
         session.tick()
@@ -146,7 +148,7 @@ class GameSessionTest {
     }
 
     @Test fun levelProgressRunsThroughTheLevel() {
-        store.save(EconomyState(juice = 150), 0) // level 2 spans 100..400
+        store.save(CategoryEconomy(states = mapOf(Category.MAIN_ID to EconomyState(juice = 150))), 0) // level 2 spans 100..400
         session.open()
         assertEquals(2, session.level)
         assertEquals(50f / 300f, session.levelProgress, 0.001f)
