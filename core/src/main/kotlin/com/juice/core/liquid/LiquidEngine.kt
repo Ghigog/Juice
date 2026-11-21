@@ -13,7 +13,7 @@ import kotlin.random.Random
  * The Thirst Meter sets how much juice there is through [fill] and [fillTo]; a full meter fills the glass.
  * New particles stream in from the side opposite gravity, a few a frame; drained ones leave from the surface.
  *
- * Shallow juice comes to rest and sleeps on its own. Deep juice keeps churning slowly inside (one density
+ * Shallow juice comes to rest and sleeps on its own, only once it is level. Deep juice keeps churning slowly inside (one density
  * pass a frame cannot hold up a tall column), so after [IDLE_FRAMES] with no tilt, touch, kick or pour the
  * engine sleeps anyway and the juice holds still until something moves it.
  */
@@ -149,7 +149,9 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         val mean = if (sim.count > 0) sum / sim.count else 0f
         val frothing = frothEnabled && froth.busy
         if (mean < 0.12f && !fingerDown && !frothing && pending == 0) calmFrames++ else calmFrames = 0
-        val idle = idleFrames > IDLE_FRAMES && froth.agitation < 0.02f
+        // Shallow juice must level out before it sleeps, or a tilt leaves a wedge frozen mid-flow; a long backstop still sleeps it.
+        val deep = froth.sparkle > 0f || sim.count * (sim.p.h / REFERENCE_H) * (sim.p.h / REFERENCE_H) > DEEP_PARTICLES
+        val idle = idleFrames > (if (deep) IDLE_FRAMES else SHALLOW_IDLE_FRAMES) && froth.agitation < 0.02f
         if (calmFrames > 60 || idle) { sleeping = true; sleepGx = gx; sleepGy = gy }
         return true
     }
@@ -187,6 +189,10 @@ class LiquidEngine(widthDp: Float, heightDp: Float, private val random: Random =
         const val REFERENCE_H = 30f
         /** Three seconds with nothing moving the juice, then it holds still even if it has not settled. */
         const val IDLE_FRAMES = 180
+        /** Shallow juice always settles on its own; this is only a backstop so it cannot churn forever. */
+        const val SHALLOW_IDLE_FRAMES = 1800
+        /** Particles (at the reference size) above which juice counts as deep and may sleep on the idle timer. */
+        const val DEEP_PARTICLES = 400
         const val REFERENCE_AREA = 340f * 440f
         const val POUR_PER_FRAME = 3
         const val POUR_WIDTH = 22f
