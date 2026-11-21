@@ -395,9 +395,13 @@ fun OverlayShell(
                         onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true },
                         onRoutinesBounds = { routinesBounds = it },
                         middle = if (compact) undoToast else null,
-                        categoryNames = state.categories.list.map { it.name },
+                        categoryOrder = state.categories.list.mapIndexed { i, c -> ShelfCategory(c.name, movable = i > 0) },
                         categoryIndex = state.categories.indexOf(state.category.id).coerceAtLeast(0),
                         onCategory = state::beginRename,
+                        onMoveCategory = { from, to -> state.categories.list.getOrNull(from)?.let { state.moveCategory(it.id, to) } },
+                        onMoveEarlier = { i -> state.categories.list.getOrNull(i)?.let { state.moveCategoryEarlier(it.id) } },
+                        onMoveLater = { i -> state.categories.list.getOrNull(i)?.let { state.moveCategoryLater(it.id) } },
+                        onShelfTick = { actions.feedback(FeedbackEvent.SNAP) },
                         reduceMotion = settings.reduceMotion,
                     )
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))

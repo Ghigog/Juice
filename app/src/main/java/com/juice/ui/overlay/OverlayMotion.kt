@@ -213,3 +213,18 @@ internal fun categoryTransition(forward: Boolean, reduceMotion: Boolean): Conten
     return (slideInHorizontally(slide) { it * sign } + fadeIn()) togetherWith
         (slideOutHorizontally(slide) { -it * sign } + fadeOut())
 }
+
+/** The category shelf: a lifted capsule swells to this scale and the neighbours it passes slide on a spring that wobbles. */
+internal const val SHELF_LIFT_SCALE = 1.08f
+internal const val SHELF_WOBBLE_DAMPING = 0.5f
+
+/** How long the shelf stays open after the last drop (or release) before it folds back to the single capsule. */
+internal const val SHELF_FOLD_MILLIS = 1500L
+
+/** How long the current category's dot glows after a drop. */
+internal const val SHELF_GLOW_MILLIS = 600
+
+/** Dragging Main (or past it) nudges it at most this far (dp) and it springs back. */
+internal const val SHELF_NUDGE_DP = 6f
+
+internal fun shelfSlide(): SpringSpec<Float> = spring(dampingRatio = SHELF_WOBBLE_DAMPING, stiffness = Spring.StiffnessMediumLow)
