@@ -7,11 +7,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.RegisterComposeActivity
+import com.juice.core.routine.Cadence
 import com.juice.core.model.Item
 import com.juice.data.ItemRepository
 import com.juice.core.intake.ItemType
@@ -21,6 +23,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import java.time.DayOfWeek
+import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -165,6 +170,61 @@ class OverlayCloseTest {
     @Test
     fun onlyTheCardsOnScreenPopWhenTheListIsScrolled() =
         assertPopsOverTheirCards((1..20).map { Item("t$it", ItemType.Task, "Task $it") }, 10)
+
+    private fun openRoutines(count: Int, onRevealProgress: (Float) -> Unit = {}, onPopsPlanned: (List<Offset>, List<Offset>) -> Unit = { _, _ -> }) {
+        val repository = ItemRepository(db.itemDao())
+        runBlocking {
+            repeat(count) {
+                repository.save(Item("r$it", ItemType.Routine, "Routine ${it + 1}", cadence = Cadence(setOf(DayOfWeek.TUESDAY)), nextDueOn = LocalDate.of(2099, 1, 1)))
+            }
+        }
+        show(reduceMotion = false, onRevealProgress = onRevealProgress, onPopsPlanned = onPopsPlanned)
+        compose.mainClock.advanceTimeBy(REVEAL_MILLIS.toLong() + 100)
+        compose.onNodeWithTag(TAG_ROUTINES).performClick()
+        compose.mainClock.advanceTimeBy(200)
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithTag(TAG_ROUTINES_SCREEN).assertExists()
+    }
+
+    @Test
+    fun closingFromTheRoutinesViewPopsItsCardsAndFrothsFromItsCentreCard() {
+        var froth = emptyList<Offset>()
+        var cards = emptyList<Offset>()
+        var reported = mutableListOf<Float>()
+        openRoutines(3, onRevealProgress = { reported += it }, onPopsPlanned = { f, c -> froth = f; cards = c })
+        val opened = reported.size
+        closing.value = true
+        compose.mainClock.advanceTimeBy(100)
+        val carousel = compose.onNodeWithTag(TAG_CAROUSEL).fetchSemanticsNode().boundsInRoot
+        val centre = compose.onNodeWithTag(TAG_JUICE_BOX).fetchSemanticsNode().boundsInRoot
+        assertEquals(3, cards.size)
+        assertTrue(cards.all { carousel.contains(it) })
+        assertEquals(cards.sortedBy { it.y }, cards)
+        assertEquals(1, froth.size)
+        assertTrue(centre.contains(froth[0]))
+        assertEquals(0, closed)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + CLOSE_DRAIN_MILLIS + 1000L)
+        compose.waitForIdle()
+        val drain = reported.drop(opened)
+        assertEquals(0f, drain.last(), 0.001f)
+        assertEquals(drain.sortedDescending(), drain)
+        assertTrue(drain.size > 2)
+        assertEquals(1, closed)
+    }
+
+    @Test
+    fun closingFromAnEmptyRoutinesViewPlansNoCardPopsAndStillDrains() {
+        var cards: List<Offset>? = null
+        openRoutines(0, onPopsPlanned = { _, c -> cards = c })
+        compose.onNodeWithTag(TAG_ROUTINES_EMPTY).assertExists()
+        closing.value = true
+        compose.mainClock.advanceTimeBy(100)
+        assertEquals(emptyList<Offset>(), cards)
+        assertEquals(0, closed)
+        compose.mainClock.advanceTimeBy(POP_MILLIS + CLOSE_DRAIN_MILLIS + 1000L)
+        compose.waitForIdle()
+        assertEquals(1, closed)
+    }
 
     private companion object {
         const val TOLERANCE = 40f

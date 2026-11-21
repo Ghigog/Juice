@@ -270,7 +270,8 @@ fun OverlayShell(
                 cardPops.centres = onScreen.map { it.second }
                 cardPops.popping = visible
                 cardPops.frothAt = frothOrigins(
-                    juiceBoxBounds?.center?.minus(canvasOrigin), cardPops.captureBounds?.center?.minus(canvasOrigin), bounds,
+                    juiceBoxBounds?.center?.minus(canvasOrigin), // The capture field is not composed under the Routines view, so its last bounds are stale there.
+                    cardPops.captureBounds?.takeUnless { routinesOpen }?.center?.minus(canvasOrigin), bounds,
                 )
                 currentOnPopsPlanned(cardPops.frothAt, cardPops.centres)
                 val total = elementPopStartMillis(visible.size, 1) + CARD_POP_MILLIS
@@ -509,9 +510,12 @@ fun OverlayShell(
                 RoutinesView(
                     state.routines, hud, settings, groqKeySaved, actions, effects, reservoir,
                     onClose = { routinesOpen = false },
+                    cardPops = cardPops,
+                    onJuiceBoxBounds = { juiceBoxBounds = it },
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(overlayTint(blurred))
+                        // While closing the shell's own ground, the same tint, drains instead; this one would hide it.
+                        .then(if (closing) Modifier else Modifier.background(overlayTint(blurred)))
                         .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }
                         .padding(content),
                 )
