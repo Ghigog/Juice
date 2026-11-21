@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -88,6 +89,14 @@ internal fun Carousel(
 ) {
     val listState = rememberLazyListState()
     SideEffect { cardPops.visibleIndices = { listState.layoutInfo.visibleItemsInfo.map { it.index } } }
+    // A carousel that leaves (the Routines view replaces the main one) must not leave its lambdas to be planned from.
+    DisposableEffect(cardPops) {
+        onDispose {
+            cardPops.visibleIndices = { emptyList() }
+            cardPops.visibleCentres = { emptyList() }
+            cardPops.carouselBounds = null
+        }
+    }
     var carouselRoot by remember { mutableStateOf(Offset.Zero) }
     val listStartPx = with(LocalDensity.current) { CAROUSEL_LIST_START.toPx() }
     SideEffect {
