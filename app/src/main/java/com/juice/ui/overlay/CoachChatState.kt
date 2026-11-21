@@ -125,10 +125,10 @@ class CoachChatState(
     fun confirm() {
         val tasks = proposal ?: return
         open = false
-        onConfirmed()
         scope.launch {
             characters.createTasks(character.id, tasks)
             characters.recordConversation(character.id, clock.instant())
+            onConfirmed()
         }
     }
 

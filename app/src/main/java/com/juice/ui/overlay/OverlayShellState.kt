@@ -28,6 +28,8 @@ import com.juice.core.model.Item
 import com.juice.core.model.ItemStatus
 import com.juice.core.routine.Cadence
 import com.juice.core.character.CharacterRegistry
+import com.juice.core.category.coachCategoryId
+import com.juice.core.character.Character
 import com.juice.data.CategoryRepository
 import com.juice.data.CharacterRepository
 import com.juice.data.CREATOR_CARD_ID
@@ -559,14 +561,44 @@ class OverlayShellState(
         onCompleted(item)
         coachCard(item)?.let { (id, kind) ->
             onCoachCardCompleted(id, kind)
+            if (kind == CoachCardKind.Meet) registry.byId(id)?.let { coach -> meetCoach(coach) }
             pendingCards?.add(item.id)
             coachChat = coachChatFor(
                 id,
                 { pendingCards?.remove(item.id); putBack(item, completed = true) },
-                { pendingCards?.remove(item.id) },
+                {
+                    pendingCards?.remove(item.id)
+                    showCoachCategory(id)
+                },
             )?.also { it.start() } ?: run { pendingCards?.remove(item.id); null }
         }
         return true
+    }
+
+    /** Makes the coach's category and adds it after the last one, staying on the current category. */
+    private fun meetCoach(coach: Character) {
+        val repo = characters ?: return
+        scope.launch {
+            withContext(io) { repo.meet(coach) }
+            addCoachCategory(coach.id)
+        }
+    }
+
+    /** Adds the coach's category to [categories] when the saved list has not already brought it. */
+    private suspend fun addCoachCategory(characterId: String) {
+        if (categories.indexOf(coachCategoryId(characterId)) >= 0) return
+        val created = withContext(io) { categoryRepository?.get(coachCategoryId(characterId)) } ?: return
+        if (categories.indexOf(created.id) < 0) categories = Categories(categories.list + created)
+    }
+
+    /** After Confirm, moves to the coach's category so the new cards are seen landing there. */
+    private fun showCoachCategory(characterId: String) {
+        val id = coachCategoryId(characterId)
+        if (category.id == id) return
+        scope.launch {
+            addCoachCategory(characterId)
+            categories.list.firstOrNull { it.id == id }?.let { show(it) }
+        }
     }
 
     /** Generates a coach for [hobby]; its meet card joins the carousel and the creator card is used up. On failure the error shows and nothing is saved. */
@@ -583,6 +615,7 @@ class OverlayShellState(
             when (result) {
                 is CreateResult.Created -> {
                     repo.consumeCreatorCard()
+                    addCoachCategory(result.character.id)
                     repo.meetCard(result.character.id)?.let { card -> if (items.none { it.id == card.id }) items = placed(card) }
                     creator = null
                 }
