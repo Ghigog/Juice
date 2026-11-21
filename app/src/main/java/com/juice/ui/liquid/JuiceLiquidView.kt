@@ -1,5 +1,6 @@
 package com.juice.ui.liquid
 
+import android.animation.ArgbEvaluator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
@@ -170,6 +171,49 @@ class JuiceLiquidView internal constructor(
         cells.shader = BitmapShader(cellBmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
         shaderDirty = true
         invalidate()
+    }
+
+    private var blendFrom: Pair<Int, Int>? = null
+    private var blendTarget: Pair<Int, Int> = accent to deep
+    private var blendStartNanos = -1L
+    private var blendNanos = 0L
+    private val argb = ArgbEvaluator()
+    private val blendCallback = Choreographer.FrameCallback { blendFrame(it) }
+
+    /** The juice colour as drawn right now, mid-blend included. */
+    internal val currentFlavour get() = accent to deep
+
+    /**
+     * Blends the drink colours to the new ones over [millis], a step per frame, like a different drink being poured.
+     * The foam cell bitmap is rebuilt once, at the end. With [sloshEnabled] off (reduce motion) the colours are set at once.
+     */
+    fun blendTo(@ColorInt accentColor: Int, @ColorInt deepColor: Int, millis: Long = BLEND_MS) {
+        Choreographer.getInstance().removeFrameCallback(blendCallback)
+        blendFrom = null
+        if (!sloshEnabled || millis <= 0L) { setFlavour(accentColor, deepColor); return }
+        if (accentColor == accent && deepColor == deep) return
+        blendFrom = accent to deep
+        blendTarget = accentColor to deepColor
+        blendStartNanos = -1L
+        blendNanos = millis * 1_000_000L
+        Choreographer.getInstance().postFrameCallback(blendCallback)
+    }
+
+    /** One blend step at frame time [now] (ns); the first frame after [blendTo] starts the clock. */
+    internal fun blendFrame(now: Long) {
+        val from = blendFrom ?: return
+        if (blendStartNanos < 0L) blendStartNanos = now
+        val t = ((now - blendStartNanos).toFloat() / blendNanos).coerceIn(0f, 1f)
+        if (t >= 1f) {
+            blendFrom = null
+            setFlavour(blendTarget.first, blendTarget.second)
+            return
+        }
+        accent = argb.evaluate(t, from.first, blendTarget.first) as Int
+        deep = argb.evaluate(t, from.second, blendTarget.second) as Int
+        shaderDirty = true
+        invalidate()
+        Choreographer.getInstance().postFrameCallback(blendCallback)
     }
 
     /** Sloshes the juice sideways, e.g. on a carousel snap (signed by direction) or a completion. */
@@ -497,6 +541,7 @@ class JuiceLiquidView internal constructor(
 
     private companion object {
         const val TAG = "JuiceLiquidView"
+        const val BLEND_MS = 400L
         const val STEP_MS = 1000f / 60f
         /** Blob radius at the lab's interaction radius [LAB_H]; it scales with the sim's. */
         const val KERNEL_DP = 15f
