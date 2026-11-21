@@ -21,6 +21,9 @@ sealed interface GestureResult {
     /** A drawn ★, as five spokes or one continuous line: stars the item. */
     data class Star(val confidence: Double) : GestureResult
 
+    /** A drawn circle: [clockwise] as seen on screen picks Oldest first, anticlockwise Newest first. */
+    data class Circle(val clockwise: Boolean, val confidence: Double) : GestureResult
+
     data object NotRecognised : GestureResult
 }
 
@@ -32,7 +35,7 @@ sealed interface GestureResult {
  */
 class GestureRecognizer(private val threshold: Double = DEFAULT_THRESHOLD) {
 
-    private enum class Kind { CHECKMARK, DISMISS, STAR }
+    private enum class Kind { CHECKMARK, DISMISS, STAR, CIRCLE_CLOCKWISE, CIRCLE_ANTICLOCKWISE }
 
     private class Template(val kind: Kind, points: List<GesturePoint>) {
         val normalised = normalise(points)
@@ -45,7 +48,7 @@ class GestureRecognizer(private val threshold: Double = DEFAULT_THRESHOLD) {
         Template(Kind.DISMISS, listOf(p(1.0, 0.0), p(0.0, 1.0), p(0.0, 0.0), p(1.0, 1.0))),
         Template(Kind.DISMISS, listOf(p(0.0, 0.0), p(1.0, 1.0), p(0.0, 1.0), p(1.0, 0.0))),
         Template(Kind.DISMISS, listOf(p(1.0, 0.0), p(0.0, 1.0), p(1.0, 1.0), p(0.0, 0.0))),
-    ) + starTemplates()
+    ) + starTemplates() + circleTemplates()
 
     /** Reads the strokes of one drawing: five spokes make a star, anything else is matched as one joined path. */
     fun recogniseStrokes(strokes: List<List<GesturePoint>>): GestureResult =
@@ -62,6 +65,8 @@ class GestureRecognizer(private val threshold: Double = DEFAULT_THRESHOLD) {
             Kind.CHECKMARK -> GestureResult.Checkmark(best.second)
             Kind.DISMISS -> GestureResult.Dismiss(best.second)
             Kind.STAR -> GestureResult.Star(best.second)
+            Kind.CIRCLE_CLOCKWISE -> GestureResult.Circle(clockwise = true, best.second)
+            Kind.CIRCLE_ANTICLOCKWISE -> GestureResult.Circle(clockwise = false, best.second)
         }
     }
 
@@ -104,6 +109,21 @@ class GestureRecognizer(private val threshold: Double = DEFAULT_THRESHOLD) {
                 }
             }
         }
+
+        /** A closed circle from several start points, in both directions; y grows downward, so increasing angle is clockwise on screen. */
+        private fun circleTemplates(): List<Template> =
+            (0 until CIRCLE_STARTS).flatMap { start ->
+                val offset = start * 2 * PI / CIRCLE_STARTS
+                listOf(Kind.CIRCLE_CLOCKWISE to 1, Kind.CIRCLE_ANTICLOCKWISE to -1).map { (kind, sign) ->
+                    Template(kind, (0..CIRCLE_STEPS).map {
+                        val a = offset + sign * it * 2 * PI / CIRCLE_STEPS
+                        p(cos(a), sin(a))
+                    })
+                }
+            }
+
+        private const val CIRCLE_STARTS = 16
+        private const val CIRCLE_STEPS = 32
 
         private fun isStraight(stroke: List<GesturePoint>): Boolean {
             val length = pathLength(stroke)

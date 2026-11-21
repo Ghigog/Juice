@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
+import com.juice.core.card.CardOrder
 import com.juice.core.category.Category
 import com.juice.core.gesture.GesturePoint
 import com.juice.core.gesture.GestureRecognizer
@@ -96,7 +97,7 @@ const val FLY_MILLIS = 300
 /** A first stroke has to cross this share of the card's width to move between categories. */
 internal const val SWIPE_FRACTION = 0.25
 
-private enum class Tint { OK, X, BAD, STAR }
+private enum class Tint { OK, X, BAD, STAR, CIRCLE }
 
 const val TAG_CREATED_STAMP = "created_stamp"
 
@@ -149,6 +150,8 @@ internal fun CentreCard(
     val notRecognised = stringResource(R.string.overlay_not_recognised)
     val archived = stringResource(R.string.overlay_archived)
     val starredText = stringResource(R.string.overlay_starred)
+    val newestFirstText = stringResource(R.string.overlay_order_newest)
+    val oldestFirstText = stringResource(R.string.overlay_order_oldest)
 
     fun say(text: String) {
         hint = text
@@ -198,6 +201,7 @@ internal fun CentreCard(
             is GestureResult.Checkmark -> Tint.OK
             is GestureResult.Dismiss -> Tint.X
             is GestureResult.Star -> Tint.STAR
+            is GestureResult.Circle -> Tint.CIRCLE
             GestureResult.NotRecognised -> Tint.BAD
         }
         strokes.addAll(drawn)
@@ -213,6 +217,13 @@ internal fun CentreCard(
                 actions.feedback(FeedbackEvent.CHECKMARK)
                 state.star(item)
                 effects.float(starredText)
+            }
+            is GestureResult.Circle -> {
+                // Anticlockwise is Newest first, clockwise Oldest first; the same order again only says its name.
+                val order = if (result.clockwise) CardOrder.Oldest else CardOrder.Newest
+                actions.feedback(FeedbackEvent.SNAP)
+                if (state.cardOrder != order) actions.onSettingsChange { it.copy(cardOrder = order) }
+                effects.float(if (result.clockwise) oldestFirstText else newestFirstText)
             }
             GestureResult.NotRecognised -> reject(notRecognised)
         }
@@ -359,6 +370,7 @@ internal fun CentreCard(
         Tint.X -> JuiceColors.No
         Tint.BAD -> JuiceColors.Muted
         Tint.STAR -> JuiceColors.Ok
+        Tint.CIRCLE -> hud.accent
         null -> hud.accent
     }
 
