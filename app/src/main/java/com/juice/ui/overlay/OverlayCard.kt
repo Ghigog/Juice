@@ -101,6 +101,8 @@ private enum class Tint { OK, X, BAD, STAR, CIRCLE }
 
 const val TAG_CREATED_STAMP = "created_stamp"
 
+const val TAG_CREATED_STAMP = "created_stamp"
+
 /**
  * The frosted centre card: the current item, its type pill, worth and the drawing surface. A ✓
  * completes, an ✗ (one or two strokes) dismisses; long-press the title to edit it.
