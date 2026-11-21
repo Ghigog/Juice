@@ -277,4 +277,32 @@ class LiquidEngineTest {
         fun run() = engine(seed = 9).apply { shake(90) }.sim.x.copyOf(200)
         assertContentEquals(run(), run())
     }
+
+    @Test fun fiveSeededPercentSettlesAsAThinLevelLayerAcrossTheFloor() {
+        val e = LiquidEngine(340f, 440f, Random(3)).apply { fill(0.05f) }
+        e.run(300)
+        val xs = (0 until e.sim.count).map { e.sim.x[it] }
+        val ys = (0 until e.sim.count).map { e.sim.y[it] }
+        val innerFloor = e.sim.width - 2 * e.sim.p.inset
+        assertTrue(xs.max() - xs.min() >= 0.8f * innerFloor, "span ${xs.max() - xs.min()} of $innerFloor")
+        assertTrue(ys.max() - ys.min() <= 4 * e.sim.p.h * 0.5f, "height spread ${ys.max() - ys.min()}")
+    }
+
+    @Test fun emptyMeterLeavesNoParticles() {
+        val e = LiquidEngine(340f, 440f, Random(3)).apply { fill(0.5f); fill(0f) }
+        assertEquals(0, e.sim.count)
+        e.run(10)
+        assertEquals(0, e.sim.count)
+    }
+
+    @Test fun fivePercentTiltedThenUprightDoesNotFreezeAsAWedge() {
+        val e = LiquidEngine(360f, 513f, Random(3)).apply { sim.setRadius(34f); setGravity(0.6f, 1f, 0f); fill(0.05f) }
+        repeat(200) { e.tick() }
+        e.setGravity(0f, 1f, 0f)
+        repeat(600) { e.tick() }
+        val xs = (0 until e.sim.count).map { e.sim.x[it] }
+        val ys = (0 until e.sim.count).map { e.sim.y[it] }
+        assertTrue(xs.max() - xs.min() >= 0.8f * (e.sim.width - 2 * e.sim.p.inset), "span ${xs.max() - xs.min()}")
+        assertTrue(ys.max() - ys.min() <= 4 * e.sim.p.h * 0.5f, "height spread ${ys.max() - ys.min()}")
+    }
 }
