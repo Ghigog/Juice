@@ -11,7 +11,7 @@ import com.juice.core.model.ItemStatus
 import com.juice.core.model.Step
 import java.time.Clock
 
-@Database(entities = [ItemEntity::class, CategoryEntity::class], version = 10, exportSchema = true)
+@Database(entities = [ItemEntity::class, CategoryEntity::class], version = 11, exportSchema = true)
 abstract class JuiceDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
     abstract fun categoryDao(): CategoryDao
@@ -77,6 +77,13 @@ abstract class JuiceDatabase : RoomDatabase() {
             }
         }
 
+        /** Each category may carry its own juice colour; null until one is chosen. */
+        internal val addCategoryColour = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE categories ADD COLUMN colour INTEGER")
+            }
+        }
+
         /** Child Task cards become steps of their Project; the parentId column goes. */
         internal val stepsInsideProjects = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -122,7 +129,7 @@ abstract class JuiceDatabase : RoomDatabase() {
         /** Every registered migration, in version order; [clock] stamps the rows the 6→7 step has no time for. */
         internal fun migrations(clock: Clock): Array<Migration> = arrayOf(
             addEditedFields, addCompletionCondition, stepsInsideProjects, addPosition, addCadence,
-            addTimesAndCharacterId(clock), addStarredAt, addNotification, addCategories,
+            addTimesAndCharacterId(clock), addStarredAt, addNotification, addCategories, addCategoryColour,
         )
 
         /** A database file called [name] with every registered migration; never falls back to wiping data. */
