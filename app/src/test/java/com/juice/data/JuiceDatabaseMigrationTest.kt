@@ -90,6 +90,17 @@ class JuiceDatabaseMigrationTest {
     }
 
     @Test
+    fun addCategoryColourKeepsCategoriesAndStartsNull() {
+        val db = database("$base, position INTEGER NOT NULL DEFAULT 0", task)
+        JuiceDatabase.addCategories.migrate(db)
+        db.execSQL("INSERT INTO categories (id, name, position) VALUES ('g', 'Games', 1)")
+        JuiceDatabase.addCategoryColour.migrate(db)
+        assertEquals(listOf<String?>("main", "g"), db.column("SELECT id FROM categories ORDER BY position"))
+        assertEquals(listOf<String?>(null, null), db.column("SELECT colour FROM categories ORDER BY position"))
+        assertEquals(listOf<String?>("a"), db.column("SELECT id FROM items"))
+    }
+
+    @Test
     fun addTimesAndCharacterIdAddsAllThreeColumnsAndStampsCompletedRows() {
         val db = database("$base", task, listOf("c", "Task", "C", "Completed"))
         JuiceDatabase.addTimesAndCharacterId(clock).migrate(db)

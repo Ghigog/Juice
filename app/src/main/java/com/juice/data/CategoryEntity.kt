@@ -10,6 +10,8 @@ data class CategoryEntity(
     val name: String,
     /** Place in the order of categories; lower comes first, Main is 0. */
     val position: Int,
+    /** Accent ARGB of the category's juice from the palette; null until chosen. */
+    val colour: Int? = null,
 )
 
-fun CategoryEntity.toCategory() = Category(id, name)
+fun CategoryEntity.toCategory() = Category(id, name, colour)

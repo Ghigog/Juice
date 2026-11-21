@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.category.Category
+import com.juice.core.category.CategoryPalette
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -42,7 +43,7 @@ class CategoryRepositoryTest {
         db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0))
         val groceries = repository.create("  Groceries ")
         val work = repository.create("Work")
-        assertEquals(Category("c0", "Groceries"), groceries)
+        assertEquals(Category("c0", "Groceries", CategoryPalette.colours[0].accent), groceries)
         assertEquals(listOf(main, groceries, work), repository.observe().first())
     }
 
@@ -58,7 +59,7 @@ class CategoryRepositoryTest {
         val groceries = repository.create("Groceries")!!
         repository.rename(groceries.id, "Shopping")
         repository.rename(Category.MAIN_ID, "Home")
-        assertEquals(listOf(main, Category(groceries.id, "Shopping")), repository.observe().first())
+        assertEquals(listOf(main, groceries.copy(name = "Shopping")), repository.observe().first())
     }
 
     @Test
@@ -85,5 +86,40 @@ class CategoryRepositoryTest {
         val home = repository.create("Home")!!
         repository.reorder(listOf(home.id, work.id))
         assertEquals(listOf(main, home, work), repository.observe().first())
+    }
+
+    @Test
+    fun aNewCategoryTakesTheFirstPaletteColourNoOtherUses() = runBlocking {
+        val colours = CategoryPalette.colours
+        db.categoryDao().upsert(CategoryEntity(main.id, main.name, 0, colours[0].accent))
+        db.categoryDao().upsert(CategoryEntity("x", "X", 1, colours[1].accent))
+        assertEquals(colours[2].accent, repository.create("game ideas")?.colour)
+    }
+
+    @Test
+    fun aColourSurvivesClosingAndReopeningTheDatabase() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = "colour-test.db"
+        val first = Room.databaseBuilder(context, JuiceDatabase::class.java, file).allowMainThreadQueries().build()
+        val created = CategoryRepository(first.categoryDao()) { "g" }.create("game ideas")!!
+        val picked = CategoryPalette.colours[5].accent
+        CategoryRepository(first.categoryDao()) { "g" }.setColour(created.id, picked)
+        first.close()
+        val second = Room.databaseBuilder(context, JuiceDatabase::class.java, file).allowMainThreadQueries().build()
+        try {
+            assertEquals(picked, second.categoryDao().all().single { it.id == "g" }.colour)
+        } finally {
+            second.close()
+            context.deleteDatabase(file)
+        }
+    }
+
+    @Test
+    fun settingMainsColourWithoutARowKeepsItsNameAndPosition() = runBlocking {
+        val colour = CategoryPalette.colours[3].accent
+        repository.setColour(Category.MAIN_ID, colour)
+        val row = db.categoryDao().all().single()
+        assertEquals(CategoryEntity(Category.MAIN_ID, Category.MAIN_NAME, 0, colour), row)
+        assertEquals(listOf(Category(Category.MAIN_ID, Category.MAIN_NAME, colour)), repository.observe().first())
     }
 }
