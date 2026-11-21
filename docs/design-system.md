@@ -15,7 +15,7 @@ Everything is liquid. Every tap is a squeeze. The overlay is thin tinted glass w
 
 - Colour: `JuiceColors` (OverlayParts.kt), `FlavourTheme`, the ground gradient in `JuiceColors`' ground tokens (OverlayParts.kt: GroundTeal, GroundInk, GroundIndigo), used by `overlayTint` in OverlayBackdropLayer.kt, launcher colours in `res/values/colors.xml`.
 - Glass: white 10% (fields), 14% (cards, inputs, bubbles, 1 dp border at 25 to 28%), 24% (focused carousel), black 28% (wells).
-- Type: Space Grotesk 400/500/700, as `JuiceType` (OverlayParts.kt). Spurt 64, stat 34, card title 25/30 medium, sheet heading 20, dialogue 18/26 medium, name 18 bold, chat 15/21, body 14, button 14 bold, label 13, caption 12, badge 11 bold +1 tracking. Line heights 30 (title), 26 (dialogue), 24 (name), 21 (chat), 20 (body and sheet heading), 17 (caption) and 13 (label).
+- Type: Space Grotesk 400/500/700, as `JuiceType` (OverlayParts.kt). Spurt 64, stat 34, card title 25/30 medium (stepping down by 1 sp to a 15 sp minimum for long text, line height 1.2x), sheet heading 20, dialogue 18/26 medium, name 18 bold, chat 15/21, body 14, button 14 bold, label 13, caption 12, badge 11 bold +1 tracking. Line heights 30 (title), 26 (dialogue), 24 (name), 21 (chat), 20 (body and sheet heading), 17 (caption) and 13 (label).
 - Radius: `JuiceShapes` (OverlayParts.kt). Card 30, input 28, pill 24 (48 high), bubble 16, badge 14, field 12, capsule 50% (anything whose radius is half its height). Touch targets at least 44 dp: clickable controls shorter than that use the `Modifier.touchTarget` helper, which grows the tappable area and leaves the visible pill its own height.
 - Motion: `OverlayMotion.kt` (reveal 320 ms, entrance 350 ms with 60 ms stagger, 1.5 sway cycles, pop swell 1.08, 14 froth bubbles).
 
@@ -73,7 +73,7 @@ Every interactive component has these five states. Glass alphas are from the Tok
 
 | Component | Default | Shape and type | Component notes |
 | --- | --- | --- | --- |
-| Card | white 14% glass, 1 dp border at 25 to 28% | `JuiceShapes` card (30); title 25/30 medium, body 14 | Busy while it is being captured or completed: the card sloshes. Pressed squeezes the whole card. Min 44 dp touch target on its controls. |
+| Card | white 14% glass, 1 dp border at 25 to 28% | `JuiceShapes` card (30); title 25/30 medium, body 14 | Long title: shrinks to fit; tap to open and scroll. Busy while it is being captured or completed: the card sloshes. Pressed squeezes the whole card. Min 44 dp touch target on its controls. |
 | Pill | white 10% glass (accent fill when it is the primary action), 48 high | `JuiceShapes` pill (24); button 14 bold | Disabled is the one that dims for lack of input. Pills under 44 dp tall use `Modifier.touchTarget`. Busy replaces the label with a sloshing accent dot of the same width. |
 | Input | white 14% glass, 1 dp border at 25 to 28% | `JuiceShapes` input (28); body 14, chat 15/21 | Focused shows the accent outline and the caret in the accent. Busy (coach thinking, intake reading) sloshes the field and keeps the typed text. |
 | Bubble | white 14% glass, 1 dp border | `JuiceShapes` bubble (16); chat 15/21 | Rises in with a sway and pops out. Busy is the coach's thinking bubble, a sloshing run of three dots. Not focusable unless it holds an action. |
