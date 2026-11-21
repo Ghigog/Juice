@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.category.Category
+import com.juice.core.category.CategoryPalette
 import com.juice.core.intake.ItemType
 import com.juice.core.model.Item
 import com.juice.data.CategoryEntity
@@ -114,16 +115,32 @@ class CategoryShellStateTest {
     }
 
     @Test
-    fun renamingWorksOffMainOnly() {
+    fun renamingChangesTheNameAndColourOffMain() {
         val state = open()
-        state.beginRename()
-        assertNull(state.categoryNaming)
         withWork()
         state.nextCategory()
         state.beginRename()
-        state.saveNaming("Job")
+        val purple = CategoryPalette.colours[2]
+        state.saveNaming("Job", purple.accent)
         assertEquals("Job", state.category.name)
-        assertEquals("Job", runBlocking { categories.observe().first() }[1].name)
+        assertEquals(purple, state.categories.colourOf(state.category.id))
+        val saved = runBlocking { categories.observe().first() }[1]
+        assertEquals("Job", saved.name)
+        assertEquals(purple.accent, saved.colour)
+    }
+
+    @Test
+    fun mainOpensTheSheetAndTakesAColourButKeepsItsName() {
+        val state = open()
+        state.beginRename()
+        assertEquals(main, state.categoryNaming?.renaming)
+        val pink = CategoryPalette.colours[1]
+        state.saveNaming("Renamed", pink.accent)
+        assertEquals("Main", state.category.name)
+        assertEquals(pink, state.categories.colourOf(Category.MAIN_ID))
+        val saved = runBlocking { categories.observe().first() }[0]
+        assertEquals("Main", saved.name)
+        assertEquals(pink.accent, saved.colour)
     }
 
     @Test

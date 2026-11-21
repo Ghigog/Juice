@@ -143,6 +143,7 @@
     <string name="category_rename_title">Rename category</string>
     <string name="category_name_hint">e.g. Work</string>
     <string name="category_name_field">Category name</string>
+    <string name="category_colour_label">Juice colour</string>
     <string name="category_save">Save</string>
     <string name="category_cancel">Cancel</string>
     <string name="shelf_move_earlier">Move earlier</string>
