@@ -14,6 +14,12 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY position, rowid")
     fun observe(): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories ORDER BY position, rowid")
+    suspend fun all(): List<CategoryEntity>
+
+    @Query("UPDATE categories SET position = :position WHERE id = :id")
+    suspend fun setPosition(id: String, position: Int)
+
     @Query("SELECT MAX(position) FROM categories")
     suspend fun maxPosition(): Int?
 

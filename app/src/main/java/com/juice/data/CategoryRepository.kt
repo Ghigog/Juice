@@ -34,4 +34,16 @@ class CategoryRepository(
         if (id == Category.MAIN_ID) return@withLock
         categoryName(name)?.let { dao.rename(id, it) }
     }
+
+    /**
+     * Saves the order [ids] give: Main at 0 whatever the input, unknown ids ignored,
+     * and any category the list leaves out keeps its place after the listed ones.
+     */
+    suspend fun reorder(ids: List<String>) = writes.withLock {
+        val known0 = dao.all().map { it.id }
+        val known = known0.toSet()
+        val listed = ids.filter { it in known && it != Category.MAIN_ID }.distinct()
+        val rest = known0.filter { it != Category.MAIN_ID && it !in listed }
+        (listOf(Category.MAIN_ID) + listed + rest).forEachIndexed { position, id -> dao.setPosition(id, position) }
+    }
 }
