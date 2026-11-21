@@ -647,6 +647,8 @@ class OverlayShellTest {
         runBlocking { repository.save(item) }
         show(item)
         compose.onNodeWithTag(TAG_TYPE_PILL).performClick()
+        // The pill holds a single tap until the double-tap timeout has passed.
+        compose.mainClock.advanceTimeBy(1_000)
         idle()
         ItemType.entries.forEach { compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + it.name).assertExists() }
         compose.onNodeWithTag(TAG_TYPE_OPTION_PREFIX + "Note").assertIsSelected()

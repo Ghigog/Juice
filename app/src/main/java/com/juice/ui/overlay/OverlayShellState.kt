@@ -3,7 +3,9 @@ package com.juice.ui.overlay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.juice.core.card.CardFilter
 import com.juice.core.card.CardOrder
+import com.juice.core.card.filteredBy
 import com.juice.core.card.sortedFor
 import com.juice.core.category.Categories
 import com.juice.core.category.Category
@@ -201,6 +203,27 @@ class OverlayShellState(
     var items by mutableStateOf(initial.sortedFor(cardOrder))
         private set
 
+    /** The narrowing in force; only the types the person floated, and never saved between overlay sessions. */
+    var filter by mutableStateOf(CardFilter())
+        private set
+
+    /** The cards the carousel shows: [items] narrowed by [filter]. Every carousel index refers to this list. */
+    val shown: List<Item> get() = items.filteredBy(filter)
+
+    /** Floats [type] to the filter, beside any already floating; false when it already floats. */
+    fun floatType(type: ItemType): Boolean {
+        if (type in filter.types) return false
+        filter = filter.copy(types = filter.types + type)
+        return true
+    }
+
+    /** Lets [type] sink back and stops filtering by it; false when it was not floating. */
+    fun releaseType(type: ItemType): Boolean {
+        if (type !in filter.types) return false
+        filter = filter.copy(types = filter.types - type)
+        return true
+    }
+
     /** Switches the order and re-sorts the cards on screen at once. */
     fun setCardOrder(order: CardOrder) {
         if (order == cardOrder) return
@@ -364,7 +387,8 @@ class OverlayShellState(
 
     /** Picks [item] up to move it; the list keeps scrolling while it is held. */
     fun pickUp(item: Item, at: Int = items.indexOfFirst { it.id == item.id }) {
-        if (at < 0) return
+        // Indices of the shown list would move hidden cards, so a filter turns reordering off.
+        if (at < 0 || filter.isActive) return
         held = item.id
         target = at
     }

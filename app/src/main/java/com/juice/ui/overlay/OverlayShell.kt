@@ -332,8 +332,8 @@ fun OverlayShell(
             )
             SliceBackdrop(
                 hud,
-                slices = SliceLogoPainter.sliceCount(state.items.size),
-                active = centre.coerceAtMost(state.items.lastIndex),
+                slices = SliceLogoPainter.sliceCount(state.shown.size),
+                active = centre.coerceAtMost(state.shown.lastIndex),
                 spin = spin,
                 shown = sliceShown,
             )
@@ -624,9 +624,11 @@ internal fun CardRow(
     ) { categoryId ->
     key(categoryId) {
     val live = categoryId == state.category.id
-    if (live) shown[categoryId] = state.items to centre
+    if (live) shown[categoryId] = state.shown to centre
     val (list, shownCentre) = if (live) state.items to centre else shown[categoryId] ?: (state.items to centre)
-    Row(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
+    TypeFilterRow(state.filter.types, settings.reduceMotion, onRelease = { if (state.releaseType(it)) actions.feedback(FeedbackEvent.UNDO) })
+    Row(Modifier.weight(1f).fillMaxWidth()) {
         if (list.isNotEmpty()) {
             // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.
             Carousel(list, hud, actions, state, settings.reduceMotion, entrance, onCentre = if (live) onCentre else { _ -> }, spin = spin, cardPops = cardPops, modifier = Modifier.width(if (editing) 0.dp else 112.dp).fillMaxHeight())
@@ -655,6 +657,7 @@ internal fun CardRow(
                 ShakeReward(hud, settings.reduceMotion, actions, Modifier.fillMaxSize())
             }
         }
+    }
     }
     }
     }

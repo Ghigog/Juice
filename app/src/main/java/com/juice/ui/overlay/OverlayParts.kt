@@ -1,6 +1,8 @@
 package com.juice.ui.overlay
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -198,14 +200,18 @@ val MinTouchTarget = 44.dp
  * Makes the element clickable over at least [MinTouchTarget] tall, while the visible element after it in the
  * chain keeps its own height. No ripple, so it looks as it did before.
  */
+@OptIn(ExperimentalFoundationApi::class)
 fun Modifier.touchTarget(
     onClick: () -> Unit,
     enabled: Boolean = true,
     /** Pass one to watch the press (for a pressed fill); otherwise the element keeps its own. */
     interactionSource: MutableInteractionSource? = null,
+    /** When set, a single tap waits out the double-tap timeout before [onClick] fires. */
+    onDoubleClick: (() -> Unit)? = null,
 ): Modifier = composed {
     val source = interactionSource ?: remember { MutableInteractionSource() }
-    clickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+    (if (onDoubleClick == null) clickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+    else combinedClickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick, onDoubleClick = onDoubleClick))
         .heightIn(min = MinTouchTarget)
         .wrapContentHeight(Alignment.CenterVertically)
 }
