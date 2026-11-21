@@ -62,6 +62,7 @@ import java.time.Clock
 import kotlin.math.roundToInt
 
 const val TAG_RECAP_SCREEN = "recap_screen"
+const val TAG_RECAP_TOTAL_JUICE = "recap_total_juice"
 const val TAG_RECAP_CLOSE = "recap_close"
 const val TAG_RECAP_SECTION_PREFIX = "recap_section_"
 const val TAG_RECAP_COUNT_PREFIX = "recap_count_"
@@ -130,10 +131,37 @@ fun RecapScreen(
             contentPadding = PaddingValues(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item(key = "total_juice") { TotalJuice(hud, reduceMotion) }
             items(recaps, key = { it.period }) { recap ->
                 RecapSection(recap, hud, reduceMotion, onReveal = { actions.feedback(FeedbackEvent.RECAP_REVEAL) })
             }
         }
+    }
+}
+
+/** Juice across every category: the one place the total is shown. */
+@Composable
+private fun TotalJuice(hud: Hud, reduceMotion: Boolean) {
+    val counter = remember { Animatable(if (reduceMotion) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reduceMotion) {
+            counter.animateTo(1f, tween(COUNT_MILLIS, easing = FastOutSlowInEasing))
+        }
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(JuiceShapes.Bubble)
+            .background(JuiceColors.white(0.08f))
+            .padding(16.dp),
+    ) {
+        Text(stringResource(R.string.recap_total_juice), fontSize = JuiceType.Badge, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, color = hud.accent)
+        Text(
+            String.format("%,d", (hud.totalJuice * counter.value).toLong()),
+            fontSize = JuiceType.Stat,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 6.dp).testTag(TAG_RECAP_TOTAL_JUICE),
+        )
     }
 }
 

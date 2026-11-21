@@ -27,6 +27,7 @@
     <string name="recap_open">Open Recap</string>
     <string name="recap_close">Close Recap</string>
     <string name="recap_title">Recap</string>
+    <string name="recap_total_juice">TOTAL JUICE</string>
     <string name="recap_today">Today</string>
     <string name="recap_week">This week</string>
     <string name="recap_month">This month</string>
