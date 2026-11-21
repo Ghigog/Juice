@@ -60,6 +60,8 @@ data class Hud(
     val fill: Float = 0f,
     val multiplier: Double = 1.0,
     val tier: Tier = Tier.THIRSTY,
+    /** Juice across every category, for the KPIs screen. */
+    val totalJuice: Long = 0,
 ) {
     val theme: FlavourTheme get() = FlavourTheme.of(flavour)
     val accent: Color get() = Color(theme.accent)
@@ -76,7 +78,9 @@ data class Hud(
     }
 }
 
-fun GameSession.hud() = Hud(state.juice, level, levelProgress, flavour, fill, multiplier, tier)
+/** The HUD for the open category [categoryId]: its own Juice, fill, multiplier and tier; level stays shared. */
+fun GameSession.hud(categoryId: String) =
+    Hud(state(categoryId).juice, level, levelProgress, flavour, fill(categoryId), multiplier(categoryId), tier(categoryId), totalJuice)
 
 fun multiplierLabel(m: Double): String =
     if (m % 1.0 == 0.0) "${m.toInt()}x" else String.format(Locale.US, "%.1fx", m)

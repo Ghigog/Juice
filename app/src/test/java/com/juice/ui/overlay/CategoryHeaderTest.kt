@@ -97,6 +97,13 @@ class CategoryHeaderTest {
     }
 
     @Test
+    fun aNewCategoryShowsZeroJuiceAndAThirstyEmptyGlass() {
+        showWork()
+        compose.onNodeWithTag(TAG_HYDRATION).assertTextEquals("THIRSTY: 0%")
+        compose.onNodeWithText("0").assertIsDisplayed()
+    }
+
+    @Test
     fun tappingTheCapsuleRenamesTheCategory() {
         showWork()
         compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).performClick()
