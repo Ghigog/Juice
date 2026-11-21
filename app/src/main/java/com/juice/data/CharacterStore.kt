@@ -2,6 +2,7 @@ package com.juice.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.juice.core.character.Availability
 import com.juice.core.character.CharacterState
 import java.time.Instant
@@ -46,7 +47,7 @@ class CharacterStore(private val prefs: SharedPreferences) {
     fun coachCardsMoved(): Boolean = prefs.getBoolean(COACH_CARDS_MOVED, false)
 
     fun markCoachCardsMoved() {
-        prefs.edit().putBoolean(COACH_CARDS_MOVED, true).apply()
+        prefs.edit { putBoolean(COACH_CARDS_MOVED, true) }
     }
 
     /** Emits whenever any saved state changes. */
