@@ -463,9 +463,11 @@ private fun Proposal(chat: CoachChatState, tasks: List<CoachTask>, hud: Hud) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(stringResource(R.string.coach_proposal_title), fontWeight = FontWeight.Bold, color = hud.accent)
-        tasks.forEach { task ->
+        // One-offs are listed apart from the routine changes, after them.
+        tasks.sortedBy { it is CoachTask.Once }.forEach { task ->
             val line = when (task) {
-                is CoachTask.Add -> stringResource(R.string.coach_proposal_add, task.title, task.cadence.label())
+                is CoachTask.Add -> stringResource(R.string.coach_proposal_add, task.cadence.label(), task.title)
+                is CoachTask.Once -> stringResource(R.string.coach_proposal_once, task.title)
                 is CoachTask.Change -> stringResource(R.string.coach_proposal_change, task.title, task.cadence.label())
                 is CoachTask.Remove -> stringResource(R.string.coach_proposal_remove, chat.titles[task.id] ?: task.id)
             }

@@ -177,6 +177,14 @@ class CoachChatTest {
     }
 
     @Test
+    fun theProposalListsAOneOffAsOnceAndARoutineWithItsCadence() {
+        show(meet)
+        propose("""{"action":"once","title":"Buy running shoes"}""", add("Run"))
+        waitForText("Once: Buy running shoes")
+        waitForText("Every day: Run")
+    }
+
+    @Test
     fun cancellingTheProposalCreatesNothing() {
         show(meet)
         propose(add("Walk 20 minutes"))

@@ -278,6 +278,18 @@ class CharacterRepositoryTest {
     }
 
     @Test
+    fun aOneOffIsSavedAsACadencelessTaskInTheCoachCategory() = runBlocking {
+        val ids = listOf("t1", "r1").iterator()
+        characters.createTasks("jim", listOf(CoachTask.Once("Buy running shoes"), CoachTask.Add("Run", daily)), today) { ids.next() }
+        val once = items.get("t1")!!
+        assertEquals(ItemType.Task, once.type)
+        assertEquals(null, once.cadence)
+        assertEquals("jim", once.characterId)
+        assertEquals(jimCategory, once.categoryId)
+        assertEquals(jimCategory, items.get("r1")!!.categoryId)
+    }
+
+    @Test
     fun aChangeKeepsAHandMovedCardWhereItIs() = runBlocking {
         characters.createTasks("jim", listOf(CoachTask.Add("Run", daily)), today) { "r1" }
         items.moveToCategory("r1", Category.MAIN_ID)
