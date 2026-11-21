@@ -625,7 +625,7 @@ internal fun CardRow(
     key(categoryId) {
     val live = categoryId == state.category.id
     if (live) shown[categoryId] = state.shown to centre
-    val (list, shownCentre) = if (live) state.items to centre else shown[categoryId] ?: (state.items to centre)
+    val (list, shownCentre) = if (live) state.shown to centre else shown[categoryId] ?: (state.shown to centre)
     Column(Modifier.fillMaxSize()) {
     TypeFilterRow(state.filter.types, settings.reduceMotion, onRelease = { if (state.releaseType(it)) actions.feedback(FeedbackEvent.UNDO) })
     Row(Modifier.weight(1f).fillMaxWidth()) {
