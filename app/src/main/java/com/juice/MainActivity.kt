@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                     groqKeyMasked.value = if (groqKeySaved) withContext(Dispatchers.IO) { groqKeyStore.load()?.masked } else null
                 }
                 LaunchedEffect(settings) {
-                    level = withContext(Dispatchers.IO) { Progression.levelFor(container.economyStore.load()?.state?.juice ?: 0L) }
+                    level = withContext(Dispatchers.IO) { Progression.levelFor(container.economyStore.load()?.economy?.totalJuice ?: 0L) }
                 }
                 val hud = Hud(level = level, flavour = settings.flavour?.takeIf { it.unlockLevel <= level } ?: Progression.flavourFor(level))
                 val actions = OverlayActions(

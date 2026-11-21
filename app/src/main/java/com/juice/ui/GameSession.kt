@@ -4,6 +4,8 @@ import java.time.Clock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.juice.core.category.Category
+import com.juice.core.economy.CategoryEconomy
 import com.juice.core.economy.Completion
 import com.juice.core.economy.Economy
 import com.juice.core.economy.EconomyConfig
@@ -40,6 +42,9 @@ class GameSession(
     private val undoStack = ArrayDeque<Completion>()
     private var lastTick = 0L
 
+    /** Every category as loaded; this session plays Main and carries the others through saves untouched. */
+    private var saved = CategoryEconomy()
+
     var state by mutableStateOf(EconomyState())
         private set
 
@@ -75,12 +80,13 @@ class GameSession(
 
     /** Loads the saved state and drains the meter for the time the overlay was closed. */
     fun open() {
-        val saved = store.load()
+        val loaded = store.load()
+        saved = loaded?.economy ?: CategoryEconomy()
         val now = clock.millis()
         lastTick = now
-        state = saved?.let {
+        state = loaded?.let {
             val minutes = ((now - it.savedAtMillis).coerceAtLeast(0)) / 60_000.0
-            economy.drain(it.state, minutes)
+            economy.drain(it.economy[Category.MAIN_ID], minutes)
         } ?: EconomyState()
         undoStack.clear()
         persist()
@@ -137,5 +143,5 @@ class GameSession(
         onFlavourChanged(theme)
     }
 
-    private fun persist() = store.save(state, clock.millis())
+    private fun persist() = store.save(CategoryEconomy(states = saved.states + (Category.MAIN_ID to state)), clock.millis())
 }
