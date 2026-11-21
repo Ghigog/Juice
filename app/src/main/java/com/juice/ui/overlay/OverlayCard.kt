@@ -391,7 +391,8 @@ internal fun CentreCard(
         Box(Modifier.fillMaxSize().testTag(TAG_RESERVOIR)) { reservoir(Modifier.fillMaxSize()) }
         if (item == null) {
             Text(
-                if (state.category.id == Category.MAIN_ID) stringResource(R.string.overlay_empty)
+                if (state.filter.query?.isNotBlank() == true) stringResource(R.string.overlay_search_empty, state.filter.query!!.trim())
+                else if (state.category.id == Category.MAIN_ID) stringResource(R.string.overlay_empty)
                 else stringResource(R.string.overlay_category_empty, state.category.name),
                 fontSize = JuiceType.Dialogue,
                 lineHeight = JuiceType.DialogueLine,
