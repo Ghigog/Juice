@@ -5,7 +5,16 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.juice.core.category.Category
 import com.juice.core.category.CategoryPalette
+import com.juice.coach.CoachClient
+import com.juice.coach.CoachConversation
+import com.juice.core.category.coachCategoryId
+import com.juice.core.character.Characters
 import com.juice.core.intake.ItemType
+import com.juice.data.CharacterRepository
+import com.juice.data.CharacterStore
+import com.juice.data.ConversationStore
+import com.juice.data.MemoryStore
+import java.io.File
 import com.juice.core.model.Item
 import com.juice.data.CategoryEntity
 import com.juice.data.CategoryRepository
@@ -188,5 +197,54 @@ class CategoryShellStateTest {
         state.pickUp(note)
         assertTrue(state.carryHeld(forward = true))
         assertEquals(home, state.category)
+    }
+
+    private fun openWithJim(onChat: (() -> Unit) -> Unit = {}): Pair<OverlayShellState, CharacterRepository> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val characters = CharacterRepository(
+            CharacterStore(context.getSharedPreferences("coach-category-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }),
+            items, categories = categories,
+        )
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        val state = OverlayShellState(
+            items, scope, emptyList(), newId = { "n${nextId++}" }, today = today, clock = clock,
+            categoryRepository = categories, characters = characters, io = Dispatchers.Unconfined,
+            registry = com.juice.core.character.CharacterRegistry { Characters.all },
+            coachChatFor = { _, onFailed, onConfirmed ->
+                onChat(onConfirmed)
+                val conversation = CoachConversation(
+                    Characters.Jim, CoachClient("key", "http://localhost"),
+                    ConversationStore(File.createTempFile("conversations", ".json")), MemoryStore(File.createTempFile("memory", ".json")), { false }, { emptyList() },
+                )
+                CoachChatState(Characters.Jim, conversation, characters, scope, onFailed = onFailed, onConfirmed = onConfirmed, io = Dispatchers.Unconfined, clock = clock)
+            },
+        ).also { it.observe() }
+        return state to characters
+    }
+
+    @Test
+    fun completingTheMeetCardAddsTheCoachCategoryAndStaysOnMain() {
+        val (state, characters) = openWithJim()
+        runBlocking { characters.unlockAtLevel(Characters.Jim, 5) }
+        assertEquals(listOf(main), state.categories.list)
+
+        state.complete(runBlocking { items.get("meet-jim") }!!)
+
+        assertEquals(listOf(Category.MAIN_ID, coachCategoryId("jim")), state.categories.list.map { it.id })
+        assertEquals(Characters.Jim.name, state.categories.list.last().name)
+        assertEquals(main, state.category)
+    }
+
+    @Test
+    fun confirmingTheProposalMovesToTheCoachCategory() {
+        var confirmed: () -> Unit = {}
+        val (state, characters) = openWithJim { confirmed = it }
+        runBlocking { characters.unlockAtLevel(Characters.Jim, 5) }
+        state.complete(runBlocking { items.get("meet-jim") }!!)
+
+        confirmed()
+
+        assertEquals(coachCategoryId("jim"), state.category.id)
+        assertEquals(Characters.Jim.name, state.category.name)
     }
 }
