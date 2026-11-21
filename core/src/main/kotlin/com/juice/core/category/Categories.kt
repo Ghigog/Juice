@@ -29,6 +29,28 @@ data class Categories(val list: List<Category>) {
         val i = indexOf(id)
         return i >= 0 && i == list.lastIndex
     }
+
+    /** Whether [id] can be reordered: not Main, not unknown, and there is somewhere to go. */
+    fun canMove(id: String): Boolean = id != Category.MAIN_ID && indexOf(id) >= 0 && list.size > 2
+
+    /**
+     * Moves [id] to [toIndex], clamped into 1..lastIndex so nothing ever lands before Main.
+     * Main and unknown ids leave the order unchanged.
+     */
+    fun move(id: String, toIndex: Int): Categories {
+        val from = indexOf(id)
+        if (id == Category.MAIN_ID || from < 0) return this
+        val target = toIndex.coerceIn(1, list.lastIndex)
+        val reordered = list.toMutableList()
+        reordered.add(target, reordered.removeAt(from))
+        return Categories(reordered)
+    }
+
+    /** One place earlier; stays put when already right after Main. */
+    fun moveEarlier(id: String): Categories = move(id, indexOf(id) - 1)
+
+    /** One place later; stays put when already last. */
+    fun moveLater(id: String): Categories = move(id, indexOf(id) + 1)
 }
 
 /** The trimmed category name, or null when blank so no stray category is created. */

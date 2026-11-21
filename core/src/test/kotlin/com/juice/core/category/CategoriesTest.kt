@@ -41,4 +41,51 @@ class CategoriesTest {
         assertEquals("Groceries", categoryName("  Groceries "))
         assertEquals("Ünï  Cödé 🍋", categoryName("Ünï  Cödé 🍋"))
     }
+
+    private val home = Category("home", "Home")
+    private val three = Categories(listOf(main, work, home))
+    private fun Categories.ids() = list.map { it.id }
+
+    @Test
+    fun moveToIndexOneReorders() {
+        assertEquals(listOf("main", "home", "work"), three.move("home", 1).ids())
+    }
+
+    @Test
+    fun moveClampsBeforeMainToIndexOne() {
+        assertEquals(listOf("main", "home", "work"), three.move("home", 0).ids())
+        assertEquals(listOf("main", "home", "work"), three.move("home", -5).ids())
+    }
+
+    @Test
+    fun moveClampsPastTheEndToLast() {
+        assertEquals(listOf("main", "home", "work"), three.move("work", 99).ids())
+    }
+
+    @Test
+    fun mainAndUnknownIdsDoNotMove() {
+        assertEquals(three, three.move("main", 2))
+        assertEquals(three, three.move("nope", 1))
+    }
+
+    @Test
+    fun moveEarlierStopsRightAfterMain() {
+        assertEquals(three, three.moveEarlier("work"))
+        assertEquals(listOf("main", "home", "work"), three.moveEarlier("home").ids())
+    }
+
+    @Test
+    fun moveLaterStepsAndStopsAtTheEnd() {
+        assertEquals(listOf("main", "home", "work"), three.moveLater("work").ids())
+        assertEquals(three, three.moveLater("home"))
+    }
+
+    @Test
+    fun canMoveIsFalseForMainUnknownAndMainOnly() {
+        assertFalse(three.canMove("main"))
+        assertFalse(three.canMove("nope"))
+        assertTrue(three.canMove("work"))
+        assertFalse(Categories(listOf(main)).canMove("main"))
+        assertFalse(categories.canMove("work"))
+    }
 }
