@@ -31,6 +31,9 @@ class CategoryRepository(
         else listOf(Category(Category.MAIN_ID, Category.MAIN_NAME)) + categories
     }
 
+    /** The category [id], if it exists. */
+    suspend fun get(id: String): Category? = dao.get(id)?.toCategory()
+
     /** Adds a category after the last one; null (and nothing added) for a blank [name]. */
     suspend fun create(name: String): Category? = writes.withLock {
         val clean = categoryName(name) ?: return@withLock null

@@ -80,6 +80,7 @@ internal class OverlayScene(
     init {
         session.open()
         scope.launch {
+            characters.moveCoachCardsOutOfMain()
             unlockCharacters(session.level)
             characters.registry().all().forEach { characters.createCheckInIfDue(it, clock.instant()) }
         }
