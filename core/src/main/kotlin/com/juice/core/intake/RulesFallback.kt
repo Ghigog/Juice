@@ -70,13 +70,16 @@ object RulesFallback {
         """\bevery\s+(?:(\d+|two|three|four|five|six)\s+days?|other\s+day)\b""",
         RegexOption.IGNORE_CASE,
     )
-    /** Groups: 1-3 "6pm", 4 "12 o'clock", 5-6 "by 6", 7 "noon" or "midnight". */
+    /** Groups: 1-3 "6pm", 4 "12 o'clock", 5-6 "by 6", 7 "noon" or "midnight", 8-9 a bare 24-hour "19:00". */
     private val clockTime = Regex(
         """\b(?:(?:by|at|before)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|""" +
             """\b(?:(?:by|at|before)\s+)?(\d{1,2})\s*o['\u2019]?clock\b|""" +
-            """\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b|\b(noon|midnight)\b""",
+            """\b(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\b|\b(noon|midnight)\b|""" +
+            """\b(\d{1,2}):(\d{2})\b""",
         RegexOption.IGNORE_CASE,
     )
+    /** A colon that is not part of a clock time, so "19:00" is never a list separator. */
+    private val listColon = Regex("""(?<!\d):|:(?!\d)""")
     private val dayWord = Regex("""\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b""", RegexOption.IGNORE_CASE)
     private const val WEEKDAY = """(?:mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b"""
     private val dailyPhrase = Regex("""\b(?:every ?day|daily)\b""", RegexOption.IGNORE_CASE)
@@ -131,8 +134,17 @@ object RulesFallback {
     fun classify(rawText: String, now: ZonedDateTime? = null): ParsedItem {
         val text = rawText.trim()
         val input = Input(text, text.take(IntakeValidator.MAX_TITLE_LENGTH), now)
-        return typeRules.firstNotNullOf { it(input) }
+        return withReminder(typeRules.firstNotNullOf { it(input) }, now)
     }
+
+    /** A Goal, Task or Project with a deadline gets the reminder [reminderFor] picks, worded as its title. */
+    private fun withReminder(item: ParsedItem, now: ZonedDateTime?): ParsedItem {
+        val deadline = item.deadline?.takeIf { now != null && item.type in REMINDED_TYPES }?.atZone(now!!.zone) ?: return item
+        val at = reminderFor(deadline, now!!, deadline.toLocalTime() != DATE_ONLY_TIME, item.type) ?: return item
+        return item.copy(notifyAt = at.toInstant(), notifyText = item.title)
+    }
+
+    private val REMINDED_TYPES = setOf(ItemType.Goal, ItemType.Task, ItemType.Project)
 
     /** The words of [rawText] that made it a [type], as ranges of its title. Notes and Projects have none. */
     fun spansOf(rawText: String, type: ItemType): List<ChipSpan> {
@@ -241,8 +253,8 @@ object RulesFallback {
      */
     private fun clockOf(g: List<String>, nowHour: Int?): LocalTime? {
         if (g[7].isNotEmpty()) return if (g[7].equals("noon", ignoreCase = true)) LocalTime.NOON else LocalTime.MIDNIGHT
-        var hour = (g[1].ifEmpty { g[4] }.ifEmpty { g[5] }).toInt()
-        val minute = (g[2].ifEmpty { g[6] }).ifEmpty { "0" }.toInt()
+        var hour = (g[1].ifEmpty { g[4] }.ifEmpty { g[5] }.ifEmpty { g[8] }).toInt()
+        val minute = (g[2].ifEmpty { g[6] }.ifEmpty { g[9] }).ifEmpty { "0" }.toInt()
         when (g[3].lowercase()) {
             "pm" -> if (hour < 12) hour += 12
             "am" -> if (hour == 12) hour = 0
@@ -264,7 +276,7 @@ object RulesFallback {
 
     /** "Launch: write copy, record demo and ship" is titled "Launch" with three steps. */
     private fun colonList(text: String): ListParse? {
-        val colon = text.indexOf(':')
+        val colon = listColon.find(text)?.range?.first ?: return null
         if (colon <= 0) return null
         val title = text.substring(0, colon).trim()
         if (wordCount(title) > MAX_COLON_TITLE_WORDS) return null
