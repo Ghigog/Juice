@@ -298,6 +298,7 @@ fun OverlayShell(
         }
     }
     val undo = state.undo
+    val dropGlow = remember { Animatable(0f) }
     LaunchedEffect(undo) {
         if (undo != null) {
             delay(OverlayShellState.UNDO_WINDOW_MILLIS)
@@ -402,6 +403,8 @@ fun OverlayShell(
                         onMoveEarlier = { i -> state.categories.list.getOrNull(i)?.let { state.moveCategoryEarlier(it.id) } },
                         onMoveLater = { i -> state.categories.list.getOrNull(i)?.let { state.moveCategoryLater(it.id) } },
                         onShelfTick = { actions.feedback(FeedbackEvent.SNAP) },
+                        onFeedback = actions.feedback,
+                        dropGlow = dropGlow,
                         reduceMotion = settings.reduceMotion,
                     )
                     Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
@@ -415,7 +418,14 @@ fun OverlayShell(
                         Spacer(Modifier.height(8.dp))
                         Box(Modifier.fillMaxWidth().height(44.dp).entrance(entranceProgress).then(cardPops.element(0))) { undoToast() }
                     }
-                    Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
+                    Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
+                    CategoryDots(
+                        state.categories.list.size,
+                        state.categories.indexOf(state.category.id).coerceAtLeast(0),
+                        hud, dropGlow,
+                        Modifier.align(Alignment.CenterHorizontally).entrance(entranceProgress).then(cardPops.element(0)),
+                    )
+                    Spacer(Modifier.height(if (compact) 6.dp else 8.dp))
                 }
                 if (!state.editingTitle && !routinesOpen) Capture(
                     hud,
