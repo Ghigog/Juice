@@ -66,7 +66,7 @@ class RecapScreenTest {
         db.close()
     }
 
-    private fun show(items: List<Item>, reduceMotion: Boolean = false, writingBack: WritingBack = WritingBack()) {
+    private fun show(items: List<Item>, reduceMotion: Boolean = false, writingBack: WritingBack = WritingBack(), hud: Hud = Hud()) {
         val state = OverlayShellState(ItemRepository(db.itemDao()), scope, emptyList())
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -76,6 +76,7 @@ class RecapScreenTest {
                 actions = OverlayActions(feedback = { events += it }, recapItems = { items }),
                 writingBack = writingBack,
                 clock = clock,
+                hud = hud,
             )
         }
         compose.mainClock.advanceTimeBy(100)
@@ -173,5 +174,23 @@ class RecapScreenTest {
         show(emptyList())
         open()
         assert(events.count { it == FeedbackEvent.RECAP_REVEAL } >= 1)
+    }
+
+    @Test
+    fun totalJuiceAcrossCategoriesShowsFormattedAtTheTop() {
+        show(emptyList(), reduceMotion = true, hud = Hud(juice = 6_798, totalJuice = 6_998))
+        open()
+        compose.onNodeWithText("TOTAL JUICE").assertIsDisplayed()
+        compose.onNodeWithTag(TAG_RECAP_TOTAL_JUICE).assertTextEquals("6,998")
+    }
+
+    @Test
+    fun totalJuiceCountsUpWithMotionOn() {
+        show(emptyList(), hud = Hud(totalJuice = 6_998))
+        open()
+        // Still counting up: not yet the final number.
+        assert(compose.onNodeWithTag(TAG_RECAP_TOTAL_JUICE).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].first().text != "6,998")
+        compose.mainClock.advanceTimeBy(3000)
+        compose.onNodeWithTag(TAG_RECAP_TOTAL_JUICE).assertTextEquals("6,998")
     }
 }
