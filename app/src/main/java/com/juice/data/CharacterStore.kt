@@ -2,6 +2,7 @@ package com.juice.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.juice.core.character.Availability
 import com.juice.core.character.CharacterState
 import java.time.Instant
@@ -42,6 +43,13 @@ class CharacterStore(private val prefs: SharedPreferences) {
     fun disabledIds(): Set<String> =
         prefs.all.keys.filter { it.endsWith(DISABLED_SUFFIX) && prefs.getBoolean(it, false) }.map { it.removeSuffix(DISABLED_SUFFIX) }.toSet()
 
+    /** Whether the one-off move of coach cards out of Main has run. */
+    fun coachCardsMoved(): Boolean = prefs.getBoolean(COACH_CARDS_MOVED, false)
+
+    fun markCoachCardsMoved() {
+        prefs.edit { putBoolean(COACH_CARDS_MOVED, true) }
+    }
+
     /** Emits whenever any saved state changes. */
     fun changes(): Flow<Unit> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
@@ -51,6 +59,7 @@ class CharacterStore(private val prefs: SharedPreferences) {
 
     private companion object {
         const val NONE = Long.MIN_VALUE
+        const val COACH_CARDS_MOVED = "coachCardsMoved"
         const val DISABLED_SUFFIX = ".disabled"
     }
 }
