@@ -134,4 +134,84 @@ class GestureRecognizerTest {
         }
         assertIs<GestureResult.Circle>(recogniser.recogniseStrokes(listOf(circle)))
     }
+
+    private fun tick(scale: Double, x: Double = 0.0, y: Double = 0.0) =
+        path(0.0, 0.0, 30.0, 40.0, 100.0, -50.0).map { GesturePoint(x + it.x * scale, y + it.y * scale) }
+
+    private fun assertRead(expected: GestureResult, strokes: List<List<GesturePoint>>) =
+        assertEquals(expected::class, recogniser.recogniseStrokes(strokes)::class)
+
+    @Test
+    fun tickIsATickWhateverItsSizeOrPlaceInOneStrokeOrTwo() {
+        listOf(tick(1.0), tick(0.2, 300.0, 40.0), tick(3.0, 20.0, 200.0)).forEach {
+            val result = assertIs<GestureResult.Checkmark>(recogniser.recognise(it))
+            assertEquals(true, result.confidence in 0.0..1.0)
+            assertIs<GestureResult.Checkmark>(recogniser.recogniseStrokes(listOf(it.take(2), it.drop(1))))
+        }
+    }
+
+    @Test
+    fun aLoneUpRightLineIsNotATick() {
+        assertRead(GestureResult.NotRecognised, listOf(line(GesturePoint(0.0, 100.0), GesturePoint(100.0, 0.0))))
+        assertRead(GestureResult.NotRecognised, listOf(line(GesturePoint(0.0, 30.0), GesturePoint(30.0, 0.0))))
+    }
+
+    @Test
+    fun aDownRightPartAsLongAsTheUpRightOneOrLongerIsNotATick() {
+        assertRead(GestureResult.NotRecognised, listOf(path(0.0, 0.0, 60.0, 80.0, 110.0, 20.0)))
+        assertRead(GestureResult.NotRecognised, listOf(path(0.0, 0.0, 60.0, 80.0, 100.0, 30.0)))
+        assertRead(GestureResult.NotRecognised, listOf(path(0.0, 0.0, 60.0, 80.0, 80.0, 55.0)))
+    }
+
+    @Test
+    fun aNegligibleHookIsNotATick() {
+        assertRead(GestureResult.NotRecognised, listOf(path(0.0, 0.0, 9.0, 12.0, 69.0, -63.0)))
+    }
+
+    private val backslash = line(GesturePoint(100.0, 100.0), GesturePoint(200.0, 220.0))
+    private val slash = line(GesturePoint(200.0, 100.0), GesturePoint(100.0, 220.0))
+
+    private fun scaled(points: List<GesturePoint>, k: Double, x: Double, y: Double) =
+        points.map { GesturePoint(x + it.x * k, y + it.y * k) }
+
+    @Test
+    fun anyCrossingMirroredSlantsAreAnXInEveryOrderAndDirection() {
+        val orders = listOf(
+            backslash to slash, slash to backslash,
+            backslash.reversed() to slash, backslash to slash.reversed(),
+            slash.reversed() to backslash.reversed(), slash to backslash.reversed(),
+        )
+        orders.forEach { (first, second) ->
+            val result = assertIs<GestureResult.Dismiss>(recogniser.recogniseStrokes(listOf(first, second)))
+            assertEquals(true, result.confidence in 0.0..1.0)
+            assertIs<GestureResult.Dismiss>(recogniser.recognise(first + second))
+        }
+    }
+
+    @Test
+    fun smallAndLargeXesReadTheSame() {
+        listOf(0.1 to 400.0, 4.0 to 0.0).forEach { (k, offset) ->
+            val strokes = listOf(backslash, slash).map { scaled(it, k, offset, offset) }
+            assertIs<GestureResult.Dismiss>(recogniser.recogniseStrokes(strokes))
+            assertIs<GestureResult.Dismiss>(recogniser.recognise(strokes.flatten()))
+        }
+    }
+
+    @Test
+    fun shapesThatAreNotAnXAreNotRecognised() {
+        val plus = listOf(line(GesturePoint(50.0, 0.0), GesturePoint(50.0, 100.0)), line(GesturePoint(0.0, 50.0), GesturePoint(100.0, 50.0)))
+        val parallel = listOf(backslash, scaled(backslash, 1.0, 40.0, 0.0))
+        val steepnessDiffers = listOf(backslash, line(GesturePoint(200.0, 100.0), GesturePoint(100.0, 140.0)))
+        val apart = listOf(line(GesturePoint(0.0, 0.0), GesturePoint(100.0, 120.0)), line(GesturePoint(300.0, 0.0), GesturePoint(200.0, 120.0)))
+        listOf(plus, parallel, steepnessDiffers, apart).forEach {
+            assertRead(GestureResult.NotRecognised, it)
+            assertEquals(GestureResult.NotRecognised, recogniser.recognise(it.flatten()))
+        }
+    }
+
+    @Test
+    fun linesMeetingAtAnEndAreNotAnX() {
+        val v = listOf(line(GesturePoint(100.0, 100.0), GesturePoint(160.0, 200.0)), line(GesturePoint(160.0, 200.0), GesturePoint(220.0, 100.0)))
+        assertRead(GestureResult.NotRecognised, v)
+    }
 }
