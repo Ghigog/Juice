@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -57,9 +58,11 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
@@ -110,6 +113,7 @@ internal fun CentreCard(
     reservoir: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
     onEditingChange: (Boolean) -> Unit = {},
+    onTitleSize: (TextUnit) -> Unit = {},
     clock: Clock = Clock.systemDefaultZone(),
 ) {
     val recognizer = remember { GestureRecognizer() }
@@ -123,6 +127,8 @@ internal fun CentreCard(
     LaunchedEffect(editing) { reportEditing(editing) }
     DisposableEffect(Unit) { onDispose { reportEditing(false) } }
     var titleBounds by remember { mutableStateOf(Rect.Zero) }
+    var titleSize by remember { mutableStateOf(JuiceType.Title) }
+    val autoSize = remember { CardTitleAutoSize { titleSize = it; onTitleSize(it) } }
     var cardOrigin by remember { mutableStateOf(Offset.Zero) }
     // The words that sorted the card, as chips; only shown when the classifier still agrees with the card's type.
     val chips = remember(item?.title, item?.type) {
@@ -228,11 +234,13 @@ internal fun CentreCard(
         return true
     }
 
-    val drawing = Modifier.pointerInput(item?.id, busy, state.held) {
+    val drawing = Modifier.pointerInput(item?.id, busy, state.held, editing) {
         val minSwipe = size.width * SWIPE_FRACTION
         awaitEachGesture {
             val down = awaitFirstDown()
             if (busy) return@awaitEachGesture
+            // The open title field owns its own drags, so they scroll it instead of drawing or swiping.
+            if (editing && titleBounds.contains(down.position)) return@awaitEachGesture
             if (item == null) {
                 // An empty category has nothing to draw on, but can still be swiped away from.
                 down.consume()
@@ -437,24 +445,34 @@ internal fun CentreCard(
                     }
                 }
                 val titleLine = listTitleLine(item)
-                val title = @Composable {
+                val title = @Composable { titleModifier: Modifier ->
                     if (editing) {
-                        TitleField(item.title, onChange = state::changeTitleEdit) {
+                        TitleField(
+                            item.title,
+                            onChange = state::changeTitleEdit,
+                            fontSize = titleSize,
+                            modifier = titleModifier.onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) },
+                        ) {
                             state.commitTitleEdit()
                         }
                     } else {
-                        Text(
+                        BasicText(
                             titleText(titleLine, chips.filter { it.end <= titleLine.length }),
-                            fontSize = JuiceType.Title,
-                            lineHeight = JuiceType.TitleLine,
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = (-0.5).sp,
-                            maxLines = if (wide) 3 else 5,
+                            style = TextStyle(
+                                fontFamily = SpaceGrotesk,
+                                fontSize = JuiceType.Title,
+                                lineHeight = JuiceType.TitleLineRatio,
+                                lineHeightStyle = TitleLineHeightStyle,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = (-0.5).sp,
+                                color = Color.White,
+                            ),
                             overflow = TextOverflow.Ellipsis,
+                            autoSize = autoSize,
                             onTextLayout = { layout ->
                                 chipBounds = chips.map { layout.getPathForRange(it.start, it.end).getBounds() }
                             },
-                            modifier = Modifier
+                            modifier = titleModifier
                                 .onGloballyPositioned { titleBounds = it.boundsInRoot().translate(-cardOrigin) }
                                 .testTag(TAG_CARD_TITLE),
                         )
@@ -530,6 +548,7 @@ internal fun CentreCard(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                val bodyWeight = if (listBodyLines(item).isEmpty()) 0.001f else 1f
                 if (wide) {
                     Row(
                         Modifier.fillMaxSize().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
@@ -538,9 +557,9 @@ internal fun CentreCard(
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             header()
                             Spacer(Modifier.height(10.dp))
-                            title()
+                            title(Modifier.weight(1f, fill = editing))
                             Spacer(Modifier.height(6.dp))
-                            body(Modifier.weight(1f))
+                            if (!editing) body(Modifier.weight(bodyWeight))
                         }
                         Column(Modifier.width(WIDE_CARD_SIDE).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
                             footer()
@@ -550,9 +569,9 @@ internal fun CentreCard(
                     Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp)) {
                         header()
                         Spacer(Modifier.height(24.dp))
-                        title()
+                        title(Modifier.weight(1f, fill = editing))
                         Spacer(Modifier.height(12.dp))
-                        body(Modifier.weight(1f))
+                        if (!editing) body(Modifier.weight(bodyWeight))
                         footer()
                     }
                 }
