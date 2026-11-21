@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -77,7 +76,6 @@ internal fun CategoryNameField(
     Box(modifier.testTag(TAG_CATEGORY_NAME_FIELD), contentAlignment = Alignment.BottomCenter) {
         Column(
             Modifier
-                .imePadding()
                 .fillMaxWidth()
                 .graphicsLayer {
                     alpha = shown.value.coerceIn(0f, 1f)
