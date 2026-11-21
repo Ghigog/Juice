@@ -11,6 +11,14 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import com.juice.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -36,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.juice.core.intake.ItemType
 import kotlinx.coroutines.launch
 
+const val TAG_SEARCH_CHIP = "search_chip"
 const val TAG_TYPE_FILTER_ROW = "type_filter_row"
 const val TAG_FLOATING_TYPE_PREFIX = "floating_type_"
 
@@ -58,6 +67,8 @@ internal fun TypeFilterRow(
     reduceMotion: Boolean,
     onRelease: (ItemType) -> Unit,
     modifier: Modifier = Modifier,
+    query: String? = null,
+    onClearQuery: () -> Unit = {},
 ) {
     // A released type stays here until its exit animation has played.
     var present by remember { mutableStateOf(types.toList()) }
@@ -68,6 +79,7 @@ internal fun TypeFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (query != null) SearchChip(query, onClearQuery)
         present.forEach { type ->
             key(type) {
                 FloatingType(
@@ -132,6 +144,33 @@ private fun FloatingType(
             contentAlignment = Alignment.Center,
         ) {
             Text(type.name.uppercase(), color = JuiceColors.Ink, fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        }
+    }
+}
+
+/** The active search as a removable chip at the front of the row. */
+@Composable
+private fun SearchChip(query: String, onClear: () -> Unit) {
+    val label = stringResource(R.string.overlay_search_clear, query)
+    Row(
+        Modifier
+            .touchTarget(onClick = onClear)
+            .semantics(mergeDescendants = true) { contentDescription = label }
+            .testTag(TAG_SEARCH_CHIP),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .height(28.dp)
+                .clip(JuiceShapes.Capsule)
+                .background(JuiceColors.white(0.14f))
+                .border(1.dp, JuiceColors.white(0.25f), JuiceShapes.Capsule)
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(query, color = Color.White, fontSize = JuiceType.Badge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
+            Text("✕", color = JuiceColors.white(0.7f), fontSize = JuiceType.Badge)
         }
     }
 }

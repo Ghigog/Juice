@@ -210,6 +210,18 @@ class OverlayShellState(
     /** The cards the carousel shows: [items] narrowed by [filter]. Every carousel index refers to this list. */
     val shown: List<Item> get() = items.filteredBy(filter)
 
+    /** Narrows the carousel to titles containing [query]; a blank query clears the search. */
+    fun search(query: String) {
+        filter = filter.copy(query = query.trim().ifEmpty { null })
+    }
+
+    /** Stops searching; false when no search was active. */
+    fun clearSearch(): Boolean {
+        if (filter.query == null) return false
+        filter = filter.copy(query = null)
+        return true
+    }
+
     /** Floats [type] to the filter, beside any already floating; false when it already floats. */
     fun floatType(type: ItemType): Boolean {
         if (type in filter.types) return false

@@ -437,7 +437,13 @@ fun OverlayShell(
                     onLeave = ::leaveWriting,
                     modifier = (if (writing) Modifier.weight(1f) else Modifier.entrance(entranceProgress)).then(cardPops.element(1))
                         .onGloballyPositioned { cardPops.captureBounds = it.boundsInRoot() },
+                    reduceMotion = settings.reduceMotion,
+                    onSearch = { query ->
+                        state.search(query)
+                        actions.feedback(FeedbackEvent.SNAP)
+                    },
                 ) { text ->
+                    state.clearSearch()
                     if (state.capture(text) != null) actions.feedback(FeedbackEvent.CAPTURE)
                 }
             }
@@ -627,7 +633,11 @@ internal fun CardRow(
     if (live) shown[categoryId] = state.shown to centre
     val (list, shownCentre) = if (live) state.shown to centre else shown[categoryId] ?: (state.shown to centre)
     Column(Modifier.fillMaxSize()) {
-    TypeFilterRow(state.filter.types, settings.reduceMotion, onRelease = { if (state.releaseType(it)) actions.feedback(FeedbackEvent.UNDO) })
+    TypeFilterRow(
+        state.filter.types, settings.reduceMotion,
+        query = state.filter.query?.trim()?.ifEmpty { null },
+        onClearQuery = { if (state.clearSearch()) actions.feedback(FeedbackEvent.UNDO) },
+        onRelease = { if (state.releaseType(it)) actions.feedback(FeedbackEvent.UNDO) })
     Row(Modifier.weight(1f).fillMaxWidth()) {
         if (list.isNotEmpty()) {
             // Stays composed at zero width while a title is edited: leaving would reset its scroll and re-centre item 0.

@@ -1,6 +1,16 @@
 package com.juice.ui.overlay
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.juice.R
 
+const val TAG_SEARCH = "search"
+
 /** Tells the host whether the shell is in writing mode and lets it end that mode, for the BACK key. */
 class WritingBack {
     internal var isWriting: () -> Boolean = { false }
@@ -69,6 +81,8 @@ internal fun Capture(
     onWritingChange: (Boolean) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier,
+    reduceMotion: Boolean = false,
+    onSearch: (String) -> Unit = {},
     onSubmit: (String) -> Unit,
 ) {
     fun submit() {
@@ -77,11 +91,20 @@ internal fun Capture(
         onDraftChange("")
         onLeave()
     }
+    fun search() {
+        if (draft.isBlank()) return
+        onSearch(draft)
+        onLeave()
+    }
     val shape = if (writing) JuiceShapes.Pill else JuiceShapes.Input
     Row(
         modifier.fillMaxWidth().then(if (writing) Modifier else Modifier.height(56.dp)),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Column {
+            if (writing) Spacer(Modifier.weight(1f))
+            SearchButton(reduceMotion, ::search)
+        }
         BasicTextField(
             value = draft,
             onValueChange = onDraftChange,
@@ -135,6 +158,39 @@ internal fun Capture(
                 )
             }
         }
+        }
+    }
+}
+
+/** The glass circle left of the field: the same size as +, squeezing on press (a plain alpha dip with reduced motion). */
+@Composable
+private fun SearchButton(reduceMotion: Boolean, onClick: () -> Unit) {
+    val label = stringResource(R.string.overlay_search)
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val squeeze by animateFloatAsState(
+        if (pressed && !reduceMotion) 0.94f else 1f,
+        if (reduceMotion) snap() else spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow),
+        label = "searchSqueeze",
+    )
+    val dip by animateFloatAsState(if (pressed && reduceMotion) 0.7f else 1f, snap(), label = "searchDip")
+    Box(
+        Modifier
+            .size(56.dp)
+            .graphicsLayer { scaleX = squeeze; scaleY = squeeze; alpha = dip }
+            .clip(CircleShape)
+            .background(JuiceColors.white(0.14f))
+            .border(1.dp, JuiceColors.white(0.25f), CircleShape)
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .semantics { contentDescription = label }
+            .testTag(TAG_SEARCH),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(22.dp)) {
+            val w = 2.4.dp.toPx()
+            val u = size.width / 24f
+            drawCircle(Color.White, radius = 6.5f * u, center = Offset(10.5f * u, 10.5f * u), style = Stroke(w))
+            drawLine(Color.White, Offset(15.5f * u, 15.5f * u), Offset(20 * u, 20 * u), w, StrokeCap.Round)
         }
     }
 }
