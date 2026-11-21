@@ -23,6 +23,9 @@ interface CategoryDao {
     @Query("SELECT MAX(position) FROM categories")
     suspend fun maxPosition(): Int?
 
+    @Query("UPDATE categories SET colour = :colour WHERE id = :id")
+    suspend fun setColour(id: String, colour: Int?)
+
     @Query("UPDATE categories SET name = :name WHERE id = :id")
     suspend fun rename(id: String, name: String)
 }
