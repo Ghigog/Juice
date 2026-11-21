@@ -52,8 +52,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.intake.ChipSpan
@@ -80,6 +86,20 @@ internal fun titleText(title: String, chips: List<TitleChip>) = buildAnnotatedSt
         at = chip.end
     }
     append(title.substring(at))
+}
+
+/** How material3 text centres a line in its line height; the title keeps it so its lines sit exactly as before. */
+internal val TitleLineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+
+/** The card title's auto-size: steps down 1 sp at a time from [JuiceType.Title] to [JuiceType.CardTitleMin], and reports the size it chose. */
+internal class CardTitleAutoSize(private val onFit: (TextUnit) -> Unit) : TextAutoSize {
+    private val steps = TextAutoSize.StepBased(minFontSize = JuiceType.CardTitleMin, maxFontSize = JuiceType.Title, stepSize = 1.sp)
+
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit =
+        with(steps) { getFontSize(constraints, text) }.also(onFit)
+
+    override fun equals(other: Any?) = other is CardTitleAutoSize
+    override fun hashCode() = 0
 }
 
 /** Below this height, and at least [WIDE_CARD_MIN_WIDTH] wide, the centre card lays out in two columns. */
@@ -144,7 +164,7 @@ internal fun ParsingChip(onDeviceOnly: Boolean) {
 }
 
 @Composable
-internal fun TitleField(title: String, onChange: (String) -> Unit, onDone: () -> Unit) {
+internal fun TitleField(title: String, onChange: (String) -> Unit, fontSize: TextUnit = JuiceType.Title, modifier: Modifier = Modifier, onDone: () -> Unit) {
     var text by remember(title) { mutableStateOf(title) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -152,11 +172,11 @@ internal fun TitleField(title: String, onChange: (String) -> Unit, onDone: () ->
         value = text,
         onValueChange = { text = it; onChange(it) },
         singleLine = false,
-        textStyle = TextStyle(fontFamily = SpaceGrotesk, fontSize = JuiceType.Title, lineHeight = JuiceType.TitleLine, fontWeight = FontWeight.Medium, color = Color.White),
+        textStyle = TextStyle(fontFamily = SpaceGrotesk, fontSize = if (fontSize.value < JuiceType.CardTitleMin.value) JuiceType.CardTitleMin else fontSize, lineHeight = JuiceType.TitleLineRatio, lineHeightStyle = TitleLineHeightStyle, fontWeight = FontWeight.Medium, color = Color.White),
         cursorBrush = SolidColor(Color.White),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(JuiceShapes.Field)
             .background(JuiceColors.white(0.1f))

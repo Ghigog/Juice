@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.juice.R
 import com.juice.core.economy.EconomyConfig
@@ -163,6 +164,10 @@ object JuiceType {
     val Badge = 11.sp
 
     val TitleLine = 30.sp
+    /** The card title's line height as a ratio of its size (30/25), so lines never overlap as it shrinks. */
+    val TitleLineRatio = 1.2.em
+    /** The smallest size the card title shrinks to. */
+    val CardTitleMin = Chat
     val DialogueLine = 26.sp
     val ChatLine = 21.sp
     val LabelLine = 13.sp
