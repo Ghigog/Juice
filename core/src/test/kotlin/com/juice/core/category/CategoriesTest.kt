@@ -88,4 +88,9 @@ class CategoriesTest {
         assertFalse(Categories(listOf(main)).canMove("main"))
         assertFalse(categories.canMove("work"))
     }
+
+    @Test
+    fun aCoachCategoryIdIsDerivedFromTheCharacterId() {
+        assertEquals("coach-jim", coachCategoryId("jim"))
+    }
 }

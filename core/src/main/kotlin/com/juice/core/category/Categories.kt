@@ -77,3 +77,6 @@ data class Categories(val list: List<Category>) {
 
 /** The trimmed category name, or null when blank so no stray category is created. */
 fun categoryName(raw: String): String? = raw.trim().ifEmpty { null }
+
+/** The id of the category that holds the cards of the coach [characterId]; derived, so no link needs storing. */
+fun coachCategoryId(characterId: String): String = "coach-$characterId"
