@@ -66,9 +66,13 @@ internal fun Header(
     /** Shown between the level and the multiplier, where a wide screen has room. */
     middle: (@Composable () -> Unit)? = null,
     /** The categories' names, Main first, and which one is current. */
-    categoryNames: List<String> = listOf("Main"),
+    categoryOrder: List<ShelfCategory> = listOf(ShelfCategory("Main", movable = false)),
     categoryIndex: Int = 0,
     onCategory: () -> Unit = {},
+    onMoveCategory: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    onMoveEarlier: (index: Int) -> Unit = {},
+    onMoveLater: (index: Int) -> Unit = {},
+    onShelfTick: () -> Unit = {},
     reduceMotion: Boolean = false,
 ) {
     Column(Modifier.fillMaxWidth().entrance(entrance, fromBottom = false).then(pop)) {
@@ -168,58 +172,6 @@ internal fun Header(
             }
         }
     }
-    CategoryStrip(categoryNames.getOrElse(categoryIndex) { "" }, categoryNames.size, categoryIndex, hud, reduceMotion, onCategory)
-    }
-}
-
-const val TAG_CATEGORY_CAPSULE = "category_capsule"
-const val TAG_CATEGORY_DOT_PREFIX = "category_dot_"
-
-/** The current category's name in a glass capsule, with one dot per category beside it; tapping the capsule renames. */
-@Composable
-private fun CategoryStrip(name: String, count: Int, current: Int, hud: Hud, reduceMotion: Boolean, onClick: () -> Unit) {
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val squeeze by animateFloatAsState(
-        if (pressed && !reduceMotion) 0.94f else 1f,
-        if (reduceMotion) snap() else spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow),
-        label = "categorySqueeze",
-    )
-    val dip = if (pressed && reduceMotion) 0.7f else 1f
-    Row(Modifier.fillMaxWidth().height(MinTouchTarget), verticalAlignment = Alignment.CenterVertically) {
-        // The tappable box is the full touch target; the glass capsule inside keeps its own height.
-        Box(
-            Modifier.height(MinTouchTarget).widthIn(max = 200.dp).touchTarget(onClick, interactionSource = source).testTag(TAG_CATEGORY_CAPSULE),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                name,
-                Modifier
-                    .graphicsLayer { scaleX = squeeze; scaleY = squeeze; alpha = dip }
-                    .height(30.dp)
-                    .clip(JuiceShapes.Capsule)
-                    .background(JuiceColors.white(0.14f))
-                    .border(1.dp, JuiceColors.white(0.25f), JuiceShapes.Capsule)
-                    .padding(horizontal = 16.dp)
-                    .wrapContentHeight(Alignment.CenterVertically),
-                fontSize = JuiceType.Label,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            repeat(count) { i ->
-                Box(
-                    Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(if (i == current) hud.accent else JuiceColors.white(0.3f))
-                        .semantics { selected = i == current }
-                        .testTag(TAG_CATEGORY_DOT_PREFIX + i),
-                )
-            }
-        }
+    CategoryStrip(categoryOrder, categoryIndex, hud, reduceMotion, onCategory, onMoveCategory, onMoveEarlier, onMoveLater, onShelfTick)
     }
 }

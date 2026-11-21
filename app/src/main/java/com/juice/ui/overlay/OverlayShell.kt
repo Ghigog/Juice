@@ -394,7 +394,7 @@ fun OverlayShell(
                         onRecap = { recapOpen = true }, onRoutines = { state.routines.observe(); routinesOpen = true }, onSettings = { settingsOpen = true },
                         onRoutinesBounds = { routinesBounds = it },
                         middle = if (compact) undoToast else null,
-                        categoryNames = state.categories.list.map { it.name },
+                        categoryOrder = state.categories.list.mapIndexed { i, c -> ShelfCategory(c.name, movable = i > 0) },
                         categoryIndex = state.categories.indexOf(state.category.id).coerceAtLeast(0),
                         onCategory = state::beginRename,
                         reduceMotion = settings.reduceMotion,
