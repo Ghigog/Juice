@@ -1,8 +1,9 @@
 # Unit tests
 #
-# Compiles and runs every unit test (debug and release variants), runs lint and compiles the androidTest sources
+# Runs the :core tests and the :app debug unit tests once (not the release variant) and verifies the coverage
+# floors, then, in a second job, runs lint, compiles the androidTest sources and compiles release Kotlin
 # on each push to main and each pull request,
-# so a broken test build can't reach main unnoticed.
+# so a broken test build or release-only code can't reach main unnoticed.
 name: Unit tests
 
 on:
@@ -27,7 +28,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Run unit tests and verify coverage
-        run: ./gradlew test koverVerify
+        run: ./gradlew :core:test :app:testDebugUnitTest koverVerifyCi
 
   lint-and-android-test-compile:
     runs-on: ubuntu-latest
@@ -41,5 +42,5 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
-      - name: Run lint and compile instrumented tests
-        run: ./gradlew :app:lintDebug :app:compileDebugAndroidTestKotlin
+      - name: Run lint and compile instrumented tests and release
+        run: ./gradlew :app:lintDebug :app:compileDebugAndroidTestKotlin :app:compileReleaseKotlin

@@ -137,11 +137,17 @@ dependencies {
 }
 
 kover {
+    currentProject {
+        // Only the debug variant is unit-tested in CI, so coverage must not wait on testReleaseUnitTest.
+        createVariant("ci") { add("debug") }
+    }
     reports {
-        verify {
-            rule {
-                // :app line coverage alone, so :core cannot mask a drop; measured 75.3% when set.
-                minBound(60)
+        variant("ci") {
+            verify {
+                rule {
+                    // :app line coverage alone, so :core cannot mask a drop; measured 75.3% when set.
+                    minBound(60)
+                }
             }
         }
     }
