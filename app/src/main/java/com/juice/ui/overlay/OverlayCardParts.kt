@@ -114,9 +114,15 @@ private fun Item.listLines(): List<String> = title.lines()
 
 internal fun listTitleLine(item: Item): String = if (item.type.hasSteps) item.listLines().first() else item.title
 
-/** The lines under a List or Project's title, then the titles of any steps saved before steps were retired. */
-internal fun listBodyLines(item: Item): List<String> =
-    if (!item.type.hasSteps) emptyList() else item.listLines().drop(1) + item.steps.map { it.title }
+/**
+ * The lines under a List or Project's title. A List is only the person's own text, so steps saved before
+ * steps were retired are not shown; a Project still lists its steps.
+ */
+internal fun listBodyLines(item: Item): List<String> = when {
+    !item.type.hasSteps -> emptyList()
+    item.type == ItemType.List -> item.listLines().drop(1)
+    else -> item.listLines().drop(1) + item.steps.map { it.title }
+}
 
 /** The body of a List or Project: plain read-only lines, clipped with an ellipsis where they do not fit. */
 @Composable
