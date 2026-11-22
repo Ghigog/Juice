@@ -47,6 +47,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE status = 'Active' AND categoryId = :categoryId AND (nextDueOn IS NULL OR nextDueOn <= :todayEpochDay) ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     fun observeActive(todayEpochDay: Long, categoryId: String): Flow<List<ItemEntity>>
 
+    @Query("SELECT * FROM items WHERE status = 'Active' AND type = 'List'")
+    suspend fun activeLists(): List<ItemEntity>
+
     @Query("SELECT * FROM items WHERE status = 'Active' AND cadence IS NOT NULL ORDER BY starredAtMillis IS NULL, starredAtMillis, position, rowid")
     suspend fun routines(): List<ItemEntity>
 

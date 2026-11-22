@@ -164,6 +164,53 @@ class ItemRepositoryTest {
         assertEquals(daily, repository.get("r")!!.cadence)
     }
 
+    private val nineAm = Instant.parse("2026-11-21T09:00:00Z")
+
+    private suspend fun clockTimeList(id: String, title: String, edited: Set<IntakeField> = emptySet()): ItemRepositoryTest {
+        now = nineAm
+        repository.save(Item(id, ItemType.List, title, editedFields = edited))
+        return this
+    }
+
+    @Test
+    fun aListSplitOnAClockTimeBecomesAGoalWithItsReminder() = runBlocking {
+        val reminders = withReminders()
+        val title = "today at 19:00, is the Christmas dinner"
+        clockTimeList("c", title)
+        repository.repairClockTimeLists(LocalDate.of(2026, 11, 21))
+        val repaired = repository.get("c")!!
+        val zone = ZoneId.systemDefault()
+        assertEquals(ItemType.Goal, repaired.type)
+        assertEquals(title, repaired.title)
+        assertEquals(LocalDate.of(2026, 11, 21).atTime(19, 0).atZone(zone).toInstant(), repaired.deadline)
+        assertEquals(LocalDate.of(2026, 11, 21).atTime(17, 0).atZone(zone).toInstant(), repaired.notifyAt)
+        assertEquals(repaired.notifyAt, reminders.synced.last().notifyAt)
+    }
+
+    @Test
+    fun aListThatIsStillAListAfterRereadingIsLeftAlone() = runBlocking {
+        val title = "Launch: write copy, record demo and ship"
+        clockTimeList("m", title)
+        repository.repairClockTimeLists(LocalDate.of(2026, 11, 21))
+        assertEquals(ItemType.List, repository.get("m")!!.type)
+    }
+
+    @Test
+    fun anEditedClockTimeListIsNotRepaired() = runBlocking {
+        clockTimeList("e", "today at 19:00, is the Christmas dinner", setOf(IntakeField.Type))
+        repository.repairClockTimeLists(LocalDate.of(2026, 11, 21))
+        assertEquals(ItemType.List, repository.get("e")!!.type)
+    }
+
+    @Test
+    fun repairingClockTimeListsTwiceChangesNothingTheSecondTime() = runBlocking {
+        clockTimeList("c", "today at 19:00, is the Christmas dinner")
+        repository.repairClockTimeLists(LocalDate.of(2026, 11, 21))
+        val once = repository.get("c")!!
+        repository.repairClockTimeLists(LocalDate.of(2026, 11, 21))
+        assertEquals(once, repository.get("c"))
+    }
+
     @Test
     fun aLandedParseSyncsItsNotifyAt() = runBlocking {
         val reminders = withReminders()
