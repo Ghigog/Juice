@@ -179,6 +179,18 @@ class ItemRepository(
         }
     }
 
+    /**
+     * Lists saved when a clock time's colon split the title ("today at 19:00, is the dinner") are read again: one the rules now
+     * take for something else becomes it, with its deadline and reminder. A List the person edited, or that is still a List, stays.
+     */
+    suspend fun repairClockTimeLists(today: LocalDate = LocalDate.now()) {
+        dao.activeLists().map { it.toItem() }.forEach { item ->
+            if (item.type != ItemType.List || item.editedFields.isNotEmpty() || !CLOCK_TIME.containsMatchIn(item.title)) return@forEach
+            val read = RulesFallback.classify(item.title, (item.createdAt ?: clock()).atZone(ZoneId.systemDefault()))
+            if (read.type != ItemType.List) applyParse(item.id, read, today)
+        }
+    }
+
     suspend fun complete(id: String) = setStatus(id, ItemStatus.Completed)
 
     suspend fun archive(id: String) = setStatus(id, ItemStatus.Archived)
@@ -207,3 +219,5 @@ fun Item.advance(today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Item 
     val due = cadence.nextDueAfter(maxOf(nextDueOn ?: today, today))
     return copy(nextDueOn = due, deadline = cadence.deadlineOn(due, zone), status = ItemStatus.Active)
 }
+
+private val CLOCK_TIME = Regex("""\d{1,2}:\d{2}""")

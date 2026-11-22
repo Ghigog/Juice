@@ -177,6 +177,7 @@ class OverlayService : Service() {
                 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
                 val active = todayChanges(this@OverlayService, clock).flatMapLatest { day ->
                     repository.repairCadences(day)
+                    repository.repairClockTimeLists(day)
                     repository.observeActive(day)
                 }
                 active.collect {
