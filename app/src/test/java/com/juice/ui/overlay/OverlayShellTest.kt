@@ -607,14 +607,12 @@ class OverlayShellTest {
     }
 
     @Test
-    fun oldStepsShowAsPlainLinesAndTapOnThemEditsTheTitle() {
+    fun oldStepsOnAListAreNotShown() {
         val old = Item("p", ItemType.List, "Chores", steps = listOf(Step("a", "Pack"), Step("b", "Book van")))
         runBlocking { repository.save(old) }
         show(old)
-        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).assertTextEquals("Pack\nBook van")
-        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).performTouchInput { click() }
-        settle()
-        compose.onNodeWithTag(TAG_TITLE_FIELD).assertExists()
+        compose.onNodeWithTag(TAG_CARD_BODY, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CARD_TITLE, useUnmergedTree = true).assertTextEquals("Chores")
     }
 
     @Test
