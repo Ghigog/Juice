@@ -371,9 +371,9 @@ fun OverlayShell(
             Column(
                 Modifier
                     .fillMaxSize()
-                    // Under the coach chat the main view stays composed (keeping the carousel position and writing mode) but invisible.
+                    // Under the coach chat or the category name field the main view stays composed (keeping the carousel position and writing mode) but invisible.
                     .then(
-                        if (state.coachChat?.open == true) Modifier.alpha(0f).clearAndSetSemantics {}
+                        if (state.coachChat?.open == true || state.categoryNaming != null) Modifier.alpha(0f).clearAndSetSemantics {}
                         else Modifier,
                     )
                     .then(
