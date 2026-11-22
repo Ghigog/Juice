@@ -125,6 +125,24 @@ class CategoryHeaderTest {
     }
 
     @Test
+    fun theBaseOverlayIsHiddenWhileTheNameFieldIsOpenAndReturnsAfterCancelAndSave() {
+        showWork()
+        compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).performClick()
+        compose.onNodeWithTag(TAG_CATEGORY_NAME_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CATEGORY_NAME_CANCEL).performClick()
+        compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).assertTextEquals("Work")
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+
+        compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).performClick()
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_CATEGORY_NAME_SAVE).performClick()
+        compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).assertTextEquals("Work")
+        compose.onNodeWithTag(TAG_CAPTURE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
     fun cancelClosesTheField() {
         showWork()
         compose.onNodeWithTag(TAG_CATEGORY_CAPSULE).performClick()
