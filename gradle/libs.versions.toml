@@ -16,6 +16,10 @@ androidxTestExtJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
 androidxTestCore = "1.6.1"
 robolectric = "4.14.1"
+# Robolectric's android-all-instrumented jars for the SDKs the tests use (SDK 35 and 34). The exact versions come from
+# Robolectric's DefaultSdkProvider, so bump them together with `robolectric` above.
+robolectric-android-all-sdk35 = "15-robolectric-12650502-i7"
+robolectric-android-all-sdk34 = "14-robolectric-10818077-i7"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -35,6 +39,8 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+robolectric-android-all-sdk35 = { module = "org.robolectric:android-all-instrumented", version.ref = "robolectric-android-all-sdk35" }
+robolectric-android-all-sdk34 = { module = "org.robolectric:android-all-instrumented", version.ref = "robolectric-android-all-sdk34" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
