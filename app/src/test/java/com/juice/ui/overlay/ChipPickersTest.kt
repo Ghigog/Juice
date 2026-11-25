@@ -1,7 +1,11 @@
 package com.juice.ui.overlay
 
 import android.content.Context
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.unit.dp
@@ -86,6 +90,20 @@ class ChipPickersTest {
         assertNull(state.chipPicker)
         compose.onAllNodes(tagStartsWith("chipPickerDay")).assertCountEquals(0)
         assertEquals(listOf(FeedbackEvent.SNAP), events)
+    }
+
+    @Test fun pickerIsDrawnInTheOverlayTreeNotInADialogWindow() {
+        open("take out the trash on Tuesday", ItemType.Goal, ChipKind.Deadline)
+        compose.onNodeWithTag("chipPickerDay0").assertExists()
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
+    }
+
+    @Test fun clickingTheScrimDismissesWithoutChangingTheItem() {
+        open("take out the trash on Tuesday", ItemType.Goal, ChipKind.Deadline)
+        compose.onNodeWithTag(TAG_CHIP_PICKER_SCRIM).performTouchInput { click(Offset(2f, 2f)) }
+        assertNull(state.chipPicker)
+        assertEquals("take out the trash on Tuesday", state.items.single().title)
+        compose.onAllNodes(tagStartsWith("chipPickerDay")).assertCountEquals(0)
     }
 
     @Test fun intervalPickerOffersOneToFourWeeks() {

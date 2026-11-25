@@ -58,13 +58,16 @@ const val TAG_SEARCH = "search"
 class WritingBack {
     internal var isWriting: () -> Boolean = { false }
     internal var leave: () -> Unit = {}
+    internal var isPickerOpen: () -> Boolean = { false }
+    internal var closePicker: () -> Unit = {}
     internal var isRecapOpen: () -> Boolean = { false }
     internal var closeRecap: () -> Unit = {}
     internal var isRoutinesOpen: () -> Boolean = { false }
     internal var closeRoutines: () -> Unit = {}
 
-    /** BACK closes the Recap or the Routines view while one is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
+    /** BACK closes an open chip or Repeat picker first, then the Recap or the Routines view while one is open, then ends writing mode (keeping the draft), and otherwise calls [close]. */
     fun back(close: () -> Unit) = when {
+        isPickerOpen() -> closePicker()
         isRecapOpen() -> closeRecap()
         isRoutinesOpen() -> closeRoutines()
         isWriting() -> leave()

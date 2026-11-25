@@ -16,6 +16,13 @@ class ReminderTimingTest {
         ParsedItem(ItemType.Task, "Thing", deadline = deadline.toInstant(), notifyAt = notify.toInstant())
             .improvingOn(ParsedItem(ItemType.Task, "Thing"), now, "Thing").notifyAt
 
+    @Test fun aDeadlineLessThanAnHourAwayIsRemindedAtTheDeadline() {
+        val now = at(11, 24, 14).withMinute(6)
+        val deadline = now.plusHours(1)
+        assertEquals(deadline, reminderFor(deadline, now, hasTime = true))
+        assertEquals(null, reminderFor(now, now, hasTime = true))
+    }
+
     @Test fun trashOnThursdayAfternoonIsRemindedThursdayMorning() {
         assertEquals(at(11, 19), reminderFor(at(11, 19, 15), monday, hasTime = true))
         assertEquals(at(11, 19), merged(at(11, 19, 15), at(11, 19), monday)?.atZone(zone))
