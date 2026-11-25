@@ -33,8 +33,11 @@ fun ParsedItem.improvingOn(rules: ParsedItem, now: ZonedDateTime, rawText: Strin
     val zone = now.zone
     val modelDeadline = deadline?.atZone(zone)
     val named = RulesFallback.namedDayDeadline(rawText, now)
+    val rulesDeadline = rules.deadline?.atZone(zone)
     val merged = when {
-        modelDeadline == null -> rules.deadline?.atZone(zone)
+        modelDeadline == null -> rulesDeadline
+        // A day and a clock time in the text: the rules' moment stands, the model cannot move it.
+        rulesDeadline != null && namesDayAndClock(rawText, now) && rulesDeadline != modelDeadline -> rulesDeadline
         named != null && modelDeadline.toLocalDate() != named.toLocalDate() -> {
             val time = if (modelDeadline.toLocalTime() == DATE_ONLY_TIME) named.toLocalTime() else modelDeadline.toLocalTime()
             named.toLocalDate().atTime(time).atZone(zone)
@@ -58,3 +61,8 @@ fun ParsedItem.improvingOn(rules: ParsedItem, now: ZonedDateTime, rawText: Strin
         notifyText = if (reminder == null) null else notifyText ?: title,
     )
 }
+
+private val clockWord = Regex("""\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(am|pm)\b|\bat\s+\d{1,2}\b|\b(noon|midnight)\b""", RegexOption.IGNORE_CASE)
+
+private fun namesDayAndClock(rawText: String, now: ZonedDateTime) =
+    RulesFallback.namedDayDeadline(rawText, now) != null && clockWord.containsMatchIn(rawText)

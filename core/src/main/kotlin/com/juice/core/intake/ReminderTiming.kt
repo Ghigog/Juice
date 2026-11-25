@@ -24,7 +24,7 @@ private const val NEAR_DAYS = 3L
  * morning of a midday one (10:00 to before 17:00), two hours before a late one, 09:00 that day for a date with no
  * time ([hasTime] false). Further off: 09:00 some days before, growing with the distance (a Task a quarter of it,
  * a Project, which is bigger, half of it) and never more than 7 days, so a Project two weeks away is reminded a week
- * ahead. A moment that is not after [now] falls back to an hour before the deadline; null when that has passed too.
+ * ahead. A moment that is not after [now] falls back to an hour before the deadline, then to the deadline itself; null when that has passed too.
  */
 fun reminderFor(deadline: ZonedDateTime, now: ZonedDateTime, hasTime: Boolean, type: ItemType = ItemType.Task): ZonedDateTime? {
     val date = deadline.toLocalDate()
@@ -42,5 +42,6 @@ fun reminderFor(deadline: ZonedDateTime, now: ZonedDateTime, hasTime: Boolean, t
         else -> deadline.minusHours(2)
     }
     if (chosen.isAfter(now)) return chosen
-    return deadline.minusHours(1).takeIf { it.isAfter(now) }
+    val hourBefore = deadline.minusHours(1)
+    return if (hourBefore.isAfter(now)) hourBefore else deadline.takeIf { it.isAfter(now) }
 }
