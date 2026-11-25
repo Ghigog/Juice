@@ -224,6 +224,8 @@ fun OverlayShell(
         writingBack.leave = ::leaveWriting
         writingBack.isRecapOpen = { recapOpen }
         writingBack.closeRecap = { recapOpen = false }
+        writingBack.isPickerOpen = { state.chipPicker != null || state.repeatPickerItemId != null }
+        writingBack.closePicker = { state.dismissChipPicker(); state.dismissRepeatPicker() }
         writingBack.isRoutinesOpen = { routinesOpen }
         writingBack.closeRoutines = { routinesOpen = false }
     }
@@ -551,6 +553,7 @@ fun OverlayShell(
                 )
             }
             if (ringPreview > 0) SwipeRing(settings, hud)
+            ChipPickers(state, hud, actions)
             }
             if (cardPops.centres.isNotEmpty()) {
                 // Each card explodes where it was, drawn here because the card and the carousel clip to their own bounds.
