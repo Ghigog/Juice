@@ -2,10 +2,12 @@ package com.juice.ui.overlay
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -16,12 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.juice.R
 import com.juice.core.intake.ChipKind
 import com.juice.core.routine.Cadence
@@ -52,7 +55,7 @@ fun ChipPickers(
     val picker = state.chipPicker ?: return
     val item = state.items.firstOrNull { it.id == picker.itemId } ?: return
     val span = picker.span
-    Dialog(onDismissRequest = state::dismissChipPicker) {
+    PickerLayer(onDismiss = state::dismissChipPicker) {
         PickerPanel {
                 when (span.kind) {
                     ChipKind.Deadline -> {
@@ -92,7 +95,7 @@ fun ChipPickers(
 @Composable
 private fun RepeatPicker(state: OverlayShellState, hud: Hud, actions: OverlayActions, today: LocalDate) {
     val item = state.items.firstOrNull { it.id == state.repeatPickerItemId } ?: return
-    Dialog(onDismissRequest = state::dismissRepeatPicker) {
+    PickerLayer(onDismiss = state::dismissRepeatPicker) {
         PickerPanel {
                 Title(stringResource(R.string.repeat_picker_title))
                 for (cadence in REPEAT_CADENCES) {
@@ -104,6 +107,22 @@ private fun RepeatPicker(state: OverlayShellState, hud: Hud, actions: OverlayAct
                     state.setCadence(item, Cadence(setOf(today.dayOfWeek), item.cadence?.time))
             }
         }
+    }
+}
+
+/** A full-screen layer in the overlay's own tree (the overlay has no Activity, so a Compose Dialog would crash): a dimmed scrim that dismisses, the panel centred on it. */
+@Composable
+private fun PickerLayer(onDismiss: () -> Unit, panel: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .testTag(TAG_CHIP_PICKER_SCRIM)
+                .background(Color.Black.copy(alpha = 0.45f))
+                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+        )
+        // The panel takes its own touches so a tap on it does not reach the scrim.
+        Box(Modifier.padding(horizontal = 32.dp).pointerInput(Unit) { detectTapGestures { } }) { panel() }
     }
 }
 
@@ -164,3 +183,4 @@ private fun Option(hud: Hud, actions: OverlayActions, label: String, tag: String
 }
 
 const val TAG_CHIP_PICKER_TITLE = "chipPickerTitle"
+const val TAG_CHIP_PICKER_SCRIM = "chipPickerScrim"
