@@ -383,6 +383,38 @@ class IntakeTest {
         assertEquals("call the dentist", rewriteRelativeDeadline("call the dentist", wednesday))
     }
 
+    @Test fun inAnHourIsRewrittenToTodayWithTheClockAndReadsBackAsTheSameMoment() {
+        val now = java.time.ZonedDateTime.parse("2026-11-24T14:06:00+01:00[Europe/Berlin]")
+        for ((phrase, expected) in listOf(
+            "wake up Nico in an hour" to "wake up Nico today at 3:06pm",
+            "wake up Nico in 3 hours" to "wake up Nico today at 5:06pm",
+            "wake up Nico within 2 hours" to "wake up Nico today at 4:06pm",
+        )) {
+            val rewritten = rewriteRelativeDeadline(phrase, now)
+            assertEquals(expected, rewritten)
+            assertEquals(RulesFallback.periodEnd(phrase.substringAfter("Nico "), now), RulesFallback.classify(rewritten, now).deadline?.atZone(now.zone))
+        }
+        val late = java.time.ZonedDateTime.parse("2026-11-24T23:30:00+01:00[Europe/Berlin]")
+        val tomorrow = rewriteRelativeDeadline("wake up Nico in 2 hours", late)
+        assertEquals("wake up Nico tomorrow at 1:30am", tomorrow)
+        assertEquals(late.plusHours(2).toInstant(), RulesFallback.classify(tomorrow, late).deadline)
+    }
+
+    @Test fun endOfTheDayIsRewrittenToToday() {
+        val now = java.time.ZonedDateTime.parse("2026-11-24T10:00:00+01:00[Europe/Berlin]")
+        val title = rewriteRelativeDeadline("finish the report end of the day", now)
+        assertEquals("finish the report today", title)
+        assertEquals(now.toLocalDate().atTime(23, 59).atZone(now.zone).toInstant(), RulesFallback.classify(title, now).deadline)
+    }
+
+    @Test fun theRulesMomentWinsWhenTheTextNamesADayAndAClockTime() {
+        val now = java.time.ZonedDateTime.parse("2026-11-24T14:06:00+01:00[Europe/Berlin]")
+        val text = "wake up Nico today at 3:06pm"
+        val rules = RulesFallback.classify(text, now)
+        val model = ParsedItem(ItemType.Goal, "Wake up Nico", deadline = now.plusDays(7).toInstant())
+        assertEquals(rules.deadline, model.improvingOn(rules, now, text).deadline)
+    }
+
     @Test fun deadlineDayReplacesTheWeekdayAfterOn() {
         val title = "take out the trash on Tuesday"
         val span = spanOf(title, ItemType.Goal, ChipKind.Deadline)
@@ -454,9 +486,10 @@ class IntakeTest {
     @Test fun reminderForADateOnlyDeadlineIsNineThatDay() =
         assertEquals(at(14, 9), reminderFor(at(14, 23, 59), wed, hasTime = false))
 
-    @Test fun passedReminderFallsBackToAnHourBeforeThenNothing() {
+    @Test fun passedReminderFallsBackToAnHourBeforeThenTheDeadlineThenNothing() {
         assertEquals(at(11, 19), reminderFor(at(11, 20), wed, hasTime = true))
-        assertNull(reminderFor(at(11, 19), wed, hasTime = true))
+        assertEquals(at(11, 19), reminderFor(at(11, 19), wed, hasTime = true))
+        assertNull(reminderFor(at(11, 18), wed, hasTime = true))
     }
 
     @Test fun clockTimeReadsOClockNoonAndMidnight() {
@@ -500,8 +533,8 @@ class IntakeTest {
         val model = goal(at(11, 19), notify = at(11, 18, 5), text = "Dentist")
         val merged = model.improvingOn(RulesFallback.classify(text, wed), wed, text)
         assertEquals(at(11, 19).toInstant(), merged.deadline)
-        assertNull(merged.notifyAt)
-        assertNull(merged.notifyText)
+        assertEquals(at(11, 19).toInstant(), merged.notifyAt)
+        assertEquals("Dentist", merged.notifyText)
     }
 
     @Test fun aModelDeadlineStandsWhenTheRulesNameNoDay() {

@@ -2,6 +2,7 @@ package com.juice.core.intake
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -14,6 +15,8 @@ import java.util.Locale
 
 private const val MAX_DAYS_WITHOUT_DATE = 6L
 private val onBefore = Regex("""\bon\s+$""", RegexOption.IGNORE_CASE)
+private val clockFormat = DateTimeFormatter.ofPattern("h:mma", Locale.ENGLISH)
+private val hoursSpan = Regex("""\bhours?\b""", RegexOption.IGNORE_CASE)
 private val dateFormat = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
 private fun String.replaceSpan(span: ChipSpan, with: String) =
@@ -24,10 +27,24 @@ private fun dayName(day: LocalDate, now: ZonedDateTime): String {
     return if (day.toEpochDay() - now.toLocalDate().toEpochDay() > MAX_DAYS_WITHOUT_DATE) "$name ${dateFormat.format(day)}" else name
 }
 
-/** Replaces the deadline [span] with "on <Weekday>", reusing an "on" already in front of it. */
-fun withDeadlineDay(title: String, span: ChipSpan, day: LocalDate, now: ZonedDateTime): String {
-    val hasOn = onBefore.containsMatchIn(title.substring(0, span.range.first))
-    return title.replaceSpan(span, (if (hasOn) "" else "on ") + dayName(day, now))
+/**
+ * Replaces the deadline [span] with the day: "today", or "on <Weekday>" reusing an "on" already in front of it.
+ * A [clock] time is written after the day ("today at 3:06pm").
+ */
+fun withDeadlineDay(title: String, span: ChipSpan, day: LocalDate, now: ZonedDateTime, clock: LocalTime? = null): String {
+    val before = title.substring(0, span.range.first)
+    val hasOn = onBefore.containsMatchIn(before)
+    val today = day == now.toLocalDate()
+    val tomorrow = clock != null && day == now.toLocalDate().plusDays(1)
+    val word = when {
+        today -> "today"
+        tomorrow -> "tomorrow"
+        else -> (if (hasOn) "" else "on ") + dayName(day, now)
+    }
+    val text = if (clock == null) word else "$word at ${clockFormat.format(clock).lowercase()}"
+    // "on" belongs to a weekday, not to "today" or "tomorrow".
+    val head = if (today || tomorrow) before.replace(onBefore, "") else before
+    return head + text + title.substring(span.range.last + 1)
 }
 
 /** Replaces the interval [span] with "every" (1 week) or "every N weeks". */
@@ -51,10 +68,15 @@ fun withWeekday(title: String, span: ChipSpan, to: DayOfWeek): String {
     return title.replaceSpan(span, name)
 }
 
-/** Turns a relative deadline like "next week" into "on <Weekday>", with the date when it is over six days away. */
+/**
+ * Turns a relative deadline like "next week" into "on <Weekday>", with the date when it is over six days away; today
+ * is "today". A span of hours ("in an hour") keeps its moment: "today at 3:06pm".
+ */
 fun rewriteRelativeDeadline(title: String, now: ZonedDateTime): String {
     val text = title.trim()
     val span = RulesFallback.spansOf(text, ItemType.Goal).firstOrNull { it.kind == ChipKind.Deadline } ?: return title
-    val end = RulesFallback.periodEnd(text.substring(span.range.first, span.range.last + 1), now) ?: return title
-    return withDeadlineDay(text, span, end.toLocalDate(), now)
+    val phrase = text.substring(span.range.first, span.range.last + 1)
+    val end = RulesFallback.periodEnd(phrase, now) ?: return title
+    val clock = if (hoursSpan.containsMatchIn(phrase)) end.toLocalTime() else null
+    return withDeadlineDay(text, span, end.toLocalDate(), now, clock)
 }
