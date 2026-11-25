@@ -6,10 +6,10 @@ plugins {
     alias(libs.plugins.kover)
 }
 
-// android-all jars for the SDKs the tests run on: 35 (robolectric.properties) and 34 (SliceLogoTest's @Config).
+// android-all jars for the SDKs the tests run on: 36 (robolectric.properties) and 34 (SliceLogoTest's @Config).
 // A test with a new @Config sdk needs its android-all-instrumented artifact pinned here and in libs.versions.toml.
 // One configuration per SDK: both are the same module, so in one configuration Gradle would resolve them to the newer version only.
-val robolectricRuntimeSdk35 by configurations.creating {
+val robolectricRuntimeSdk36 by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
 }
@@ -19,7 +19,7 @@ val robolectricRuntimeSdk34 by configurations.creating {
 }
 val robolectricJarsDir = layout.buildDirectory.dir("robolectric-jars")
 val syncRobolectricJars by tasks.registering(Sync::class) {
-    from(robolectricRuntimeSdk35, robolectricRuntimeSdk34)
+    from(robolectricRuntimeSdk36, robolectricRuntimeSdk34)
     into(robolectricJarsDir)
 }
 
@@ -89,6 +89,8 @@ android {
             // Half the cores, at least one, so several Robolectric JVMs run side by side.
             it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
             it.maxHeapSize = "1g"
+            // Robolectric's SDK 36 sandbox needs Java 21; the app itself still compiles for 17.
+            it.javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
             // Robolectric reads its android-all jars from the synced directory and never downloads them,
             // so a throttled Maven (HTTP 429) cannot fail tests at init. An SDK that is not pinned fails
             // with Robolectric's "jar not present" error naming the file.
@@ -156,7 +158,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
-    robolectricRuntimeSdk35(libs.robolectric.android.all.sdk35)
+    robolectricRuntimeSdk36(libs.robolectric.android.all.sdk36)
     robolectricRuntimeSdk34(libs.robolectric.android.all.sdk34)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.core)
