@@ -31,6 +31,7 @@ import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -747,6 +748,22 @@ class OverlayShellTest {
         compose.onNodeWithTag("chipPickerDay${(DayOfWeek.THURSDAY.value - TODAY.dayOfWeek.value + 7) % 7}").performClick()
         idle()
         assertEquals(listOf("Thursday"), chipWords())
+    }
+
+    @Test
+    fun tappingAChipOpensThePickerInTheShellAndBackClosesItFirst() {
+        var closed = 0
+        show(Item("a", ItemType.Goal, "Call mum Tuesday"), actions = OverlayActions(onClose = { closed++ }))
+        tapChip("Tuesday")
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
+        compose.onNodeWithTag("chipPickerDay0").assertIsDisplayed()
+        writingBack.back { closed++ }
+        idle()
+        compose.onAllNodesWithTag("chipPickerDay0").assertCountEquals(0)
+        assertEquals(0, closed)
+        assertEquals(listOf("Tuesday"), chipWords())
+        writingBack.back { closed++ }
+        assertEquals(1, closed)
     }
 
     @Test
